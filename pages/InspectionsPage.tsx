@@ -1,0 +1,217 @@
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+
+const InspectionsPage: React.FC = () => {
+  const [inspections, setInspections] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [inspectionToDelete, setInspectionToDelete] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchInspections();
+  }, []);
+
+  const fetchInspections = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('inspections')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInspections(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar vistorias:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (inspection: any) => {
+    setInspectionToDelete(inspection);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!inspectionToDelete) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('inspections')
+        .delete()
+        .eq('id', inspectionToDelete.id);
+
+      if (error) throw error;
+
+      setInspections(inspections.filter(item => item.id !== inspectionToDelete.id));
+      setShowDeleteModal(false);
+    } catch (err) {
+      console.error('Erro ao excluir vistoria:', err);
+      alert('Erro ao excluir vistoria.');
+    } finally {
+      setDeleting(false);
+      setInspectionToDelete(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[32px] p-8 max-w-sm w-full shadow-2xl space-y-6 transform scale-100 duration-300">
+            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-4xl">delete_forever</span>
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-black text-slate-900">Excluir Vistoria?</h3>
+              <p className="text-sm text-slate-500 leading-relaxed text-balance">
+                Deseja mesmo remover a vistoria de <span className="font-bold text-slate-900">{inspectionToDelete?.property_name}</span>? Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-2xl transition-all"
+              >
+                Não, Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white text-sm font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-rose-200 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {deleting ? 'Excluindo...' : 'Sim, Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Vistorias</h1>
+          <p className="text-slate-500 mt-1">Gerencie todas as vistorias realizadas e agendadas.</p>
+        </div>
+        <button
+          onClick={() => navigate('/inspections/new')}
+          className="h-10 flex items-center gap-2 px-6 rounded-lg bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all transform active:scale-95"
+        >
+          <span className="material-symbols-outlined text-[20px]">add_circle</span>
+          Nova Vistoria
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {['Todos', 'Pendentes', 'Finalizadas', 'Canceladas'].map((status) => (
+          <button
+            key={status}
+            className={`px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all ${status === 'Todos' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+              }`}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50 border-bottom border-slate-100">
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Imóvel</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tipo</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Data</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-10 h-10 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
+                      <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Buscando vistorias...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : inspections.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center gap-2 text-slate-400">
+                      <span className="material-symbols-outlined text-4xl">inventory_2</span>
+                      <p className="text-sm font-bold uppercase tracking-widest">Nenhuma vistoria encontrada</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : inspections.map((inspection) => (
+                <tr key={inspection.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <span className="material-symbols-outlined">home</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 uppercase text-[11px] leading-tight">{inspection.property_name}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{inspection.address}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <p className="font-bold text-slate-700 text-[11px] uppercase">{inspection.client_name}</p>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-600">
+                      {inspection.type}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center text-[11px] font-bold text-slate-500">
+                    {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : '--'}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Finalizada' ? 'bg-emerald-50 text-emerald-600' :
+                        inspection.status === 'Agendada' ? 'bg-blue-50 text-blue-600' :
+                          'bg-slate-100 text-slate-500'
+                      }`}>
+                      {inspection.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => navigate(`/inspections/view/${inspection.id}`)}
+                        className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">visibility</span>
+                      </button>
+                      <button
+                        onClick={() => navigate(`/inspections/edit/${inspection.id}`)}
+                        className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">edit_note</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(inspection)}
+                        className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">delete</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default InspectionsPage;

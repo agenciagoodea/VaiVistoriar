@@ -1,0 +1,308 @@
+
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { Inspection } from '../types';
+
+const BrokerDashboard: React.FC = () => {
+  const [inspections, setInspections] = React.useState<Inspection[]>([]);
+  const [stats, setStats] = React.useState({ monthCount: 0, pendingCount: 0, propertiesCount: 0 });
+  const [planUsage, setPlanUsage] = React.useState({ name: 'Plano Trial', current: 0, max: 0, expiry: '' });
+  const [userProfile, setUserProfile] = React.useState<{ full_name: string } | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Profile & Plan
+      const { data: profile } = await supabase
+        .from('broker_profiles')
+        .select('*, plans:subscription_plan_id(*)')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profile) {
+        setUserProfile({ full_name: profile.full_name || user.email?.split('@')[0] });
+        setPlanUsage({
+          name: (profile.plans as any)?.name || 'Plano Grátis',
+          current: 0, // Will be updated below
+          max: (profile.plans as any)?.max_inspections || 5,
+          expiry: profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR') : 'Sem expiração'
+        });
+      }
+
+      // 2. Monthly Stats
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const { count: monthCount } = await supabase
+        .from('inspections')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', startOfMonth.toISOString());
+
+      const { count: pendingCount } = await supabase
+        .from('inspections')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .neq('status', 'Concluída');
+
+      const { count: propertiesCount } = await supabase
+        .from('properties')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      setStats({
+        monthCount: monthCount || 0,
+        pendingCount: pendingCount || 0,
+        propertiesCount: propertiesCount || 0
+      });
+
+      setPlanUsage(prev => ({ ...prev, current: monthCount || 0 }));
+
+      // 3. Recent Inspections
+      const { data: dbData } = await supabase
+        .from('inspections')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (dbData) {
+        const formattedData: Inspection[] = dbData.map((item: any) => ({
+          id: item.id,
+          property: item.property_name,
+          address: item.address,
+          client: item.client_name,
+          type: item.type,
+          date: new Date(item.created_at).toLocaleDateString('pt-BR'),
+          status: item.status,
+          image: item.image_url || `https://ui-avatars.com/api/?name=${item.property_name}&background=f1f5f9&color=64748b`
+        }));
+        setInspections(formattedData);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar dashboard:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Olá, {userProfile?.full_name.split(' ')[0] || 'Bem-vindo'}</h1>
+          <p className="text-slate-500 mt-1">Aqui está o resumo das suas atividades hoje.</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={() => navigate('/properties/new')} className="h-10 flex items-center gap-2 px-4 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors">
+            <span className="material-symbols-outlined text-[20px]">add_home</span>
+            Novo Imóvel
+          </button>
+          <Link to="/inspections/new" className="h-10 flex items-center gap-2 px-6 rounded-lg bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all transform active:scale-95">
+            <span className="material-symbols-outlined text-[20px]">add_circle</span>
+            Nova Vistoria
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+          <div className="flex justify-between items-start">
+            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+              <span className="material-symbols-outlined">assignment</span>
+            </div>
+            <span className="text-[10px] font-black px-2 py-1 bg-green-50 text-green-700 rounded-full">ESTE MÊS</span>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-slate-900">{stats.monthCount}</p>
+            <p className="text-sm text-slate-500 font-medium">Vistorias Realizadas</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+          <div className="flex justify-between items-start">
+            <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
+              <span className="material-symbols-outlined">pending_actions</span>
+            </div>
+            <span className="text-[10px] font-black px-2 py-1 bg-orange-50 text-orange-700 rounded-full">PENDENTES</span>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-slate-900">{stats.pendingCount}</p>
+            <p className="text-sm text-slate-500 font-medium">Laudos Finalizando</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+          <div className="flex justify-between items-start">
+            <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+              <span className="material-symbols-outlined">apartment</span>
+            </div>
+            <span className="text-[10px] font-black px-2 py-1 bg-purple-50 text-purple-700 rounded-full">CATÁLOGO</span>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-slate-900">{stats.propertiesCount}</p>
+            <p className="text-sm text-slate-500 font-medium">Imóveis Ativos</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-2">
+            <div className="p-2 bg-slate-50 rounded-lg text-slate-400">
+              <span className="material-symbols-outlined">data_usage</span>
+            </div>
+            <button onClick={() => navigate('/settings')} className="text-xs font-bold text-blue-600">Gerenciar</button>
+          </div>
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-slate-900 font-bold">{planUsage.name}</span>
+              <span className="text-slate-500">{planUsage.current}/{planUsage.max}</span>
+            </div>
+            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-600 rounded-full transition-all duration-1000"
+                style={{ width: `${Math.min((planUsage.current / planUsage.max) * 100, 100)}%` }}
+              ></div>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2 font-medium">
+              {planUsage.expiry === 'Sem expiração' ? 'Plano Vitalício' : `Renova em ${planUsage.expiry}`}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-900">Vistorias Recentes</h3>
+            <Link to="/inspections" className="text-sm font-bold text-blue-600 flex items-center gap-1">Ver todas <span className="material-symbols-outlined text-[16px]">arrow_forward</span></Link>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="px-6 py-4">Imóvel</th>
+                  <th className="px-6 py-4">Tipo</th>
+                  <th className="px-6 py-4">Data</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-8 h-8 border-3 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Carregando...</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : inspections.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400 text-xs font-medium">Nenhuma vistoria recente encontrada.</td>
+                  </tr>
+                ) : inspections.map((item) => (
+                  <tr key={item.id} onClick={() => navigate(`/inspections`)} className="hover:bg-slate-50/50 transition-colors cursor-pointer group">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <img src={item.image} alt="" className="w-10 h-10 rounded-lg bg-slate-200 object-cover" />
+                        <div>
+                          <p className="font-bold text-slate-900">{item.property}</p>
+                          <p className="text-[10px] text-slate-400 font-medium truncate max-w-[150px]">{item.address}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${item.type === 'Entrada' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{item.type}</span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 text-xs font-medium">{item.date}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${item.status === 'Concluída' ? 'bg-green-50 text-green-700' :
+                        item.status === 'Rascunho' ? 'bg-slate-100 text-slate-500' : 'bg-yellow-50 text-yellow-700'
+                        }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'Concluída' ? 'bg-green-600' :
+                          item.status === 'Rascunho' ? 'bg-slate-400' : 'bg-yellow-500'
+                          }`}></span>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        className="p-1.5 text-slate-400 hover:text-blue-600 transition-all opacity-0 group-hover:opacity-100"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            <div className="h-32 bg-slate-200 relative">
+              <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80" alt="Upgrade" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-blue-900/60 flex flex-col justify-end p-5">
+                <h4 className="text-white font-bold text-lg">Vistoria Premium</h4>
+                <p className="text-blue-100 text-xs font-medium">Desbloqueie recursos exclusivos</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="space-y-2">
+                {['Vistorias Ilimitadas', 'Relatórios Customizados', 'Suporte Prioritário'].map((feat, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                    <span className="material-symbols-outlined text-green-500 fill-icon text-[18px]">check_circle</span>
+                    {feat}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => navigate('/admin/plans')}
+                className="w-full py-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm font-bold text-slate-700 transition-colors"
+              >
+                Ver Planos
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
+            <h3 className="text-lg font-bold text-slate-900">Avisos Recentes</h3>
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1.5"></div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Novo modelo de vistoria</p>
+                  <p className="text-xs text-slate-500 mt-1">Templates para vistorias de saída atualizados.</p>
+                  <p className="text-[10px] text-slate-400 mt-2 font-medium">Agora mesmo</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="w-2 h-2 rounded-full bg-slate-300 shrink-0 mt-1.5"></div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Manutenção Concluída</p>
+                  <p className="text-xs text-slate-500 mt-1">Estabilidade do sistema 100% restabelecida.</p>
+                  <p className="text-[10px] text-slate-400 mt-2 font-medium">Ontem</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BrokerDashboard;
