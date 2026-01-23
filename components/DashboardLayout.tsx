@@ -28,6 +28,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, setRole }) => {
     { label: 'Políticas e Termos', path: '/admin/policies', icon: 'gavel' },
     { label: 'Checkout Pagamento', path: '/admin/checkout', icon: 'shopping_cart_checkout' },
     { label: 'Planos', path: '/admin/plans', icon: 'format_list_bulleted' },
+    { label: 'Configuração de E-mail', path: '/admin/email', icon: 'mail' },
   ];
 
   const brokerMenu = [
@@ -202,6 +203,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, setRole }) => {
             <h2 className="text-xl font-bold text-slate-900 whitespace-nowrap">
               {isActive('/admin') && 'Visão Geral'}
               {isActive('/admin/plans') && 'Gestão de Ofertas'}
+              {isActive('/admin/email') && 'Configuração de E-mail'}
               {isActive('/admin/home') && 'Editor Visual'}
               {isActive('/admin/policies') && 'Políticas e Termos'}
               {isActive('/admin/checkout') && 'Checkout e Pagamento'}

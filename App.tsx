@@ -33,6 +33,7 @@ import CookieConsent from './components/CookieConsent';
 import CheckoutSuccess from './pages/CheckoutSuccess';
 import CheckoutFailure from './pages/CheckoutFailure';
 import CheckoutPending from './pages/CheckoutPending';
+import EmailConfigPage from './pages/EmailConfigPage';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -103,6 +104,7 @@ const App: React.FC = () => {
           <Route path="/admin/policies" element={<PoliciesConfigPage />} />
           <Route path="/admin/checkout" element={<CheckoutConfigPage />} />
           <Route path="/admin/plans" element={<PlanConfigPage />} />
+          <Route path="/admin/email" element={<EmailConfigPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

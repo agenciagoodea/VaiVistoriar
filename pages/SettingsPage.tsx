@@ -15,6 +15,7 @@ const SettingsPage: React.FC = () => {
       cpf_cnpj: '',
       creci: '',
       phone: '',
+      cep: '',
       address: '',
       company_name: '',
       avatar_url: ''
@@ -51,6 +52,7 @@ const SettingsPage: React.FC = () => {
                cpf_cnpj: profileData.cpf_cnpj || '',
                creci: profileData.creci || '',
                phone: profileData.phone || '',
+               cep: profileData.cep || '',
                address: profileData.address || '',
                company_name: profileData.company_name || '',
                avatar_url: profileData.avatar_url || ''
@@ -60,6 +62,23 @@ const SettingsPage: React.FC = () => {
          console.error(err);
       } finally {
          setLoading(false);
+      }
+   };
+
+   const handleCEPBlur = async () => {
+      const cep = profile.cep.replace(/\D/g, '');
+      if (cep.length !== 8) return;
+
+      try {
+         const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+         const data = await response.json();
+
+         if (!data.erro) {
+            const newAddress = `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ''} - ${data.localidade}/${data.uf}`;
+            setProfile(prev => ({ ...prev, address: newAddress }));
+         }
+      } catch (err) {
+         console.error('Erro ao buscar CEP:', err);
       }
    };
 
@@ -192,9 +211,13 @@ const SettingsPage: React.FC = () => {
                         <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Telefone / WhatsApp</label>
                         <input type="text" value={profile.phone} onChange={e => setProfile({ ...profile, phone: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
                      </div>
+                     <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">CEP (Busca Automática)</label>
+                        <input type="text" value={profile.cep} onBlur={handleCEPBlur} onChange={e => setProfile({ ...profile, cep: e.target.value })} placeholder="00000-000" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+                     </div>
                      <div className="md:col-span-2 space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Endereço Profissional</label>
-                        <input type="text" value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+                        <input type="text" value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} placeholder="Auto-preenchido pelo CEP ou digite aqui..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
                      </div>
                      <div className="md:col-span-2 space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nome da Imobiliária / Empresa</label>
