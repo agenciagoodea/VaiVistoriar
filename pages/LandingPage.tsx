@@ -29,6 +29,20 @@ interface FooterConfig {
   socials: { provider: 'whatsapp' | 'instagram' | 'facebook' | 'linkedin'; url: string }[];
 }
 
+interface HeaderConfig {
+  logoHeight: number;
+  logoPosition: 'left' | 'center';
+  bgColor: string;
+  textColor: string;
+  opacity: number;
+  fontFamily: string;
+  isSticky: boolean;
+  showMenu: boolean;
+  showLogin: boolean;
+  showCTA: boolean;
+  ctaText: string;
+}
+
 const LandingPage: React.FC = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +55,19 @@ const LandingPage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [features, setFeatures] = useState<Feature[]>([]);
   const [footer, setFooter] = useState<FooterConfig | null>(null);
+  const [headerConfig, setHeaderConfig] = useState<HeaderConfig>({
+    logoHeight: 40,
+    logoPosition: 'left',
+    bgColor: '#ffffff',
+    textColor: '#64748b',
+    opacity: 100,
+    fontFamily: 'Inter',
+    isSticky: true,
+    showMenu: true,
+    showLogin: true,
+    showCTA: true,
+    ctaText: 'Começar Agora'
+  });
 
   useEffect(() => {
     fetchData();
@@ -76,6 +103,9 @@ const LandingPage: React.FC = () => {
 
         const foo = find('home_footer_json');
         if (foo) setFooter(JSON.parse(foo));
+
+        const h = find('home_header_json');
+        if (h) setHeaderConfig(JSON.parse(h));
       }
     } catch (err) {
       console.error(err);
@@ -98,19 +128,40 @@ const LandingPage: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-white overflow-x-hidden selection:bg-blue-100 selection:text-blue-900">
 
       {/* Navbar Premium */}
-      <header className="fixed top-0 w-full z-50 transition-all duration-500 bg-white/70 backdrop-blur-2xl border-b border-slate-100">
-        <div className="max-w-7xl mx-auto flex h-20 items-center justify-between px-6 sm:px-8">
-          <Link to="/" className="flex items-center gap-3">
-            {logoUrl ? <img src={logoUrl} alt="Logo" className="h-9 w-auto object-contain" /> : <div className="flex items-center gap-2 font-black text-2xl tracking-tighter" style={{ color: primaryColor }}><span className="material-symbols-outlined text-4xl">home_app_logo</span> VistoriaPro</div>}
+      <header
+        className={`${headerConfig.isSticky ? 'fixed' : 'relative'} top-0 w-full z-50 transition-all duration-500 border-b border-slate-100`}
+        style={{
+          backgroundColor: `${headerConfig.bgColor}${Math.round(headerConfig.opacity * 2.55).toString(16).padStart(2, '0')}`,
+          backdropFilter: headerConfig.opacity < 100 ? 'blur(24px)' : 'none',
+          fontFamily: headerConfig.fontFamily
+        }}
+      >
+        <div className={`max-w-7xl mx-auto flex py-4 items-center px-6 sm:px-8 ${headerConfig.logoPosition === 'center' ? 'flex-col gap-6' : 'h-20 justify-between'}`}>
+          <Link to="/" className={`flex items-center gap-3 ${headerConfig.logoPosition === 'center' ? 'w-full justify-center' : ''}`}>
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" style={{ height: `${headerConfig.logoHeight}px` }} className="w-auto object-contain" />
+            ) : (
+              <div className="flex items-center gap-2 font-black text-2xl tracking-tighter" style={{ color: primaryColor }}>
+                <span className="material-symbols-outlined text-4xl">home_app_logo</span> VistoriaPro
+              </div>
+            )}
           </Link>
-          <nav className="hidden lg:flex items-center gap-10">
-            {['Funcionalidades', 'Planos', 'Depoimentos'].map(item => (
-              <a key={item} href={`#${item.toLowerCase()}`} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-colors">{item}</a>
-            ))}
-          </nav>
-          <div className="flex items-center gap-6">
-            <Link to="/login" className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900">Entrar</Link>
-            <Link to="/login" className="px-8 py-3.5 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all active:scale-95" style={{ backgroundColor: primaryColor, boxShadow: `0 20px 30px -10px ${primaryColor}50` }}>Começar Agora</Link>
+
+          {headerConfig.showMenu && (
+            <nav className={`hidden lg:flex items-center gap-10 ${headerConfig.logoPosition === 'center' ? 'w-full justify-center' : ''}`}>
+              {['Funcionalidades', 'Planos', 'Depoimentos'].map(item => (
+                <a key={item} href={`#${item.toLowerCase()}`} className="text-[11px] font-black uppercase tracking-[0.2em] transition-colors" style={{ color: headerConfig.textColor }}>{item}</a>
+              ))}
+            </nav>
+          )}
+
+          <div className={`flex items-center gap-6 ${headerConfig.logoPosition === 'center' ? 'w-full justify-center pb-2' : ''}`}>
+            {headerConfig.showLogin && <Link to="/login" className="text-[11px] font-black uppercase tracking-[0.2em] hover:brightness-75 transition-all" style={{ color: headerConfig.textColor }}>Entrar</Link>}
+            {headerConfig.showCTA && (
+              <Link to="/login" className="px-8 py-3.5 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all active:scale-95" style={{ backgroundColor: primaryColor, boxShadow: `0 20px 30px -10px ${primaryColor}50` }}>
+                {headerConfig.ctaText}
+              </Link>
+            )}
           </div>
         </div>
       </header>

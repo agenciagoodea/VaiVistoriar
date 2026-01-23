@@ -28,6 +28,20 @@ interface FooterConfig {
     socials: { provider: 'whatsapp' | 'instagram' | 'facebook' | 'linkedin'; url: string }[];
 }
 
+interface HeaderConfig {
+    logoHeight: number;
+    logoPosition: 'left' | 'center';
+    bgColor: string;
+    textColor: string;
+    opacity: number;
+    fontFamily: string;
+    isSticky: boolean;
+    showMenu: boolean;
+    showLogin: boolean;
+    showCTA: boolean;
+    ctaText: string;
+}
+
 const ICON_BASE = ['phonelink_setup', 'photo_camera', 'cloud_done', 'compare_arrows', 'format_list_bulleted', 'ink_pen', 'verified', 'security', 'rocket_launch'];
 
 const HomeConfigPage: React.FC = () => {
@@ -59,6 +73,21 @@ const HomeConfigPage: React.FC = () => {
         socials: [{ provider: 'instagram', url: '#' }]
     });
 
+    // Header
+    const [header, setHeader] = useState<HeaderConfig>({
+        logoHeight: 40,
+        logoPosition: 'left',
+        bgColor: '#ffffff',
+        textColor: '#64748b',
+        opacity: 100,
+        fontFamily: 'Inter',
+        isSticky: true,
+        showMenu: true,
+        showLogin: true,
+        showCTA: true,
+        ctaText: 'Começar Agora'
+    });
+
     const logoInputRef = useRef<HTMLInputElement>(null);
     const sliderInputRefs = useRef<{ [key: string]: HTMLInputElement }>({});
 
@@ -83,6 +112,9 @@ const HomeConfigPage: React.FC = () => {
 
                 const savedFooter = find('home_footer_json');
                 if (savedFooter) setFooter(JSON.parse(savedFooter));
+
+                const savedHeader = find('home_header_json');
+                if (savedHeader) setHeader(JSON.parse(savedHeader));
             }
         } catch (err) {
             console.error('Erro ao buscar configurações:', err);
@@ -123,7 +155,8 @@ const HomeConfigPage: React.FC = () => {
                 { key: 'home_logo_url', value: logoUrl },
                 { key: 'home_sliders_json', value: JSON.stringify(sliders) },
                 { key: 'home_features_json', value: JSON.stringify(features) },
-                { key: 'home_footer_json', value: JSON.stringify(footer) }
+                { key: 'home_footer_json', value: JSON.stringify(footer) },
+                { key: 'home_header_json', value: JSON.stringify(header) }
             ];
             for (const up of updates) await supabase.from('system_configs').upsert({ ...up, updated_at: new Date() });
             alert('Landing Page Premium publicada!');
@@ -188,6 +221,129 @@ const HomeConfigPage: React.FC = () => {
                                         <input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="flex-1 px-4 py-3 bg-slate-50 rounded-2xl text-xs font-mono font-bold border-none" />
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* CUSTOMIZAÇÃO DO HEADER */}
+                    <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                <span className="material-symbols-outlined text-[28px]">dock_to_bottom</span>
+                            </div>
+                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Customização do Header</h3>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-10">
+                            {/* Logo Configs */}
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Altura da Logo (px)</label>
+                                    <div className="flex items-center gap-4">
+                                        <input type="range" min="20" max="120" value={header.logoHeight} onChange={e => setHeader({ ...header, logoHeight: parseInt(e.target.value) })} className="flex-1 accent-purple-600" />
+                                        <span className="text-xs font-bold text-slate-700 w-12 text-right">{header.logoHeight}px</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Posição da Logo</label>
+                                    <select value={header.logoPosition} onChange={e => setHeader({ ...header, logoPosition: e.target.value as any })} className="w-full px-4 py-3 bg-slate-50 rounded-2xl text-xs font-bold border-none focus:ring-2 focus:ring-purple-500">
+                                        <option value="left">Alinhado à Esquerda</option>
+                                        <option value="center">Centralizado</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Fonte do Header</label>
+                                    <select value={header.fontFamily} onChange={e => setHeader({ ...header, fontFamily: e.target.value })} className="w-full px-4 py-3 bg-slate-50 rounded-2xl text-xs font-bold border-none focus:ring-2 focus:ring-purple-500">
+                                        <option value="Inter">Inter (Padrão)</option>
+                                        <option value="Roboto">Roboto</option>
+                                        <option value="Montserrat">Montserrat</option>
+                                        <option value="Poppins">Poppins</option>
+                                        <option value="Outfit">Outfit</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Colors & Style */}
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Cor Bio/Menu</label>
+                                        <div className="flex gap-2">
+                                            <input type="color" value={header.bgColor} onChange={e => setHeader({ ...header, bgColor: e.target.value })} className="w-10 h-10 border-none p-0 bg-transparent cursor-pointer rounded-lg" />
+                                            <input type="text" value={header.bgColor} onChange={e => setHeader({ ...header, bgColor: e.target.value })} className="flex-1 px-3 py-2 bg-slate-50 rounded-xl text-[10px] font-mono font-bold border-none" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Cor do Texto</label>
+                                        <div className="flex gap-2">
+                                            <input type="color" value={header.textColor} onChange={e => setHeader({ ...header, textColor: e.target.value })} className="w-10 h-10 border-none p-0 bg-transparent cursor-pointer rounded-lg" />
+                                            <input type="text" value={header.textColor} onChange={e => setHeader({ ...header, textColor: e.target.value })} className="flex-1 px-3 py-2 bg-slate-50 rounded-xl text-[10px] font-mono font-bold border-none" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Opacidade do Fundo (%): {header.opacity}%</label>
+                                    <input type="range" min="0" max="100" value={header.opacity} onChange={e => setHeader({ ...header, opacity: parseInt(e.target.value) })} className="w-full accent-purple-600" />
+                                </div>
+                                <div className="flex flex-wrap gap-4 pt-2">
+                                    <label className="flex items-center gap-2 cursor-pointer group">
+                                        <div className={`w-10 h-6 rounded-full transition-all relative ${header.isSticky ? 'bg-purple-600' : 'bg-slate-200'}`}>
+                                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${header.isSticky ? 'left-5' : 'left-1'}`} />
+                                            <input type="checkbox" className="hidden" checked={header.isSticky} onChange={e => setHeader({ ...header, isSticky: e.target.checked })} />
+                                        </div>
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Barra Fixa</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer group">
+                                        <div className={`w-10 h-6 rounded-full transition-all relative ${header.showMenu ? 'bg-purple-600' : 'bg-slate-200'}`}>
+                                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${header.showMenu ? 'left-5' : 'left-1'}`} />
+                                            <input type="checkbox" className="hidden" checked={header.showMenu} onChange={e => setHeader({ ...header, showMenu: e.target.checked })} />
+                                        </div>
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Menu Links</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Buttons Visibility */}
+                        <div className="p-8 bg-purple-50/30 rounded-[32px] border border-purple-100/50 space-y-6">
+                            <h4 className="text-[11px] font-black text-purple-400 uppercase tracking-widest">Ações e Botões</h4>
+                            <div className="grid md:grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                    <label className="flex items-center gap-4 cursor-pointer group">
+                                        <div className={`w-12 h-7 rounded-full transition-all relative ${header.showLogin ? 'bg-purple-600 shadow-lg shadow-purple-600/20' : 'bg-slate-200'}`}>
+                                            <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${header.showLogin ? 'left-6' : 'left-1'}`} />
+                                            <input type="checkbox" className="hidden" checked={header.showLogin} onChange={e => setHeader({ ...header, showLogin: e.target.checked })} />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Botão "Entrar"</p>
+                                            <p className="text-[9px] text-slate-400 font-bold">Exibir link de login</p>
+                                        </div>
+                                    </label>
+                                    <label className="flex items-center gap-4 cursor-pointer group">
+                                        <div className={`w-12 h-7 rounded-full transition-all relative ${header.showCTA ? 'bg-purple-600 shadow-lg shadow-purple-600/20' : 'bg-slate-200'}`}>
+                                            <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${header.showCTA ? 'left-6' : 'left-1'}`} />
+                                            <input type="checkbox" className="hidden" checked={header.showCTA} onChange={e => setHeader({ ...header, showCTA: e.target.checked })} />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Botão CTA Principal</p>
+                                            <p className="text-[9px] text-slate-400 font-bold">Exibir botão de conversão</p>
+                                        </div>
+                                    </label>
+                                </div>
+                                {header.showCTA && (
+                                    <div className="space-y-2 animate-in fade-in slide-in-from-left-4 duration-300">
+                                        <label className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em]">Texto do Botão CTA</label>
+                                        <input
+                                            type="text"
+                                            value={header.ctaText}
+                                            onChange={e => setHeader({ ...header, ctaText: e.target.value })}
+                                            placeholder="Ex: Começar Agora"
+                                            className="w-full px-5 py-3.5 bg-white border border-purple-100 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-900 focus:ring-2 focus:ring-purple-500 transition-all outline-none"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </section>
@@ -372,11 +528,40 @@ const HomeConfigPage: React.FC = () => {
                             <div className="bg-white h-[850px] overflow-y-auto custom-scrollbar scroll-smooth">
 
                                 {/* NAV PREVIEW */}
-                                <div className="p-8 flex justify-between items-center border-b border-slate-50 sticky top-0 bg-white/95 backdrop-blur-md z-10 transition-all">
-                                    <div className="flex items-center gap-2 max-h-8">
-                                        {logoUrl ? <img src={logoUrl} className="h-6 w-auto object-contain" /> : <div className="flex items-center gap-1 font-black leading-none" style={{ color: primaryColor }}><span className="material-symbols-outlined">home_app_logo</span> VistoriaPro</div>}
+                                <div
+                                    className={`p-8 flex items-center border-b border-slate-50 transition-all ${header.logoPosition === 'center' ? 'flex-col gap-6' : 'justify-between'}`}
+                                    style={{
+                                        backgroundColor: `${header.bgColor}${Math.round(header.opacity * 2.55).toString(16).padStart(2, '0')}`,
+                                        position: header.isSticky ? 'sticky' : 'relative',
+                                        top: 0,
+                                        zIndex: 10,
+                                        backdropBlur: header.opacity < 100 ? '12px' : 'none',
+                                        fontFamily: header.fontFamily,
+                                        color: header.textColor
+                                    }}
+                                >
+                                    <div className={`flex items-center gap-2 ${header.logoPosition === 'center' ? 'w-full justify-center' : ''}`}>
+                                        {logoUrl ? (
+                                            <img src={logoUrl} style={{ height: `${header.logoHeight / 2}px` }} className="w-auto object-contain" />
+                                        ) : (
+                                            <div className="flex items-center gap-1 font-black leading-none" style={{ color: primaryColor }}>
+                                                <span className="material-symbols-outlined">home_app_logo</span> VistoriaPro
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white"><span className="material-symbols-outlined text-sm">person</span></div>
+
+                                    <div className="flex items-center gap-6">
+                                        {header.showMenu && (
+                                            <div className="hidden md:flex gap-4">
+                                                <div className="w-8 h-1 bg-slate-100 rounded" />
+                                                <div className="w-8 h-1 bg-slate-100 rounded" />
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-3">
+                                            {header.showLogin && <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"><span className="material-symbols-outlined text-[14px]">person</span></div>}
+                                            {header.showCTA && <div className="px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest text-white whitespace-nowrap" style={{ backgroundColor: primaryColor }}>{header.ctaText}</div>}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* HERO SLIDER PREVIEW (SIMULADO) */}
