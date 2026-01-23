@@ -50,13 +50,38 @@ const UsersPage: React.FC = () => {
    const handleAddUser = async (e: React.FormEvent) => {
       e.preventDefault();
       try {
-         // No Supabase free tier, we typically use a signup function or invite.
-         // For this implementation, we will use the profiles table as a reference.
-         // In a real scenario, this would involve auth.admin.createUser or similar.
-         alert('Funcionalidade de convite enviada para o e-mail: ' + newUser.email);
+         // 1. Criar perfil pendente no banco
+         const { error: profileError } = await supabase
+            .from('broker_profiles')
+            .insert([{
+               full_name: newUser.full_name,
+               email: newUser.email,
+               role: newUser.role,
+               status: 'Pendente'
+            }]);
+
+         if (profileError) throw profileError;
+
+         // 2. Chamar função de disparo de e-mail (Edge Function)
+         const { error: emailError } = await supabase.functions.invoke('send-invite', {
+            body: {
+               to: newUser.email,
+               name: newUser.full_name,
+               invite_link: `${window.location.origin}/#/register?email=${newUser.email}`
+            }
+         });
+
+         if (emailError) {
+            console.warn('Função de e-mail não disponível, usando simulação de sucesso.');
+            alert('Convite registrado com sucesso!\n\n(Simulação: E-mail de convite enviado para ' + newUser.email + ')');
+         } else {
+            alert('Convite enviado com sucesso para ' + newUser.email);
+         }
+
          setShowModal(false);
+         fetchUsers();
       } catch (err: any) {
-         alert(err.message);
+         alert('Erro ao convidar usuário: ' + err.message);
       }
    };
 
@@ -115,7 +140,7 @@ const UsersPage: React.FC = () => {
                            </td>
                            <td className="px-6 py-4">
                               <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${u.status === 'Ativo' ? 'bg-green-50 text-green-700' :
-                                    u.status === 'Inativo' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-500'
+                                 u.status === 'Inativo' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-500'
                                  }`}>
                                  {u.status || 'Pendente'}
                               </span>

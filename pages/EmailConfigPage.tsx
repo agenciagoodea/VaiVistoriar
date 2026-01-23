@@ -233,7 +233,7 @@ const EmailConfigPage: React.FC = () => {
                                 onClick={() => setShowTestModal(true)}
                                 className="px-10 py-4 bg-blue-600 text-white rounded-[24px] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-3"
                             >
-                                <span className="material-symbols-outlined text-[18px]">test_confirmation</span>
+                                <span className="material-symbols-outlined text-[18px]">mark_email_read</span>
                                 Testar Conexão agora
                             </button>
                         </div>

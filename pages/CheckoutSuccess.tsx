@@ -9,9 +9,25 @@ const CheckoutSuccess: React.FC = () => {
     const status = searchParams.get('status');
 
     useEffect(() => {
-        // Aqui você pode implementar uma chamada para validar o pagamento no backend
-        // e atualizar o plano do usuário imediatamente se necessário.
-        console.log(`Pagamento ${paymentId} concluído com status ${status}`);
+        const handleSuccess = async () => {
+            console.log(`Pagamento ${paymentId} concluído com status ${status}`);
+
+            if (status === 'approved') {
+                // Trigger automated email
+                try {
+                    await supabase.functions.invoke('send-payment-notification', {
+                        body: {
+                            paymentId: paymentId,
+                            status: status
+                        }
+                    });
+                    console.log('Notificação de pagamento enviada com sucesso.');
+                } catch (err) {
+                    console.error('Erro ao enviar notificação de pagamento:', err);
+                }
+            }
+        };
+        handleSuccess();
     }, [paymentId, status]);
 
     return (
