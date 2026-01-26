@@ -80,10 +80,10 @@ export const mercadopagoService = {
                 plan_slug: plan.slug
             },
             back_urls: {
-                // Removemos o hash (#) temporariamente pois o MP pode invalidar a URL de retorno automática
-                success: `${window.location.origin}/checkout/success`,
-                failure: `${window.location.origin}/checkout/failure`,
-                pending: `${window.location.origin}/checkout/pending`
+                // Incluímos o plan_id para que a página de sucesso saiba qual plano ativar
+                success: `${window.location.origin}/#/checkout/success?plan_id=${plan.id}`,
+                failure: `${window.location.origin}/#/checkout/failure`,
+                pending: `${window.location.origin}/#/checkout/pending`
             },
             auto_return: 'all',
         };

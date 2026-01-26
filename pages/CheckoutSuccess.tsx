@@ -8,27 +8,62 @@ const CheckoutSuccess: React.FC = () => {
     const paymentId = searchParams.get('payment_id');
     const status = searchParams.get('status');
 
+    const [activating, setActivating] = React.useState(false);
+    const externalRef = searchParams.get('external_reference'); // Usado pelo MP para passar o userId
+
     useEffect(() => {
         const handleSuccess = async () => {
-            console.log(`Pagamento ${paymentId} concluído com status ${status}`);
+            console.log(`Pagamento ${paymentId} concluído com status ${status} para o usuário ${externalRef}`);
 
             if (status === 'approved') {
-                // Trigger automated email
+                setActivating(true);
                 try {
+                    // 1. Notificação por Email
                     await supabase.functions.invoke('send-payment-notification', {
-                        body: {
-                            paymentId: paymentId,
-                            status: status
-                        }
+                        body: { paymentId: paymentId, status: status }
                     });
-                    console.log('Notificação de pagamento enviada com sucesso.');
+
+                    // 2. ATIVAÇÃO DO PLANO NO BANCO (LADO CLIENTE PARA VELOCIDADE)
+                    // Buscamos o ID do plano via metadados ou external_reference se tivermos passado concatenado
+                    // No nosso caso em mercadopago.ts passamos userId como external_reference
+                    // E os metadados contêm o plan_id. O MP retorna isso se configurado.
+                    // Para simplificar agora, se o pagamento foi aprovado, vamos assumir que precisamos atualizar o perfil.
+
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        // Buscamos o último plano de upgrade solicitado (ou passamos via URL o ID do plano)
+                        // Para robustez máxima, deveríamos ter uma tabela 'subscriptions' ou 'payment_logs'
+                        // Mas aqui vamos atualizar o perfil baseado no pagamento aprovado.
+
+                        // Pegamos o plan_id da URL (que adicionaremos no mercadopago.ts)
+                        const planId = searchParams.get('plan_id');
+
+                        if (planId) {
+                            const nextMonth = new Date();
+                            nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+                            const { error: updateError } = await supabase
+                                .from('broker_profiles')
+                                .update({
+                                    subscription_plan_id: planId,
+                                    subscription_status: 'Ativo',
+                                    subscription_expires_at: nextMonth.toISOString()
+                                })
+                                .eq('user_id', user.id);
+
+                            if (updateError) throw updateError;
+                            console.log('Plano ativado com sucesso!');
+                        }
+                    }
                 } catch (err) {
-                    console.error('Erro ao enviar notificação de pagamento:', err);
+                    console.error('Erro na ativação pós-pagamento:', err);
+                } finally {
+                    setActivating(false);
                 }
             }
         };
         handleSuccess();
-    }, [paymentId, status]);
+    }, [paymentId, status, externalRef, searchParams]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-4 font-['Inter']">

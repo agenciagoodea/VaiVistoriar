@@ -35,6 +35,7 @@ import CheckoutFailure from './pages/CheckoutFailure';
 import CheckoutPending from './pages/CheckoutPending';
 import EmailConfigPage from './pages/EmailConfigPage';
 import MyPlanPage from './pages/MyPlanPage';
+import ReportsPage from './pages/ReportsPage';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -92,6 +93,7 @@ const App: React.FC = () => {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
+          <Route path="/reports" element={<ReportsPage />} />
           <Route path="/properties" element={<PropertiesPage />} />
           <Route path="/properties/new" element={<NewPropertyPage />} />
           <Route path="/properties/edit/:id" element={<EditPropertyPage />} />
