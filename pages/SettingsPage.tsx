@@ -16,7 +16,12 @@ const SettingsPage: React.FC = () => {
       creci: '',
       phone: '',
       cep: '',
-      address: '',
+      street: '',
+      number: '',
+      complement: '',
+      district: '',
+      city: '',
+      state: '',
       company_name: '',
       avatar_url: ''
    });
@@ -53,7 +58,12 @@ const SettingsPage: React.FC = () => {
                creci: profileData.creci || '',
                phone: profileData.phone || '',
                cep: profileData.cep || '',
-               address: profileData.address || '',
+               street: profileData.street || '',
+               number: profileData.number || '',
+               complement: profileData.complement || '',
+               district: profileData.district || '',
+               city: profileData.city || '',
+               state: profileData.state || '',
                company_name: profileData.company_name || '',
                avatar_url: profileData.avatar_url || ''
             });
@@ -74,8 +84,13 @@ const SettingsPage: React.FC = () => {
          const data = await response.json();
 
          if (!data.erro) {
-            const newAddress = `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ''} - ${data.localidade}/${data.uf}`;
-            setProfile(prev => ({ ...prev, address: newAddress }));
+            setProfile(prev => ({
+               ...prev,
+               street: data.logradouro,
+               district: data.bairro,
+               city: data.localidade,
+               state: data.uf
+            }));
          }
       } catch (err) {
          console.error('Erro ao buscar CEP:', err);
@@ -98,7 +113,19 @@ const SettingsPage: React.FC = () => {
             .from('broker_profiles')
             .upsert({
                user_id: user.id,
-               ...profile,
+               full_name: profile.full_name,
+               cpf_cnpj: profile.cpf_cnpj,
+               creci: profile.creci,
+               phone: profile.phone,
+               cep: profile.cep,
+               street: profile.street,
+               number: profile.number,
+               complement: profile.complement,
+               district: profile.district,
+               city: profile.city,
+               state: profile.state,
+               company_name: profile.company_name,
+               avatar_url: profile.avatar_url,
                updated_at: new Date().toISOString()
             });
 
@@ -215,10 +242,41 @@ const SettingsPage: React.FC = () => {
                         <label className="text-[10px] font-black uppercase text-slate-400 ml-1">CEP (Busca Automática)</label>
                         <input type="text" value={profile.cep} onBlur={handleCEPBlur} onChange={e => setProfile({ ...profile, cep: e.target.value })} placeholder="00000-000" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
                      </div>
-                     <div className="md:col-span-2 space-y-1.5">
-                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Endereço Profissional</label>
-                        <input type="text" value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} placeholder="Auto-preenchido pelo CEP ou digite aqui..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+
+                     {/* Endereço Completo */}
+                     <div className="md:col-span-2 grid grid-cols-3 gap-6">
+                        <div className="col-span-2 space-y-1.5">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Rua / Logradouro</label>
+                           <input type="text" value={profile.street} onChange={e => setProfile({ ...profile, street: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+                        </div>
+                        <div className="space-y-1.5">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Número</label>
+                           <input type="text" value={profile.number} onChange={e => setProfile({ ...profile, number: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+                        </div>
                      </div>
+
+                     <div className="md:col-span-2 grid grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bairro</label>
+                           <input type="text" value={profile.district} onChange={e => setProfile({ ...profile, district: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+                        </div>
+                        <div className="space-y-1.5">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Complemento</label>
+                           <input type="text" value={profile.complement} onChange={e => setProfile({ ...profile, complement: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+                        </div>
+                     </div>
+
+                     <div className="md:col-span-2 grid grid-cols-3 gap-6">
+                        <div className="col-span-2 space-y-1.5">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Cidade</label>
+                           <input type="text" value={profile.city} onChange={e => setProfile({ ...profile, city: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+                        </div>
+                        <div className="space-y-1.5">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Estado</label>
+                           <input type="text" value={profile.state} onChange={e => setProfile({ ...profile, state: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+                        </div>
+                     </div>
+
                      <div className="md:col-span-2 space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nome da Imobiliária / Empresa</label>
                         <input type="text" value={profile.company_name} onChange={e => setProfile({ ...profile, company_name: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
