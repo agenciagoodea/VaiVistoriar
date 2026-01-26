@@ -15,25 +15,27 @@ const PaymentsPage: React.FC = () => {
     const fetchPayments = async () => {
       try {
         setLoading(true);
-        const { data: profiles } = await supabase
-          .from('broker_profiles')
-          .select('*, plans:subscription_plan_id(*)');
+        // Buscamos o histórico real de pagamentos
+        const { data: history } = await supabase
+          .from('payment_history')
+          .select('*, profiles:user_id(full_name)');
 
-        if (profiles) {
+        if (history) {
           let totalVal = 0;
           let pendingCount = 0;
-          const mapped = profiles.filter(p => p.subscription_plan_id).map(p => {
-            const price = parseFloat(p.plans?.price || 0);
-            if (p.subscription_status === 'Ativo') totalVal += price;
-            if (p.subscription_status === 'Pendente') pendingCount++;
+
+          const mapped = history.map(h => {
+            const price = parseFloat(h.amount || 0);
+            if (h.status === 'approved') totalVal += price;
+            if (h.status === 'pending') pendingCount++;
 
             return {
-              id: `#SUB-${p.user_id.slice(0, 4)}`,
-              client: p.full_name || 'Usuário',
-              plan: p.plans?.name || 'Plano',
-              val: `R$ ${price.toFixed(2).replace('.', ',')}`,
+              id: `#TR-${h.id.slice(0, 4)}`,
+              client: h.profiles?.full_name || 'Usuário',
+              plan: h.plan_name || 'Plano',
+              val: `R$ ${price.toFixed(price % 1 === 0 ? 0 : 2).replace('.', ',')}`,
               method: 'Mercado Pago',
-              status: p.subscription_status || 'Ativo'
+              status: h.status === 'approved' ? 'Pago' : h.status === 'pending' ? 'Pendente' : h.status
             };
           });
 
@@ -41,7 +43,7 @@ const PaymentsPage: React.FC = () => {
           setStats({
             total: totalVal,
             pending: pendingCount,
-            activeCount: profiles.length
+            activeCount: history.length
           });
         }
       } catch (err) {

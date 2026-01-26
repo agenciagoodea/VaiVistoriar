@@ -63,6 +63,15 @@ const MyPlanPage: React.FC = () => {
                 })));
             }
 
+            // 4. Fetch Order History (Meus Pedidos)
+            const { data: history } = await supabase
+                .from('payment_history')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (history) setOrders(history);
+
         } catch (err) {
             console.error('Erro ao buscar dados do plano:', err);
         } finally {
@@ -71,6 +80,29 @@ const MyPlanPage: React.FC = () => {
     };
 
     const [upgradingId, setUpgradingId] = useState<string | null>(null);
+    const [orders, setOrders] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!profile?.user_id) return;
+
+        // Listener Real-time
+        const channel = supabase
+            .channel(`profile-${profile.user_id}`)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'broker_profiles',
+                filter: `user_id=eq.${profile.user_id}`
+            }, (payload) => {
+                if (payload.new.subscription_status === 'Ativo') {
+                    fetchData(); // Recarrega tudo
+                    alert('Assinatura Ativada! Seu acesso foi liberado.');
+                }
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [profile?.user_id]);
 
     const handleUpgrade = async (plan: Plan) => {
         try {
@@ -82,7 +114,8 @@ const MyPlanPage: React.FC = () => {
             const data = await mercadopagoService.createPreference(plan, user.id, user.email || '');
 
             if (data?.init_point) {
-                window.location.href = data.init_point;
+                // Abrir em popup
+                window.open(data.init_point, 'MercadoPago', 'width=800,height=800');
             } else {
                 const mpError = data?.error_message || data?.message || 'Motivo desconhecido';
                 throw new Error(`O Mercado Pago não gerou o link. Detalhe: ${mpError}`);
@@ -236,6 +269,64 @@ const MyPlanPage: React.FC = () => {
                             </div>
                         )}
                     </div>
+                </div>
+            </div>
+
+            {/* Meus Pedidos / Histórico */}
+            <div className="space-y-6">
+                <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                    <div className="w-1.5 h-6 rounded-full bg-slate-900" />
+                    Meus Pedidos e Faturas
+                </h3>
+
+                <div className="bg-white rounded-[40px] border border-slate-100 shadow-xl overflow-hidden">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-widest border-b border-slate-100">
+                            <tr>
+                                <th className="px-8 py-5">Identificador</th>
+                                <th className="px-8 py-5">Plano</th>
+                                <th className="px-8 py-5">Valor</th>
+                                <th className="px-8 py-5">Status</th>
+                                <th className="px-8 py-5 text-right">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {orders.map((order, i) => (
+                                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-8 py-5 font-bold text-slate-500 text-xs">#{order.id.slice(0, 8)}</td>
+                                    <td className="px-8 py-5 font-black text-slate-900">{order.plan_name}</td>
+                                    <td className="px-8 py-5 font-bold text-slate-700">R$ {parseFloat(order.amount).toFixed(2).replace('.', ',')}</td>
+                                    <td className="px-8 py-5">
+                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${order.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                                            order.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-400'
+                                            }`}>
+                                            {order.status === 'approved' ? 'Pago' : order.status === 'pending' ? 'Aguardando' : order.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-8 py-5 text-right">
+                                        {order.status === 'pending' && order.init_point && (
+                                            <button
+                                                onClick={() => window.open(order.init_point, 'MercadoPago', 'width=800,height=800')}
+                                                className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 underline tracking-widest"
+                                            >
+                                                Ver Pix / Pagar
+                                            </button>
+                                        )}
+                                        {order.status === 'approved' && (
+                                            <span className="material-symbols-outlined text-emerald-500 text-[20px]">check_circle</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                            {orders.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-8 py-20 text-center">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] italic">Você ainda não possui histórico de pedidos.</p>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

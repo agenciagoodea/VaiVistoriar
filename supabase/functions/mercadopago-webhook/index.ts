@@ -15,21 +15,18 @@ Deno.serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        // Pegamos a notificação do Mercado Pago
         const url = new URL(req.url)
         const topic = url.searchParams.get('topic') || url.searchParams.get('type')
         const id = url.searchParams.get('id') || url.searchParams.get('data.id')
 
         console.log(`Webhook recebido: Tópico=${topic}, ID=${id}`);
 
-        if (topic === 'payment' || topic === 'payment.updated') {
-            // 1. Buscar o Access Token no banco
+        if (topic === 'payment' || topic === 'payment.updated' || id) {
             const { data: configs } = await supabaseClient.from('system_configs').select('*')
             const accessToken = configs?.find(c => c.key === 'mercadopago_access_token')?.value
 
-            if (!accessToken) throw new Error('Access Token não encontrado no sistema.')
+            if (!accessToken) throw new Error('Access Token não encontrado.')
 
-            // 2. Consultar o Mercado Pago para ver o status real desse pagamento
             const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             })
@@ -37,29 +34,32 @@ Deno.serve(async (req) => {
 
             console.log(`Status do pagamento no MP: ${paymentData.status}`);
 
-            // 3. Se estiver aprovado, ativamos o plano
-            if (paymentData.status === 'approved') {
-                const userId = paymentData.external_reference || paymentData.metadata?.user_id
-                const planId = paymentData.metadata?.plan_id
+            const userId = paymentData.external_reference || paymentData.metadata?.user_id
+            const planId = paymentData.metadata?.plan_id
+            const mpId = String(paymentData.id)
 
-                if (userId && planId) {
-                    console.log(`Ativando plano ${planId} para o usuário ${userId}`);
+            // 1. SEMPRE atualizamos o histórico financeiro
+            if (userId) {
+                await supabaseClient.from('payment_history')
+                    .update({ status: paymentData.status })
+                    .eq('mp_id', mpId || paymentData.order?.id || id)
+            }
 
-                    const nextMonth = new Date()
-                    nextMonth.setMonth(nextMonth.getMonth() + 1)
+            // 2. Se estiver aprovado, ativamos o plano no perfil
+            if (paymentData.status === 'approved' && userId && planId) {
+                const nextMonth = new Date()
+                nextMonth.setMonth(nextMonth.getMonth() + 1)
 
-                    const { error } = await supabaseClient
-                        .from('broker_profiles')
-                        .update({
-                            subscription_plan_id: planId,
-                            subscription_status: 'Ativo',
-                            subscription_expires_at: nextMonth.toISOString()
-                        })
-                        .eq('user_id', userId)
+                await supabaseClient
+                    .from('broker_profiles')
+                    .update({
+                        subscription_plan_id: planId,
+                        subscription_status: 'Ativo',
+                        subscription_expires_at: nextMonth.toISOString()
+                    })
+                    .eq('user_id', userId)
 
-                    if (error) throw error
-                    console.log('Plano ativado com sucesso via Webhook!');
-                }
+                console.log('Plano e Histórico atualizados!');
             }
         }
 
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     } catch (error: any) {
         console.error('Erro no Webhook:', error.message)
         return new Response(JSON.stringify({ error: error.message }), {
-            status: 200, // MP exige 200 ou 201
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
     }
