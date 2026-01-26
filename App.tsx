@@ -79,6 +79,7 @@ const App: React.FC = () => {
         <Route path="/checkout/failure" element={<CheckoutFailure />} />
         <Route path="/checkout/pending" element={<CheckoutPending />} />
         <Route path="/login" element={!session ? <LoginPage /> : <Navigate to="/admin" replace />} />
+        <Route path="/register" element={!session ? <LoginPage isRegisterMode={true} /> : <Navigate to="/admin" replace />} />
 
         {/* Dashboard Routes wrapper */}
         <Route element={session ? <DashboardLayout role={role} setRole={setRole} /> : <Navigate to="/login" replace />}>

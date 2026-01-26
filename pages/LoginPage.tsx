@@ -1,13 +1,23 @@
 
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-const LoginPage: React.FC = () => {
-    const [isLogin, setIsLogin] = useState(true);
-    const [identifier, setIdentifier] = useState(''); // CPF, CNPJ ou E-mail
+interface LoginPageProps {
+    isRegisterMode?: boolean;
+}
+
+const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
+    const [searchParams] = useSearchParams();
+    const [isLogin, setIsLogin] = useState(!isRegisterMode);
+
+    // Pre-preenchimento vindo da URL
+    const urlEmail = searchParams.get('email') || '';
+    const urlName = searchParams.get('name') || '';
+
+    const [identifier, setIdentifier] = useState(urlEmail); // E-mail
     const [password, setPassword] = useState('');
-    const [fullName, setFullName] = useState('');
+    const [fullName, setFullName] = useState(urlName);
     const [cpfCnpj, setCpfCnpj] = useState('');
     const [role, setRole] = useState<'BROKER' | 'PJ'>('BROKER');
     const [loading, setLoading] = useState(false);
