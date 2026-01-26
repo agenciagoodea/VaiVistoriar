@@ -56,40 +56,53 @@ Deno.serve(async (req) => {
         const data = await response.json().catch(() => ({}));
 
         // Ação especial: Verificar status e ativar plano automaticamente
-        if (action === 'check-payment-status' && data.results?.length > 0) {
-            const approvedPayment = data.results.find((p: any) => p.status === 'approved');
+        if (action === 'check-payment-status') {
+            console.log(`Checking status for PrefID: ${preferenceId}, User: ${userId}`);
+            console.log(`MP Response Count: ${data.results?.length}`);
 
-            if (approvedPayment) {
-                // Ativar plano no banco
-                const nextMonth = new Date()
-                nextMonth.setMonth(nextMonth.getMonth() + 1)
+            if (data.results?.length > 0) {
+                const approvedPayment = data.results.find((p: any) => p.status === 'approved');
+                console.log(`Found approved payment? ${approvedPayment ? 'YES' : 'NO'}`);
 
-                await supabaseAdmin
-                    .from('broker_profiles')
-                    .update({
-                        subscription_plan_id: planId,
-                        subscription_status: 'Ativo',
-                        subscription_expires_at: nextMonth.toISOString()
-                    })
-                    .eq('user_id', userId);
+                if (approvedPayment) {
+                    // Ativar plano no banco
+                    const nextMonth = new Date()
+                    nextMonth.setMonth(nextMonth.getMonth() + 1)
 
-                // Atualizar histórico
-                await supabaseAdmin.from('payment_history')
-                    .update({ status: 'approved' })
-                    .eq('user_id', userId)
-                    .eq('status', 'pending');
+                    await supabaseAdmin
+                        .from('broker_profiles')
+                        .update({
+                            subscription_plan_id: planId,
+                            subscription_status: 'Ativo',
+                            subscription_expires_at: nextMonth.toISOString()
+                        })
+                        .eq('user_id', userId);
+
+                    // Atualizar histórico
+                    await supabaseAdmin.from('payment_history')
+                        .update({ status: 'approved' })
+                        .eq('user_id', userId)
+                        .eq('status', 'pending');
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        paymentApproved: true,
+                        payment: approvedPayment
+                    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                }
 
                 return new Response(JSON.stringify({
                     success: true,
-                    paymentApproved: true,
-                    payment: approvedPayment
+                    paymentApproved: false,
+                    latestStatus: data.results[0]?.status || 'unknown'
                 }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
 
+            // Caso não tenha resultados
             return new Response(JSON.stringify({
                 success: true,
                 paymentApproved: false,
-                latestStatus: data.results[0]?.status || 'unknown'
+                message: 'Nenhum pagamento encontrado para esta preferência/usuário.'
             }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 

@@ -21,7 +21,7 @@ const AdminDashboard: React.FC = () => {
          const { count: inspectionsCount } = await supabase.from('inspections').select('*', { count: 'exact', head: true });
          const { count: usersCount } = await supabase.from('broker_profiles').select('*', { count: 'exact', head: true });
 
-         // 2. Active Subs & MRR (using subscription_plan_id)
+         // 2. Active Subs & MRR
          const { data: profiles } = await supabase
             .from('broker_profiles')
             .select('*, planes:subscription_plan_id(price, billing_cycle)');
@@ -30,20 +30,14 @@ const AdminDashboard: React.FC = () => {
          let activeSubs = 0;
 
          profiles?.forEach(p => {
-            if (p.subscription_plan_id) {
+            if (p.subscription_plan_id && p.subscription_status === 'Ativo') {
                activeSubs++;
                const plan = p.planes as any;
-               if (plan) {
-                  totalMrr += plan.billing_cycle === 'Anual' ? plan.price / 12 : plan.price;
+               if (plan && plan.price) {
+                  const price = parseFloat(plan.price);
+                  totalMrr += plan.billing_cycle === 'Anual' ? price / 12 : price;
                }
             }
-         });
-
-         setStats({
-            mrr: totalMrr,
-            activeSubs: activeSubs,
-            totalInspections: inspectionsCount || 0,
-            totalUsers: usersCount || 0
          });
 
          // 3. Inspection Status Distribution
@@ -62,22 +56,21 @@ const AdminDashboard: React.FC = () => {
             { label: 'Rasc.', val: Math.round((counts['Rascunho'] / totalItems) * 100), color: 'slate' },
          ]);
 
-         // 4. Recent Transactions (using latest plan changes as mock transactions if no payments table)
-         const { data: recentProfiles } = await supabase
-            .from('broker_profiles')
-            .select('*, planes:subscription_plan_id(*)')
-            .not('subscription_plan_id', 'is', null)
-            .order('updated_at', { ascending: false })
+         // 4. Recent Transactions (Real Data from payment_history)
+         const { data: history } = await supabase
+            .from('payment_history')
+            .select('*, profiles:user_id(full_name, avatar_url)')
+            .order('created_at', { ascending: false })
             .limit(5);
 
-         if (recentProfiles) {
-            setRecentTransactions(recentProfiles.map(p => ({
-               client: p.full_name || 'Usuário',
-               plan: (p.planes as any)?.name || 'Plano',
-               date: new Date(p.updated_at).toLocaleDateString('pt-BR'),
-               val: `R$ ${(p.planes as any)?.price?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-               status: 'Pago',
-               img: p.avatar_url || `https://ui-avatars.com/api/?name=${p.full_name}&background=f1f5f9&color=64748b`
+         if (history) {
+            setRecentTransactions(history.map(h => ({
+               client: h.profiles?.full_name || 'Usuário',
+               plan: h.plan_name || 'Plano',
+               date: new Date(h.created_at).toLocaleDateString('pt-BR'),
+               val: `R$ ${parseFloat(h.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+               status: h.status === 'approved' ? 'Pago' : h.status === 'pending' ? 'Pendente' : h.status,
+               img: h.profiles?.avatar_url || `https://ui-avatars.com/api/?name=${h.profiles?.full_name || 'U'}&background=f1f5f9&color=64748b`
             })));
          }
 
