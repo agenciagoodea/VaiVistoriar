@@ -9,6 +9,7 @@ const MyPlanPage: React.FC = () => {
     const [currentPlan, setCurrentPlan] = useState<any>(null);
     const [profile, setProfile] = useState<any>(null);
     const [primaryColor, setPrimaryColor] = useState('#2563eb');
+    const [supportWhatsapp, setSupportWhatsapp] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -20,11 +21,13 @@ const MyPlanPage: React.FC = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // 1. Fetch Configs (Colors)
+            // 1. Fetch Configs (Colors + WhatsApp)
             const { data: configs } = await supabase.from('system_configs').select('*');
             if (configs) {
                 const color = configs.find(c => c.key === 'home_primary_color')?.value;
                 if (color) setPrimaryColor(color);
+                const whatsapp = configs.find(c => c.key === 'support_whatsapp')?.value;
+                if (whatsapp) setSupportWhatsapp(whatsapp);
             }
 
             // 2. Fetch Profile & Active Plan
@@ -132,8 +135,36 @@ const MyPlanPage: React.FC = () => {
             if (data?.init_point) {
                 if (paymentWindow) {
                     paymentWindow.location.href = data.init_point;
+
+                    // POLLING: Verificar status do pagamento a cada 3 segundos
+                    const mpId = data.id; // ID da preferência
+                    const pollInterval = setInterval(async () => {
+                        // Verificar se a janela foi fechada pelo usuário
+                        if (paymentWindow.closed) {
+                            clearInterval(pollInterval);
+                            fetchData(); // Atualiza dados ao fechar manualmente
+                            return;
+                        }
+
+                        // Consultar banco de dados por pagamento aprovado
+                        const { data: payment } = await supabase
+                            .from('payment_history')
+                            .select('status')
+                            .eq('mp_id', mpId)
+                            .single();
+
+                        if (payment?.status === 'approved') {
+                            clearInterval(pollInterval);
+                            paymentWindow.close();
+                            alert('🎉 Pagamento Aprovado! Seu plano foi ativado com sucesso.');
+                            fetchData(); // Recarrega todos os dados
+                        }
+                    }, 3000);
+
+                    // Timeout de 10 minutos para parar o polling
+                    setTimeout(() => clearInterval(pollInterval), 600000);
+
                 } else {
-                    // Fallback se o navegador bloqueou mesmo abrindo vazio
                     window.location.href = data.init_point;
                 }
             } else {
@@ -221,15 +252,6 @@ const MyPlanPage: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                    </div>
-
-                    <div className="p-8 bg-slate-900 rounded-[40px] text-white space-y-6 shadow-2xl shadow-slate-900/20">
-                        <h3 className="text-lg font-black tracking-tight leading-tight">Precisa de mais?</h3>
-                        <p className="text-xs text-slate-400 font-medium leading-relaxed">Se o seu volume de vistorias cresceu, você pode subir de nível a qualquer momento. O novo limite é liberado instantaneamente.</p>
-                        <button className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-white transition-colors">
-                            <span className="material-symbols-outlined text-lg">support_agent</span>
-                            Falar com Suporte
-                        </button>
                     </div>
                 </div>
 
@@ -350,6 +372,21 @@ const MyPlanPage: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* Suporte WhatsApp */}
+            <div className="p-8 bg-slate-900 rounded-[40px] text-white space-y-6 shadow-2xl shadow-slate-900/20">
+                <h3 className="text-lg font-black tracking-tight leading-tight">Precisa de ajuda?</h3>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed">Estamos aqui para te ajudar! Entre em contato pelo WhatsApp e tire suas dúvidas sobre planos e vistorias.</p>
+                <a
+                    href={supportWhatsapp ? `https://wa.me/${supportWhatsapp.replace(/\D/g, '')}?text=Olá! Preciso de ajuda com meu plano VistoriaPro.` : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-3 px-6 py-3 bg-green-500 hover:bg-green-400 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-colors shadow-lg"
+                >
+                    <span className="material-symbols-outlined text-lg">chat</span>
+                    Falar com Suporte via WhatsApp
+                </a>
             </div>
         </div>
     );

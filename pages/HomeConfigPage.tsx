@@ -53,6 +53,7 @@ const HomeConfigPage: React.FC = () => {
     const [primaryColor, setPrimaryColor] = useState('#137fec');
     const [secondaryColor, setSecondaryColor] = useState('#f8fafc');
     const [logoUrl, setLogoUrl] = useState('');
+    const [supportWhatsapp, setSupportWhatsapp] = useState('');
 
     // Hero Sliders
     const [sliders, setSliders] = useState<HeroSlider[]>([
@@ -103,6 +104,7 @@ const HomeConfigPage: React.FC = () => {
                 if (find('home_primary_color')) setPrimaryColor(find('home_primary_color'));
                 if (find('home_secondary_color')) setSecondaryColor(find('home_secondary_color'));
                 if (find('home_logo_url')) setLogoUrl(find('home_logo_url'));
+                if (find('support_whatsapp')) setSupportWhatsapp(find('support_whatsapp'));
 
                 const savedSliders = find('home_sliders_json');
                 if (savedSliders) setSliders(JSON.parse(savedSliders));
@@ -153,6 +155,7 @@ const HomeConfigPage: React.FC = () => {
                 { key: 'home_primary_color', value: primaryColor },
                 { key: 'home_secondary_color', value: secondaryColor },
                 { key: 'home_logo_url', value: logoUrl },
+                { key: 'support_whatsapp', value: supportWhatsapp },
                 { key: 'home_sliders_json', value: JSON.stringify(sliders) },
                 { key: 'home_features_json', value: JSON.stringify(features) },
                 { key: 'home_footer_json', value: JSON.stringify(footer) },
@@ -222,6 +225,22 @@ const HomeConfigPage: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* WhatsApp Suporte */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">WhatsApp de Suporte</label>
+                            <div className="flex gap-2 items-center">
+                                <span className="material-symbols-outlined text-green-500 text-[24px]">chat</span>
+                                <input
+                                    type="text"
+                                    value={supportWhatsapp}
+                                    onChange={e => setSupportWhatsapp(e.target.value)}
+                                    placeholder="Ex: 5511999999999"
+                                    className="flex-1 px-4 py-3 bg-slate-50 rounded-2xl text-xs font-bold border-none focus:ring-2 focus:ring-green-500"
+                                />
+                            </div>
+                            <p className="text-[9px] text-slate-400">Formato internacional sem espaços ou símbolos. Ex: 5511999999999</p>
                         </div>
                     </section>
 
