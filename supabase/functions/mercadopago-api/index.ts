@@ -28,6 +28,10 @@ Deno.serve(async (req) => {
         } else if (action === 'create-preference') {
             url = 'https://api.mercadopago.com/checkout/preferences'
             method = 'POST'
+        } else {
+            return new Response(JSON.stringify({ error: `Ação inválida: ${action}`, success: false }), {
+                status: 200, headers: corsHeaders
+            })
         }
 
         const response = await fetch(url, {
@@ -46,14 +50,13 @@ Deno.serve(async (req) => {
                 success: false,
                 error: data.message || data.error || `Erro no Mercado Pago (Status: ${response.status})`,
                 mp_status: response.status,
-                raw: data
+                details: data
             }), { status: 200, headers: corsHeaders })
         }
 
-        // Garantimos que nickname e id estejam no topo para o alert do frontend
         return new Response(JSON.stringify({
             nickname: data.nickname || 'Usuário MP',
-            id: data.id || 'N/A',
+            init_point: data.init_point,
             ...data,
             success: true,
             mp_status: response.status
