@@ -86,6 +86,7 @@ export const mercadopagoService = {
                 pending: `${window.location.origin}/#/checkout/pending`
             },
             auto_return: 'all',
+            notification_url: `https://cmrgzaoexmjilvbuduek.supabase.co/functions/v1/mercadopago-webhook`
         };
 
         console.log('Solicitando Preferência:', preferenceData);
