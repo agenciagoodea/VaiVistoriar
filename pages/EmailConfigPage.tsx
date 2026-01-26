@@ -47,6 +47,19 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
     }
 ];
 
+const TEMPLATE_VARIABLES: Record<string, string[]> = {
+    invite: ['{{user_name}}', '{{link}}'],
+    payment_success: ['{{plan_name}}', '{{amount}}', '{{date}}'],
+    send_report: ['{{client_name}}', '{{property_name}}', '{{report_link}}']
+};
+
+const SNIPPETS = [
+    { label: 'Botão de Ação', html: '<a href="{{link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">Clique Aqui</a>' },
+    { label: 'Título', html: '<h1 style="color: #1e293b; margin: 0;">Título</h1>' },
+    { label: 'Parágrafo', html: '<p style="color: #64748b; line-height: 1.6;">Texto aqui...</p>' },
+    { label: 'Card Cinza', html: '<div style="background: #f8fafc; padding: 20px; border-radius: 12px;">Conteúdo</div>' }
+];
+
 const EmailConfigPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -113,7 +126,14 @@ const EmailConfigPage: React.FC = () => {
                     name: 'Teste de Conexão',
                     invite_link: `${window.location.origin}/#/register?email=${testEmail}&name=${encodeURIComponent('Usuário de Teste')}`,
                     config: smtp,
-                    template: testTemplate
+                    template: testTemplate,
+                    variables: {
+                        user_name: 'Teste',
+                        link: '#',
+                        client_name: 'Cliente Teste',
+                        property_name: 'Imóvel Exemplo',
+                        report_link: '#'
+                    }
                 }
             });
             if (emailError) throw emailError;
@@ -125,6 +145,27 @@ const EmailConfigPage: React.FC = () => {
             alert('Erro: ' + err.message);
             fetchConfigs();
         } finally { setTestingSmtp(false); }
+    };
+
+    const insertText = (text: string) => {
+        const textarea = document.getElementById('template-editor') as HTMLTextAreaElement;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentHtml = templates[activeTemplateIdx].html;
+
+        const newHtml = currentHtml.substring(0, start) + text + currentHtml.substring(end);
+
+        const nt = [...templates];
+        nt[activeTemplateIdx].html = newHtml;
+        setTemplates(nt);
+
+        // Restore focus next tick
+        setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start + text.length, start + text.length);
+        }, 0);
     };
 
     if (loading) return <div className="p-20 text-center font-bold text-slate-400">CARREGANDO...</div>;
@@ -207,8 +248,27 @@ const EmailConfigPage: React.FC = () => {
                         ))}
                     </div>
                     <div className="col-span-8 bg-white rounded-[40px] shadow-sm border p-8 space-y-6">
-                        <input value={templates[activeTemplateIdx]?.subject} onChange={e => { const nt = [...templates]; nt[activeTemplateIdx].subject = e.target.value; setTemplates(nt); }} className="w-full p-4 bg-slate-100 rounded-xl" />
-                        <textarea rows={10} value={templates[activeTemplateIdx]?.html} onChange={e => { const nt = [...templates]; nt[activeTemplateIdx].html = e.target.value; setTemplates(nt); }} className="w-full p-4 bg-slate-100 rounded-xl font-mono text-xs" />
+                        <input value={templates[activeTemplateIdx]?.subject} onChange={e => { const nt = [...templates]; nt[activeTemplateIdx].subject = e.target.value; setTemplates(nt); }} className="w-full p-4 bg-slate-100 rounded-xl font-bold text-sm" placeholder="Assunto do E-mail..." />
+                        <textarea id="template-editor" rows={12} value={templates[activeTemplateIdx]?.html} onChange={e => { const nt = [...templates]; nt[activeTemplateIdx].html = e.target.value; setTemplates(nt); }} className="w-full p-4 bg-slate-100 rounded-xl font-mono text-xs leading-relaxed" placeholder="HTML do E-mail..." />
+
+                        <div className="space-y-4 pt-4 border-t border-slate-100">
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Variáveis Disponíveis (Clique para inserir)</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {TEMPLATE_VARIABLES[templates[activeTemplateIdx].id]?.map(v => (
+                                        <button key={v} onClick={() => insertText(v)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-mono font-bold hover:bg-indigo-100 transition-colors">{v}</button>
+                                    )) || <span className="text-xs text-slate-400 italic">Nenhuma variável específica.</span>}
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Snippets Rápidos</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {SNIPPETS.map((s, i) => (
+                                        <button key={i} onClick={() => insertText(s.html)} className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors">+ {s.label}</button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : (
