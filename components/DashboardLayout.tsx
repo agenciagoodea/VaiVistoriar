@@ -33,6 +33,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, setRole }) => {
 
   const brokerMenu = [
     { label: 'Dashboard', path: '/broker', icon: 'dashboard' },
+    { label: 'Plano', path: '/broker/plan', icon: 'credit_card' },
     { label: 'Minhas Vistorias', path: '/inspections', icon: 'assignment' },
     { label: 'Meus Imóveis', path: '/properties', icon: 'apartment' },
     { label: 'Clientes', path: '/clients', icon: 'groups' },
