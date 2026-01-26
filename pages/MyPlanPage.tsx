@@ -64,13 +64,14 @@ const MyPlanPage: React.FC = () => {
             }
 
             // 4. Fetch Order History (Meus Pedidos)
-            const { data: history } = await supabase
+            const { data: history, error: histErr } = await supabase
                 .from('payment_history')
                 .select('*')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
 
-            if (history) setOrders(history);
+            if (histErr) console.warn('Histórico indisponível:', histErr.message);
+            else if (history) setOrders(history);
 
         } catch (err) {
             console.error('Erro ao buscar dados do plano:', err);
@@ -105,22 +106,43 @@ const MyPlanPage: React.FC = () => {
     }, [profile?.user_id]);
 
     const handleUpgrade = async (plan: Plan) => {
+        // Truque para evitar bloqueador de popups: abrir a janela IMEDIATAMENTE
+        const paymentWindow = window.open('', 'MercadoPagoCheckout', 'width=800,height=800,scrollbars=yes');
+        if (paymentWindow) {
+            paymentWindow.document.write(`
+                <div style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 10px;">
+                    <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                    <p style="color: #64748b; font-weight: bold;">Preparando seu checkout...</p>
+                    <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+                </div>
+            `);
+        }
+
         try {
             setUpgradingId(plan.id);
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('Faça login para continuar.');
+            if (!user) {
+                paymentWindow?.close();
+                throw new Error('Faça login para continuar.');
+            }
 
             const { mercadopagoService } = await import('../lib/mercadopago');
             const data = await mercadopagoService.createPreference(plan, user.id, user.email || '');
 
             if (data?.init_point) {
-                // Abrir em popup
-                window.open(data.init_point, 'MercadoPago', 'width=800,height=800');
+                if (paymentWindow) {
+                    paymentWindow.location.href = data.init_point;
+                } else {
+                    // Fallback se o navegador bloqueou mesmo abrindo vazio
+                    window.location.href = data.init_point;
+                }
             } else {
+                paymentWindow?.close();
                 const mpError = data?.error_message || data?.message || 'Motivo desconhecido';
                 throw new Error(`O Mercado Pago não gerou o link. Detalhe: ${mpError}`);
             }
         } catch (err: any) {
+            paymentWindow?.close();
             console.error('Falha no Upgrade:', err);
             alert('Atenção: ' + (err.message || 'Ocorreu um erro ao iniciar o pagamento.'));
         } finally {

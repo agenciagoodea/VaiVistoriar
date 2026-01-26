@@ -16,12 +16,13 @@ Deno.serve(async (req) => {
         )
 
         const url = new URL(req.url)
-        const topic = url.searchParams.get('topic') || url.searchParams.get('type')
-        const id = url.searchParams.get('id') || url.searchParams.get('data.id')
+        // Tenta pegar o ID de várias formas (data.id é comum nas novas APIs)
+        const id = url.searchParams.get('id') || url.searchParams.get('data.id');
+        const type = url.searchParams.get('type') || url.searchParams.get('topic');
 
-        console.log(`Webhook recebido: Tópico=${topic}, ID=${id}`);
+        console.log(`Webhook recebido: Tipo=${type}, ID=${id}`);
 
-        if (topic === 'payment' || topic === 'payment.updated' || id) {
+        if (id && (type === 'payment' || !type)) {
             const { data: configs } = await supabaseClient.from('system_configs').select('*')
             const accessToken = configs?.find(c => c.key === 'mercadopago_access_token')?.value
 
@@ -30,27 +31,31 @@ Deno.serve(async (req) => {
             const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             })
-            const paymentData = await mpResponse.json()
 
-            console.log(`Status do pagamento no MP: ${paymentData.status}`);
+            if (!mpResponse.ok) throw new Error(`Erro ao consultar MP: ${mpResponse.status}`);
+
+            const paymentData = await mpResponse.json()
+            console.log(`Status do pagamento ${id}: ${paymentData.status}`);
 
             const userId = paymentData.external_reference || paymentData.metadata?.user_id
             const planId = paymentData.metadata?.plan_id
-            const mpId = String(paymentData.id)
+            const mpIdString = String(paymentData.id)
 
-            // 1. SEMPRE atualizamos o histórico financeiro
+            // 1. Atualizar Histórico Financeiro
             if (userId) {
-                await supabaseClient.from('payment_history')
+                const { error: histErr } = await supabaseClient.from('payment_history')
                     .update({ status: paymentData.status })
-                    .eq('mp_id', mpId || paymentData.order?.id || id)
+                    .eq('mp_id', mpIdString)
+
+                if (histErr) console.error('Aviso: Não foi possível atualizar histórico:', histErr.message);
             }
 
-            // 2. Se estiver aprovado, ativamos o plano no perfil
+            // 2. Ativar Plano se aprovado
             if (paymentData.status === 'approved' && userId && planId) {
                 const nextMonth = new Date()
                 nextMonth.setMonth(nextMonth.getMonth() + 1)
 
-                await supabaseClient
+                const { error: profErr } = await supabaseClient
                     .from('broker_profiles')
                     .update({
                         subscription_plan_id: planId,
@@ -59,7 +64,8 @@ Deno.serve(async (req) => {
                     })
                     .eq('user_id', userId)
 
-                console.log('Plano e Histórico atualizados!');
+                if (profErr) throw profErr;
+                console.log(`Sucesso: Plano ${planId} ativado para ${userId}`);
             }
         }
 
@@ -71,7 +77,7 @@ Deno.serve(async (req) => {
     } catch (error: any) {
         console.error('Erro no Webhook:', error.message)
         return new Response(JSON.stringify({ error: error.message }), {
-            status: 200,
+            status: 200, // Sempre 200 para o MP não ficar tentando
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
     }

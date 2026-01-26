@@ -48,17 +48,23 @@ Deno.serve(async (req) => {
 
         const data = await response.json().catch(() => ({}));
 
-        // Se for criação de preferência e deu certo, registramos no sistema financeiro
+        // Tentativa de registro no sistema financeiro
         if (action === 'create-preference' && response.status < 300 && data.init_point) {
-            await supabaseAdmin.from('payment_history').insert({
-                user_id: payload.external_reference || payload.metadata?.user_id,
-                plan_id: payload.metadata?.plan_id,
-                plan_name: payload.items?.[0]?.title?.replace('Plano VistoriaPro: ', '') || 'Plano',
-                amount: payload.items?.[0]?.unit_price,
-                status: 'pending',
-                mp_id: data.id,
-                init_point: data.init_point
-            })
+            try {
+                const { error: insertError } = await supabaseAdmin.from('payment_history').insert({
+                    user_id: payload.external_reference || payload.metadata?.user_id,
+                    plan_id: payload.metadata?.plan_id,
+                    plan_name: payload.items?.[0]?.title?.replace('Plano VistoriaPro: ', '') || 'Plano',
+                    amount: payload.items?.[0]?.unit_price,
+                    status: 'pending',
+                    mp_id: data.id,
+                    init_point: data.init_point
+                });
+                if (insertError) console.error('Erro ao gravar histórico (Talvez tabela faltante?):', insertError.message);
+                else console.log('Intenção de pagamento gravada no sistema financeiro.');
+            } catch (dbErr: any) {
+                console.error('Falha crítica ao acessar payment_history:', dbErr.message);
+            }
         }
 
         return new Response(JSON.stringify({
