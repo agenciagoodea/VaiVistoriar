@@ -84,11 +84,12 @@ const MyPlanPage: React.FC = () => {
             if (data?.init_point) {
                 window.location.href = data.init_point;
             } else {
-                throw new Error('Link de pagamento não gerado.');
+                const mpError = data?.error_message || data?.message || 'Motivo desconhecido';
+                throw new Error(`O Mercado Pago não gerou o link. Detalhe: ${mpError}`);
             }
         } catch (err: any) {
             console.error('Falha no Upgrade:', err);
-            alert('Atenção: ' + (err.message || 'Ocorreu um erro ao iniciar o pagamento. Verifique suas credenciais no painel administrativo.'));
+            alert('Atenção: ' + (err.message || 'Ocorreu um erro ao iniciar o pagamento.'));
         } finally {
             setUpgradingId(null);
         }

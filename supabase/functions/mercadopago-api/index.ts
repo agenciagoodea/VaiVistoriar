@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
         const cleanToken = String(accessToken || '').trim().replace(/^["']|["']$/g, '');
 
         if (!cleanToken) {
-            return new Response(JSON.stringify({ error: 'Nenhum token foi enviado.', success: false }), {
+            return new Response(JSON.stringify({ error: 'Token ausente', success: false }), {
                 status: 200, headers: corsHeaders
             })
         }
@@ -22,16 +22,12 @@ Deno.serve(async (req) => {
 
         if (action === 'test-token') {
             url = 'https://api.mercadopago.com/v1/users/me'
-        } else if (action === 'create-plan') {
-            url = 'https://api.mercadopago.com/preapproval_plan'
-            method = 'POST'
         } else if (action === 'create-preference') {
             url = 'https://api.mercadopago.com/checkout/preferences'
             method = 'POST'
-        } else {
-            return new Response(JSON.stringify({ error: `Ação inválida: ${action}`, success: false }), {
-                status: 200, headers: corsHeaders
-            })
+        } else if (action === 'create-plan') {
+            url = 'https://api.mercadopago.com/preapproval_plan'
+            method = 'POST'
         }
 
         const response = await fetch(url, {
@@ -45,22 +41,16 @@ Deno.serve(async (req) => {
 
         const data = await response.json().catch(() => ({}));
 
-        if (response.status >= 400) {
-            return new Response(JSON.stringify({
-                success: false,
-                error: data.message || data.error || `Erro no Mercado Pago (Status: ${response.status})`,
-                mp_status: response.status,
-                details: data
-            }), { status: 200, headers: corsHeaders })
-        }
-
+        // Retornamos um objeto unificado
         return new Response(JSON.stringify({
-            nickname: data.nickname || 'Usuário MP',
-            init_point: data.init_point,
             ...data,
-            success: true,
-            mp_status: response.status
-        }), { status: 200, headers: corsHeaders })
+            success: response.status >= 200 && response.status < 300,
+            mp_status: response.status,
+            error_message: data.message || data.error || null
+        }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
 
     } catch (error: any) {
         return new Response(JSON.stringify({ error: error.message, success: false }), {
