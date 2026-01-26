@@ -99,16 +99,30 @@ const SettingsPage: React.FC = () => {
 
    const handleSaveAll = async () => {
       setSaving(true);
-      try {
-         const { data: { user } } = await supabase.auth.getUser();
-         if (!user) throw new Error('Não autenticado');
 
-         // Save Tips
-         await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+         alert('Erro: Usuário não autenticado.');
+         setSaving(false);
+         return;
+      }
+
+      // 1. Tentar salvar Configurações Globais (Dicas)
+      // Envolvemos em try/catch silencioso para não bloquear o perfil caso o usuário não seja admin
+      try {
+         const { error: tipsError } = await supabase
             .from('system_configs')
             .upsert({ key: 'inspection_tips', value: tips, updated_at: new Date().toISOString() });
 
-         // Save Profile
+         if (tipsError) {
+            console.warn('Alerta: Não foi possível salvar dicas (provavelmente usuário sem permissão admin).', tipsError);
+         }
+      } catch (tipsErr) {
+         console.warn('Erro ao salvar dicas:', tipsErr);
+      }
+
+      // 2. Salvar Perfil do Usuário
+      try {
          const { error: profileError } = await supabase
             .from('broker_profiles')
             .upsert({
@@ -127,13 +141,15 @@ const SettingsPage: React.FC = () => {
                company_name: profile.company_name,
                avatar_url: profile.avatar_url,
                updated_at: new Date().toISOString()
-            });
+            }, { onConflict: 'user_id' });
 
          if (profileError) throw profileError;
-         alert('Configurações e Perfil salvos com sucesso!');
-      } catch (err) {
+
+         alert('Perfil atualizado com sucesso!');
+      } catch (err: any) {
          console.error(err);
-         alert('Erro ao salvar as alterações.');
+         // Mostra o erro exato para o usuário
+         alert(`Erro ao salvar perfil: ${err.message || err.error_description || JSON.stringify(err)}`);
       } finally {
          setSaving(false);
       }
