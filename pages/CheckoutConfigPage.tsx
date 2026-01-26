@@ -54,7 +54,7 @@ const CheckoutConfigPage: React.FC = () => {
         setTestingMP(true);
         try {
             const { mercadopagoService } = await import('../lib/mercadopago');
-            const result = await mercadopagoService.testToken();
+            const result = await mercadopagoService.testToken(mpAccessToken);
             alert(`Conexão OK! Usuário: ${result.nickname} (${result.id})`);
         } catch (err: any) {
             alert(`Erro no Teste: ${err.message}`);

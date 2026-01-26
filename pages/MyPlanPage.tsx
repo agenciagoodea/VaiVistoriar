@@ -70,6 +70,30 @@ const MyPlanPage: React.FC = () => {
         }
     };
 
+    const [upgradingId, setUpgradingId] = useState<string | null>(null);
+
+    const handleUpgrade = async (plan: Plan) => {
+        try {
+            setUpgradingId(plan.id);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Faça login para continuar.');
+
+            const { mercadopagoService } = await import('../lib/mercadopago');
+            const data = await mercadopagoService.createPreference(plan, user.id, user.email || '');
+
+            if (data?.init_point) {
+                window.location.href = data.init_point;
+            } else {
+                throw new Error('Link de pagamento não gerado.');
+            }
+        } catch (err: any) {
+            console.error('Falha no Upgrade:', err);
+            alert('Atenção: ' + (err.message || 'Ocorreu um erro ao iniciar o pagamento. Verifique suas credenciais no painel administrativo.'));
+        } finally {
+            setUpgradingId(null);
+        }
+    };
+
     if (loading) return (
         <div className="flex flex-col items-center justify-center p-20 space-y-4">
             <div className="w-12 h-12 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin" />
@@ -189,10 +213,16 @@ const MyPlanPage: React.FC = () => {
                                 </div>
 
                                 <button
-                                    className="w-full py-4 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all active:scale-95"
+                                    onClick={() => handleUpgrade(plan)}
+                                    disabled={upgradingId === plan.id}
+                                    className="w-full py-4 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                                     style={{ backgroundColor: primaryColor, boxShadow: `0 20px 30px -10px ${primaryColor}40` }}
                                 >
-                                    Fazer Upgrade Agora
+                                    {upgradingId === plan.id ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        'Fazer Upgrade Agora'
+                                    )}
                                 </button>
                             </div>
                         ))}
