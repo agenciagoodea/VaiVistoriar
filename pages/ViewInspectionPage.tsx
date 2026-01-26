@@ -13,6 +13,13 @@ const ViewInspectionPage: React.FC = () => {
     const [exporting, setExporting] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
 
+    // Email Modal State
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailSending, setEmailSending] = useState(false);
+    const [emailRecipients, setEmailRecipients] = useState<{ name: string; email: string; type: string; selected: boolean }[]>([]);
+    const [customEmail, setCustomEmail] = useState('');
+    const [templates, setTemplates] = useState<any[]>([]);
+
     useEffect(() => {
         fetchInspection();
     }, [id]);
@@ -47,13 +54,72 @@ const ViewInspectionPage: React.FC = () => {
         }
     };
 
+    const fetchTemplates = async () => {
+        const { data } = await supabase.from('system_configs').select('value').eq('key', 'email_templates_json').single();
+        if (data) {
+            try {
+                setTemplates(JSON.parse(data.value));
+            } catch (e) {
+                console.error('Erro ao parsar templates', e);
+            }
+        }
+    };
+
+    const openEmailModal = () => {
+        fetchTemplates();
+        const recips = [];
+        if (inspection.lessor?.email) {
+            recips.push({ name: inspection.lessor.name, email: inspection.lessor.email, type: inspection.report_type === 'Venda' ? 'Vendedor' : 'Locador', selected: true });
+        }
+        if (inspection.lessee?.email) {
+            recips.push({ name: inspection.lessee.name, email: inspection.lessee.email, type: inspection.report_type === 'Venda' ? 'Comprador' : 'Locatário', selected: true });
+        }
+        setEmailRecipients(recips);
+        setEmailModalOpen(true);
+    };
+
+    const handleSendEmail = async () => {
+        setEmailSending(true);
+        try {
+            const template = templates.find(t => t.id === 'send_report');
+            if (!template) throw new Error('Template de envio de laudo não configurado.');
+
+            const targets = emailRecipients.filter(r => r.selected);
+            if (customEmail) targets.push({ name: 'Destinatário', email: customEmail, type: 'Extra', selected: true });
+
+            if (targets.length === 0) throw new Error('Selecione ao menos um destinatário.');
+
+            for (const target of targets) {
+                const { error } = await supabase.functions.invoke('send-invite', {
+                    body: {
+                        to: target.email,
+                        template: template,
+                        variables: {
+                            client_name: target.name,
+                            property_name: inspection.property_name || inspection.property?.name,
+                            report_link: window.location.href
+                        }
+                    }
+                });
+                if (error) throw error;
+            }
+
+            alert('E-mails enviados com sucesso!');
+            setEmailModalOpen(false);
+        } catch (err: any) {
+            alert('Erro ao enviar: ' + err.message);
+        } finally {
+            setEmailSending(false);
+        }
+    };
+
     const downloadPDF = async () => {
         if (!reportRef.current) return;
         setExporting(true);
 
         try {
             const canvas = await html2canvas(reportRef.current, {
-                scale: 2,
+                scale: 1.5, // Slightly reduced scale for performance
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff'
@@ -61,25 +127,26 @@ const ViewInspectionPage: React.FC = () => {
 
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+
             const imgProps = pdf.getImageProperties(imgData);
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            const imgHeight = (imgProps.height * pageWidth) / imgProps.width;
 
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            let heightLeft = imgHeight;
+            let position = 0;
 
-            // Adicionar links clicáveis para as fotos no PDF
-            const photoLinks = reportRef.current.querySelectorAll('.photo-link');
-            const reportRect = reportRef.current.getBoundingClientRect();
+            // First Page
+            pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight);
+            heightLeft -= pageHeight;
 
-            photoLinks.forEach((link: any) => {
-                const rect = link.getBoundingClientRect();
-                const x = ((rect.left - reportRect.left) * pdfWidth) / reportRect.width;
-                const y = ((rect.top - reportRect.top) * pdfHeight) / reportRect.height;
-                const w = (rect.width * pdfWidth) / reportRect.width;
-                const h = (rect.height * pdfHeight) / reportRect.height;
-
-                pdf.link(x, y, w, h, { url: link.href });
-            });
+            // Subsequent Pages
+            while (heightLeft > 0) {
+                position -= pageHeight; // Move image up
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
 
             pdf.save(`Vistoria_${inspection.property_name.replace(/\s+/g, '_')}.pdf`);
         } catch (err) {
@@ -96,13 +163,6 @@ const ViewInspectionPage: React.FC = () => {
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
 
-    const shareEmail = () => {
-        const url = window.location.href;
-        const subject = `Laudo de Vistoria - ${inspection.property_name}`;
-        const body = `Olá, segue o link para visualização do laudo de vistoria do imóvel ${inspection.property_name}:\n\n${url}`;
-        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    };
-
     if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Gerando Documento...</div>;
     if (!inspection) return <div className="p-20 text-center font-bold text-rose-500 uppercase tracking-widest">Erro: Vistoria não encontrada.</div>;
 
@@ -116,7 +176,7 @@ const ViewInspectionPage: React.FC = () => {
                     </button>
                     <div>
                         <h1 className="text-xl font-black text-slate-900 leading-tight tracking-tighter">Laudo Digital</h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{inspection.report_type} • {inspection.scheduled_date}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{inspection.report_type} • {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : 'Data N/A'}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -124,7 +184,7 @@ const ViewInspectionPage: React.FC = () => {
                         <span className="material-symbols-outlined text-[18px]">share</span>
                         WhatsApp
                     </button>
-                    <button onClick={shareEmail} className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-200">
+                    <button onClick={openEmailModal} className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-200">
                         <span className="material-symbols-outlined text-[18px]">mail</span>
                         E-mail
                     </button>
@@ -275,7 +335,7 @@ const ViewInspectionPage: React.FC = () => {
                                 <div className="p-5 bg-white rounded-[24px] border border-slate-100 shadow-sm">
                                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-none">Observação das Chaves</p>
                                     <p className="text-[10px] font-bold text-slate-600 leading-relaxed uppercase italic">
-                                        {inspection.keys_data?.observations || 'Nenhum registro adicional.'}
+                                        {inspection.keys_data?.description || 'Nenhum registro adicional.'}
                                     </p>
                                 </div>
                             </div>
@@ -437,6 +497,49 @@ const ViewInspectionPage: React.FC = () => {
 
                 </div>
             </div>
+            {/* Email Modal */}
+            {emailModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[32px] w-full max-w-lg p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-black text-slate-900">Enviar Laudo por E-mail</h3>
+                            <button onClick={() => setEmailModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600"><span className="material-symbols-outlined">close</span></button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Destinatários Encontrados:</p>
+                            {emailRecipients.length === 0 && <p className="text-sm text-slate-500 italic">Nenhum e-mail cadastrado nas partes envolvidas.</p>}
+
+                            {emailRecipients.map((r, i) => (
+                                <label key={i} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={r.selected} onChange={e => {
+                                        const newR = [...emailRecipients];
+                                        newR[i].selected = e.target.checked;
+                                        setEmailRecipients(newR);
+                                    }} className="w-5 h-5 rounded-md text-blue-600 focus:ring-blue-500 border-gray-300" />
+                                    <div>
+                                        <p className="text-sm font-black text-slate-900">{r.name}</p>
+                                        <p className="text-xs text-slate-500">{r.email} • {r.type}</p>
+                                    </div>
+                                </label>
+                            ))}
+
+                            <div className="space-y-2 pt-4 border-t border-slate-100">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Outro E-mail (Opcional):</p>
+                                <input type="email" value={customEmail} onChange={e => setCustomEmail(e.target.value)} placeholder="ex: gerente@imobiliaria.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none text-sm" />
+                            </div>
+                        </div>
+
+                        <div className="pt-4 flex gap-4">
+                            <button onClick={() => setEmailModalOpen(false)} className="flex-1 py-4 text-xs font-black uppercase text-slate-400 hover:bg-slate-50 rounded-2xl transition-all">Cancelar</button>
+                            <button onClick={handleSendEmail} disabled={emailSending} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 disabled:opacity-50 flex items-center justify-center gap-2">
+                                {emailSending ? 'Enviando...' : 'Enviar Agora'}
+                                {!emailSending && <span className="material-symbols-outlined text-[18px]">send</span>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

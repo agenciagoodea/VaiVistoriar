@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
     try {
         const body = await req.json()
-        const { to, name, invite_link, config, template: providedTemplate } = body
+        const { to, name, invite_link, config, template: providedTemplate, variables } = body
 
         if (!SERVICE_ROLE) return respond({ success: false, error: 'SERVICE_ROLE_KEY ausente.' })
 
@@ -67,12 +67,25 @@ Deno.serve(async (req) => {
         });
 
         try {
-            const html = template.html.replace(/{{user_name}}/g, name || '').replace(/{{link}}/g, invite_link || '');
+            let html = template.html;
+            let subject = template.subject;
+
+            // Map legacy variables to new structure
+            const vars = variables || {};
+            if (name) vars.user_name = name;
+            if (invite_link) vars.link = invite_link;
+
+            // Replace all variables in HTML and Subject
+            for (const key in vars) {
+                const regex = new RegExp(`{{${key}}}`, 'g');
+                html = html.replace(regex, vars[key]);
+                subject = subject.replace(regex, vars[key]);
+            }
 
             const info = await transporter.sendMail({
                 from: `"${smtp.senderName}" <${smtp.senderEmail}>`,
                 to: to,
-                subject: template.subject,
+                subject: subject,
                 html: html,
             });
 

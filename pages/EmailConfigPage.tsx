@@ -38,6 +38,12 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
         name: 'Confirmação de Pagamento',
         subject: 'Seu pagamento foi confirmado!',
         html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><h1 style="color: #1e293b; margin-top: 0;">Pagamento Confirmado! 🎉</h1><p style="color: #64748b; line-height: 1.6;">O seu plano {{plan_name}} já está ativo em sua conta. Aproveite todas as funcionalidades premium do VistoriaPro.</p><div style="background: #f1f5f9; padding: 20px; border-radius: 12px; margin: 24px 0;"><p style="margin: 0; color: #475569;">Valor: <strong>R$ {{amount}}</strong></p><p style="margin: 8px 0 0; color: #475569;">Data: <strong>{{date}}</strong></p></div><p style="color: #64748b;">Dúvidas? Entre em contato conosco.</p></div></div>`
+    },
+    {
+        id: 'send_report',
+        name: 'Envio de Laudo Técnico',
+        subject: 'Laudo de Vistoria Disponível - {{property_name}}',
+        html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><div style="text-align: center; margin-bottom: 30px;"><span style="background: #eff6ff; color: #2563eb; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 12px; text-transform: uppercase;">Laudo Digital</span></div><h1 style="color: #1e293b; margin-top: 0; text-align: center;">Vistoria Concluída</h1><p style="color: #64748b; line-height: 1.6; text-align: center;">Olá, <strong>{{client_name}}</strong>!</p><p style="color: #64748b; line-height: 1.6; text-align: center;">O laudo de vistoria do imóvel <strong>{{property_name}}</strong> já está disponível para visualização e assinatura digital.</p><div style="text-align: center; margin: 40px 0;"><a href="{{report_link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Acessar Laudo Digital</a></div><p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 40px;">Este link é único e seguro. Em caso de dúvidas, entre em contato com o responsável.</p></div></div>`
     }
 ];
 
@@ -65,7 +71,17 @@ const EmailConfigPage: React.FC = () => {
                 const configSmtp = data.find(c => c.key === 'email_smtp_config')?.value;
                 if (configSmtp) setSmtp(JSON.parse(configSmtp));
                 const configTemplates = data.find(c => c.key === 'email_templates_json')?.value;
-                if (configTemplates) setTemplates(JSON.parse(configTemplates));
+                if (configTemplates) {
+                    const dbTemplates = JSON.parse(configTemplates);
+                    // Merge: Add defaults that are missing in DB
+                    const merged = [...dbTemplates];
+                    DEFAULT_TEMPLATES.forEach(def => {
+                        if (!merged.find((t: any) => t.id === def.id)) {
+                            merged.push(def);
+                        }
+                    });
+                    setTemplates(merged);
+                }
                 const configLogs = data.find(c => c.key === 'email_delivery_log')?.value;
                 if (configLogs) setLogs(JSON.parse(configLogs));
             }

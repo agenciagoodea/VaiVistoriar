@@ -73,7 +73,16 @@ const EditInspectionPage: React.FC = () => {
             if (error) throw error;
 
             if (inspection) {
-                setDate(inspection.scheduled_date || '');
+                // Ensure date is YYYY-MM-DD
+                let formattedDate = '';
+                if (inspection.scheduled_date) {
+                    if (inspection.scheduled_date.includes('T')) {
+                        formattedDate = inspection.scheduled_date.split('T')[0];
+                    } else {
+                        formattedDate = inspection.scheduled_date;
+                    }
+                }
+                setDate(formattedDate);
                 setReportType(inspection.report_type || 'Locação');
                 setPropertyId(inspection.property_id || '');
                 setLessorId(inspection.lessor_id || '');
