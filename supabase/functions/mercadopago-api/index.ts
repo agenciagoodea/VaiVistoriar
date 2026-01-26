@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
     try {
-        const { action, accessToken, payload } = await req.json()
+        const { action, accessToken, payload, preferenceId, userId, planId } = await req.json()
         const cleanToken = String(accessToken || '').trim().replace(/^["']|["']$/g, '');
 
         const supabaseAdmin = createClient(
@@ -35,6 +35,13 @@ Deno.serve(async (req) => {
         } else if (action === 'create-plan') {
             url = 'https://api.mercadopago.com/preapproval_plan'
             method = 'POST'
+        } else if (action === 'check-payment-status') {
+            // Buscar pagamentos associados à preferência específica (mais seguro) ou usuário
+            if (preferenceId) {
+                url = `https://api.mercadopago.com/v1/payments/search?preference_id=${preferenceId}`
+            } else {
+                url = `https://api.mercadopago.com/v1/payments/search?external_reference=${userId}&sort=date_created&criteria=desc`
+            }
         }
 
         const response = await fetch(url, {
@@ -48,7 +55,45 @@ Deno.serve(async (req) => {
 
         const data = await response.json().catch(() => ({}));
 
-        // Tentativa de registro no sistema financeiro
+        // Ação especial: Verificar status e ativar plano automaticamente
+        if (action === 'check-payment-status' && data.results?.length > 0) {
+            const approvedPayment = data.results.find((p: any) => p.status === 'approved');
+
+            if (approvedPayment) {
+                // Ativar plano no banco
+                const nextMonth = new Date()
+                nextMonth.setMonth(nextMonth.getMonth() + 1)
+
+                await supabaseAdmin
+                    .from('broker_profiles')
+                    .update({
+                        subscription_plan_id: planId,
+                        subscription_status: 'Ativo',
+                        subscription_expires_at: nextMonth.toISOString()
+                    })
+                    .eq('user_id', userId);
+
+                // Atualizar histórico
+                await supabaseAdmin.from('payment_history')
+                    .update({ status: 'approved' })
+                    .eq('user_id', userId)
+                    .eq('status', 'pending');
+
+                return new Response(JSON.stringify({
+                    success: true,
+                    paymentApproved: true,
+                    payment: approvedPayment
+                }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+
+            return new Response(JSON.stringify({
+                success: true,
+                paymentApproved: false,
+                latestStatus: data.results[0]?.status || 'unknown'
+            }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // Registro no sistema financeiro para criação de preferência
         if (action === 'create-preference' && response.status < 300 && data.init_point) {
             try {
                 const { error: insertError } = await supabaseAdmin.from('payment_history').insert({
@@ -60,10 +105,9 @@ Deno.serve(async (req) => {
                     mp_id: data.id,
                     init_point: data.init_point
                 });
-                if (insertError) console.error('Erro ao gravar histórico (Talvez tabela faltante?):', insertError.message);
-                else console.log('Intenção de pagamento gravada no sistema financeiro.');
+                if (insertError) console.error('Erro ao gravar histórico:', insertError.message);
             } catch (dbErr: any) {
-                console.error('Falha crítica ao acessar payment_history:', dbErr.message);
+                console.error('Falha ao acessar payment_history:', dbErr.message);
             }
         }
 

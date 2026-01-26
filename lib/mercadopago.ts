@@ -103,5 +103,27 @@ export const mercadopagoService = {
         }
 
         return data; // Contém "init_point"
+    },
+
+    async checkPaymentStatus(userId: string, planId: string, preferenceId?: string) {
+        const { accessToken } = await this.getConfigs();
+        if (!accessToken) return { paymentApproved: false };
+
+        const { data, error } = await supabase.functions.invoke('mercadopago-api', {
+            body: {
+                action: 'check-payment-status',
+                accessToken,
+                userId,
+                planId,
+                preferenceId
+            }
+        });
+
+        if (error) {
+            console.error('Erro ao verificar pagamento:', error);
+            return { paymentApproved: false };
+        }
+
+        return data;
     }
 };

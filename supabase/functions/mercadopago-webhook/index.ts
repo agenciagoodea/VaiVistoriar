@@ -15,61 +15,91 @@ Deno.serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
+        // Parse notification - MP sends data in different formats
         const url = new URL(req.url)
-        // Tenta pegar o ID de várias formas (data.id é comum nas novas APIs)
-        const id = url.searchParams.get('id') || url.searchParams.get('data.id');
+        let paymentId = url.searchParams.get('id') || url.searchParams.get('data.id');
         const type = url.searchParams.get('type') || url.searchParams.get('topic');
 
-        console.log(`Webhook recebido: Tipo=${type}, ID=${id}`);
+        // Also try to get from body for newer API
+        if (!paymentId) {
+            try {
+                const body = await req.json();
+                paymentId = body?.data?.id || body?.id;
+            } catch { }
+        }
 
-        if (id && (type === 'payment' || !type)) {
-            const { data: configs } = await supabaseClient.from('system_configs').select('*')
-            const accessToken = configs?.find(c => c.key === 'mercadopago_access_token')?.value
+        console.log(`Webhook recebido: Tipo=${type}, PaymentID=${paymentId}`);
 
-            if (!accessToken) throw new Error('Access Token não encontrado.')
+        if (!paymentId) {
+            console.log('Nenhum ID de pagamento recebido');
+            return new Response(JSON.stringify({ received: true, error: 'No payment ID' }), {
+                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
 
-            const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
-            })
+        // Get access token from database
+        const { data: configs } = await supabaseClient.from('system_configs').select('*')
+        const accessToken = configs?.find(c => c.key === 'mercadopago_access_token')?.value
 
-            if (!mpResponse.ok) throw new Error(`Erro ao consultar MP: ${mpResponse.status}`);
+        if (!accessToken) throw new Error('Access Token não encontrado.')
 
-            const paymentData = await mpResponse.json()
-            console.log(`Status do pagamento ${id}: ${paymentData.status}`);
+        // Fetch payment details from Mercado Pago
+        const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
 
-            const userId = paymentData.external_reference || paymentData.metadata?.user_id
-            const planId = paymentData.metadata?.plan_id
-            const mpIdString = String(paymentData.id)
+        if (!mpResponse.ok) {
+            console.error(`Erro ao consultar MP: ${mpResponse.status}`);
+            return new Response(JSON.stringify({ received: true, error: 'MP API error' }), {
+                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
 
-            // 1. Atualizar Histórico Financeiro
-            if (userId) {
-                const { error: histErr } = await supabaseClient.from('payment_history')
-                    .update({ status: paymentData.status })
-                    .eq('mp_id', mpIdString)
+        const paymentData = await mpResponse.json()
+        console.log(`Payment Status: ${paymentData.status}, User: ${paymentData.external_reference}`);
 
-                if (histErr) console.error('Aviso: Não foi possível atualizar histórico:', histErr.message);
-            }
+        const userId = paymentData.external_reference || paymentData.metadata?.user_id
+        const planId = paymentData.metadata?.plan_id
 
-            // 2. Ativar Plano se aprovado
-            if (paymentData.status === 'approved' && userId && planId) {
-                const nextMonth = new Date()
-                nextMonth.setMonth(nextMonth.getMonth() + 1)
+        if (!userId) {
+            console.log('Nenhum user_id encontrado no pagamento');
+            return new Response(JSON.stringify({ received: true, warning: 'No user_id' }), {
+                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
 
-                const { error: profErr } = await supabaseClient
-                    .from('broker_profiles')
-                    .update({
-                        subscription_plan_id: planId,
-                        subscription_status: 'Ativo',
-                        subscription_expires_at: nextMonth.toISOString()
-                    })
-                    .eq('user_id', userId)
+        // 1. Update payment history by user_id (since mp_id may differ)
+        const { error: histErr } = await supabaseClient.from('payment_history')
+            .update({ status: paymentData.status })
+            .eq('user_id', userId)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-                if (profErr) throw profErr;
+        if (histErr) console.error('Erro ao atualizar histórico:', histErr.message);
+
+        // 2. Activate plan if approved
+        if (paymentData.status === 'approved' && planId) {
+            const nextMonth = new Date()
+            nextMonth.setMonth(nextMonth.getMonth() + 1)
+
+            const { error: profErr } = await supabaseClient
+                .from('broker_profiles')
+                .update({
+                    subscription_plan_id: planId,
+                    subscription_status: 'Ativo',
+                    subscription_expires_at: nextMonth.toISOString()
+                })
+                .eq('user_id', userId)
+
+            if (profErr) {
+                console.error('Erro ao ativar plano:', profErr.message);
+            } else {
                 console.log(`Sucesso: Plano ${planId} ativado para ${userId}`);
             }
         }
 
-        return new Response(JSON.stringify({ received: true }), {
+        return new Response(JSON.stringify({ received: true, status: paymentData.status }), {
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
@@ -77,7 +107,7 @@ Deno.serve(async (req) => {
     } catch (error: any) {
         console.error('Erro no Webhook:', error.message)
         return new Response(JSON.stringify({ error: error.message }), {
-            status: 200, // Sempre 200 para o MP não ficar tentando
+            status: 200, // Always 200 for MP
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
     }

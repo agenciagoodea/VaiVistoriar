@@ -136,8 +136,7 @@ const MyPlanPage: React.FC = () => {
                 if (paymentWindow) {
                     paymentWindow.location.href = data.init_point;
 
-                    // POLLING: Verificar status do pagamento a cada 3 segundos
-                    const mpId = data.id; // ID da preferência
+                    // POLLING: Consultar Mercado Pago diretamente a cada 4 segundos
                     const pollInterval = setInterval(async () => {
                         // Verificar se a janela foi fechada pelo usuário
                         if (paymentWindow.closed) {
@@ -146,20 +145,21 @@ const MyPlanPage: React.FC = () => {
                             return;
                         }
 
-                        // Consultar banco de dados por pagamento aprovado
-                        const { data: payment } = await supabase
-                            .from('payment_history')
-                            .select('status')
-                            .eq('mp_id', mpId)
-                            .single();
+                        try {
+                            // Consultar API do Mercado Pago diretamente (usando ID da preferência)
+                            const { mercadopagoService } = await import('../lib/mercadopago');
+                            const checkResult = await mercadopagoService.checkPaymentStatus(user.id, plan.id, data.id);
 
-                        if (payment?.status === 'approved') {
-                            clearInterval(pollInterval);
-                            paymentWindow.close();
-                            alert('🎉 Pagamento Aprovado! Seu plano foi ativado com sucesso.');
-                            fetchData(); // Recarrega todos os dados
+                            if (checkResult?.paymentApproved) {
+                                clearInterval(pollInterval);
+                                paymentWindow.close();
+                                alert('🎉 Pagamento Aprovado! Seu plano foi ativado com sucesso.');
+                                fetchData();
+                            }
+                        } catch (pollErr) {
+                            console.log('Polling check:', pollErr);
                         }
-                    }, 3000);
+                    }, 4000);
 
                     // Timeout de 10 minutos para parar o polling
                     setTimeout(() => clearInterval(pollInterval), 600000);
