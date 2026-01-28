@@ -45,19 +45,30 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const fetchUserRole = async (session: Session | null) => {
       setSession(session);
-      if (session?.user?.user_metadata?.role) {
-        setRole(session.user.user_metadata.role);
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('broker_profiles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (profile?.role) {
+          setRole(profile.role);
+        } else if (session.user.user_metadata?.role) {
+          setRole(session.user.user_metadata.role);
+        }
       }
       setLoading(false);
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      fetchUserRole(session);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user?.user_metadata?.role) {
-        setRole(session.user.user_metadata.role);
-      }
+      fetchUserRole(session);
     });
 
     return () => subscription.unsubscribe();
