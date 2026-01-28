@@ -23,6 +23,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
+    const [isForgotMode, setIsForgotMode] = useState(false);
+    const [recoveryEmail, setRecoveryEmail] = useState('');
 
     const [brand, setBrand] = useState({ primaryColor: '#2563eb', logoUrl: '' });
 
@@ -81,7 +83,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                 }).eq('user_id', session?.user.id);
 
                 localStorage.setItem('vpro_session_token', sessionId);
-                navigate('/admin');
+
+                // Redirecionamento baseado no papel do usuário
+                const userRole = session?.user?.user_metadata?.role || 'BROKER';
+                const targetPath = userRole === 'ADMIN' ? '/admin' : userRole === 'BROKER' ? '/broker' : '/pj';
+                navigate(targetPath);
             } else {
                 const { data: { user }, error: signUpError } = await supabase.auth.signUp({
                     email: identifier,
@@ -107,6 +113,52 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
         }
     };
 
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+        setMessage(null);
+
+        try {
+            // Buscamos o e-mail pelo CPF/CNPJ se o usuário informou um documento
+            let targetEmail = recoveryEmail;
+            const cleanId = recoveryEmail.replace(/\D/g, '');
+
+            if (cleanId.length >= 11 && !recoveryEmail.includes('@')) {
+                const { data: fetchedEmail, error: rpcError } = await supabase
+                    .rpc('get_email_by_cpf', { p_cpf_cnpj: cleanId });
+
+                if (rpcError) throw rpcError;
+                if (!fetchedEmail) throw new Error('CPF/CNPJ não encontrado.');
+                targetEmail = fetchedEmail;
+            }
+
+            if (!targetEmail.includes('@')) {
+                throw new Error('Por favor, informe um e-mail válido ou seu CPF/CNPJ cadastrado.');
+            }
+
+            const { data, error: functionError } = await supabase.functions.invoke('send-email', {
+                body: {
+                    to: targetEmail,
+                    templateId: 'password_reset',
+                    variables: {
+                        user_name: targetEmail.split('@')[0]
+                    }
+                }
+            });
+
+            if (functionError) throw functionError;
+            if (data?.success === false) throw new Error(data.error);
+
+            setMessage('E-mail de recuperação enviado com sucesso! Verifique sua caixa de entrada.');
+            setIsForgotMode(false);
+        } catch (err: any) {
+            setError(err.message || 'Ocorreu um erro ao enviar o e-mail de recuperação.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-4 font-['Inter']">
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
@@ -127,10 +179,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                         )}
                     </div>
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                        {isLogin ? 'Bem-vindo de volta' : 'Crie sua conta'}
+                        {isForgotMode ? 'Recuperar Senha' : (isLogin ? 'Bem-vindo de volta' : 'Crie sua conta')}
                     </h2>
                     <p className="text-slate-400 font-medium text-sm mt-2">
-                        {isLogin ? 'Entre com suas credenciais para continuar' : 'Comece sua jornada profissional hoje'}
+                        {isForgotMode ? 'Informe seu CPF/CNPJ ou e-mail cadastrado' : (isLogin ? 'Entre com suas credenciais para continuar' : 'Comece sua jornada profissional hoje')}
                     </p>
                 </div>
 
@@ -149,124 +201,168 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                         </div>
                     )}
 
-                    <form onSubmit={handleAuth} className="space-y-4">
-                        {!isLogin && (
-                            <>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
-                                    <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 text-[20px]">person</span>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={fullName}
-                                            onChange={(e) => setFullName(e.target.value)}
-                                            placeholder="Seu nome"
-                                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-300 font-medium"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Perfil</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setRole('BROKER')}
-                                            className={`py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all border ${role === 'BROKER' ? 'text-white shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-50 hover:border-slate-200'}`}
-                                            style={{
-                                                backgroundColor: role === 'BROKER' ? brand.primaryColor : undefined,
-                                                borderColor: role === 'BROKER' ? brand.primaryColor : undefined,
-                                                boxShadow: role === 'BROKER' ? `0 10px 15px -3px ${brand.primaryColor}40` : undefined
-                                            }}
-                                        >
-                                            Corretor (PF)
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setRole('PJ')}
-                                            className={`py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all border ${role === 'PJ' ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-500/20' : 'bg-slate-50 text-slate-400 border-slate-50 hover:border-slate-200'}`}
-                                        >
-                                            Imobiliária (PJ)
-                                        </button>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                {isLogin ? 'CPF ou CNPJ' : (role === 'BROKER' ? 'Seu CPF' : 'C.N.P.J da Empresa')}
-                            </label>
-                            <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 text-[20px]">
-                                    {isLogin ? 'badge' : (role === 'BROKER' ? 'person_pin' : 'business_center')}
-                                </span>
-                                <input
-                                    type="text"
-                                    required
-                                    value={isLogin ? identifier : cpfCnpj}
-                                    onChange={(e) => isLogin ? setIdentifier(e.target.value) : setCpfCnpj(e.target.value)}
-                                    placeholder={role === 'BROKER' ? "000.000.000-00" : "00.000.000/0000-00"}
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-300 font-medium"
-                                />
-                            </div>
-                        </div>
-
-                        {!isLogin && (
+                    {isForgotMode ? (
+                        <form onSubmit={handleForgotPassword} className="space-y-4">
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail para Login</label>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail ou CPF/CNPJ</label>
                                 <div className="relative">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 text-[20px]">mail</span>
                                     <input
-                                        type="email"
+                                        type="text"
                                         required
-                                        value={identifier}
-                                        onChange={(e) => setIdentifier(e.target.value)}
-                                        placeholder="seu@email.com"
+                                        value={recoveryEmail}
+                                        onChange={(e) => setRecoveryEmail(e.target.value)}
+                                        placeholder="seu@email.com ou 000.000.000-00"
                                         className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-300 font-medium"
                                     />
                                 </div>
                             </div>
-                        )}
-
-                        <div className="space-y-1.5">
-                            <div className="flex justify-between items-center px-1">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Senha</label>
-                                {isLogin && <button type="button" className="text-[10px] font-black text-blue-600 hover:underline uppercase tracking-widest">Esqueceu?</button>}
-                            </div>
-                            <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 text-[20px]">lock_open</span>
-                                <input
-                                    type="password"
-                                    required
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-300"
-                                />
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
-                            style={{
-                                backgroundColor: brand.primaryColor,
-                                boxShadow: `0 20px 25px -5px ${brand.primaryColor}40`
-                            }}
-                        >
-                            {loading ? (
-                                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                            ) : (
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+                                style={{
+                                    backgroundColor: brand.primaryColor,
+                                    boxShadow: `0 20px 25px -5px ${brand.primaryColor}40`
+                                }}
+                            >
+                                {loading ? (
+                                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                ) : (
+                                    <>
+                                        Enviar Link de Recuperação
+                                        <span className="material-symbols-outlined text-[18px]">send</span>
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsForgotMode(false)}
+                                className="w-full py-2 text-slate-400 text-xs font-black uppercase tracking-widest hover:text-slate-600 transition-colors"
+                            >
+                                Voltar para o Login
+                            </button>
+                        </form>
+                    ) : (
+                        <form onSubmit={handleAuth} className="space-y-4">
+                            {!isLogin && (
                                 <>
-                                    {isLogin ? 'Entrar no Sistema' : 'Criar minha Conta'}
-                                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 text-[20px]">person</span>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={fullName}
+                                                onChange={(e) => setFullName(e.target.value)}
+                                                placeholder="Seu nome"
+                                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-300 font-medium"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Perfil</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setRole('BROKER')}
+                                                className={`py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all border ${role === 'BROKER' ? 'text-white shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-50 hover:border-slate-200'}`}
+                                                style={{
+                                                    backgroundColor: role === 'BROKER' ? brand.primaryColor : undefined,
+                                                    borderColor: role === 'BROKER' ? brand.primaryColor : undefined,
+                                                    boxShadow: role === 'BROKER' ? `0 10px 15px -3px ${brand.primaryColor}40` : undefined
+                                                }}
+                                            >
+                                                Corretor (PF)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setRole('PJ')}
+                                                className={`py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all border ${role === 'PJ' ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-500/20' : 'bg-slate-50 text-slate-400 border-slate-50 hover:border-slate-200'}`}
+                                            >
+                                                Imobiliária (PJ)
+                                            </button>
+                                        </div>
+                                    </div>
                                 </>
                             )}
-                        </button>
-                    </form>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    {isLogin ? 'CPF ou CNPJ' : (role === 'BROKER' ? 'Seu CPF' : 'C.N.P.J da Empresa')}
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 text-[20px]">
+                                        {isLogin ? 'badge' : (role === 'BROKER' ? 'person_pin' : 'business_center')}
+                                    </span>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={isLogin ? identifier : cpfCnpj}
+                                        onChange={(e) => isLogin ? setIdentifier(e.target.value) : setCpfCnpj(e.target.value)}
+                                        placeholder={role === 'BROKER' ? "000.000.000-00" : "00.000.000/0000-00"}
+                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-300 font-medium"
+                                    />
+                                </div>
+                            </div>
+
+                            {!isLogin && (
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail para Login</label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 text-[20px]">mail</span>
+                                        <input
+                                            type="email"
+                                            required
+                                            value={identifier}
+                                            onChange={(e) => setIdentifier(e.target.value)}
+                                            placeholder="seu@email.com"
+                                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-300 font-medium"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between items-center px-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Senha</label>
+                                    {isLogin && <button type="button" onClick={() => setIsForgotMode(true)} className="text-[10px] font-black text-blue-600 hover:underline uppercase tracking-widest">Esqueceu?</button>}
+                                </div>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-300 text-[20px]">lock_open</span>
+                                    <input
+                                        type="password"
+                                        required
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-300"
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+                                style={{
+                                    backgroundColor: brand.primaryColor,
+                                    boxShadow: `0 20px 25px -5px ${brand.primaryColor}40`
+                                }}
+                            >
+                                {loading ? (
+                                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                ) : (
+                                    <>
+                                        {isLogin ? 'Entrar no Sistema' : 'Criar minha Conta'}
+                                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                                    </>
+                                )}
+                            </button>
+                        </form>
+                    )}
 
                     <div className="mt-8 pt-6 border-t border-slate-50 text-center">
                         <p className="text-slate-400 text-xs font-medium">

@@ -36,6 +36,8 @@ import CheckoutPending from './pages/CheckoutPending';
 import EmailConfigPage from './pages/EmailConfigPage';
 import MyPlanPage from './pages/MyPlanPage';
 import ReportsPage from './pages/ReportsPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -80,36 +82,55 @@ const App: React.FC = () => {
         <Route path="/checkout/success" element={<CheckoutSuccess />} />
         <Route path="/checkout/failure" element={<CheckoutFailure />} />
         <Route path="/checkout/pending" element={<CheckoutPending />} />
-        <Route path="/login" element={!session ? <LoginPage /> : <Navigate to="/admin" replace />} />
-        <Route path="/register" element={!session ? <LoginPage isRegisterMode={true} /> : <Navigate to="/admin" replace />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/login" element={!session ? <LoginPage /> : <Navigate to={role === 'ADMIN' ? '/admin' : role === 'BROKER' ? '/broker' : '/pj'} replace />} />
+        <Route path="/register" element={!session ? <LoginPage isRegisterMode={true} /> : <Navigate to={role === 'ADMIN' ? '/admin' : role === 'BROKER' ? '/broker' : '/pj'} replace />} />
 
         {/* Dashboard Routes wrapper */}
-        <Route element={session ? <DashboardLayout role={role} setRole={setRole} /> : <Navigate to="/login" replace />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/broker" element={<BrokerDashboard />} />
-          <Route path="/pj" element={<PJDashboard />} />
-          <Route path="/broker/plan" element={<MyPlanPage />} />
+        <Route element={<DashboardLayout role={role} />}>
+          {/* Admin Specific Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['ADMIN']} userRole={role} isAuthenticated={!!session} />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/admin/home" element={<HomeConfigPage />} />
+            <Route path="/admin/policies" element={<PoliciesConfigPage />} />
+            <Route path="/admin/checkout" element={<CheckoutConfigPage />} />
+            <Route path="/admin/plans" element={<PlanConfigPage />} />
+            <Route path="/admin/email" element={<EmailConfigPage />} />
+          </Route>
 
-          <Route path="/users" element={<UsersPage />} />
-          <Route path="/subscriptions" element={<SubscriptionsPage />} />
-          <Route path="/payments" element={<PaymentsPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/properties" element={<PropertiesPage />} />
-          <Route path="/properties/new" element={<NewPropertyPage />} />
-          <Route path="/properties/edit/:id" element={<EditPropertyPage />} />
-          <Route path="/inspections" element={<InspectionsPage />} />
-          <Route path="/inspections/new" element={<NewInspectionPage />} />
-          <Route path="/inspections/edit/:id" element={<EditInspectionPage />} />
-          <Route path="/inspections/view/:id" element={<ViewInspectionPage />} />
-          <Route path="/clients" element={<ClientsPage />} />
-          <Route path="/clients/new" element={<NewClientPage />} />
-          <Route path="/clients/edit/:id" element={<EditClientPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/admin/home" element={<HomeConfigPage />} />
-          <Route path="/admin/policies" element={<PoliciesConfigPage />} />
-          <Route path="/admin/checkout" element={<CheckoutConfigPage />} />
-          <Route path="/admin/plans" element={<PlanConfigPage />} />
-          <Route path="/admin/email" element={<EmailConfigPage />} />
+          {/* Broker Specific Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['BROKER']} userRole={role} isAuthenticated={!!session} />}>
+            <Route path="/broker" element={<BrokerDashboard />} />
+            <Route path="/broker/plan" element={<MyPlanPage />} />
+          </Route>
+
+          {/* PJ Specific Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['PJ']} userRole={role} isAuthenticated={!!session} />}>
+            <Route path="/pj" element={<PJDashboard />} />
+          </Route>
+
+          {/* Shared Protected Routes (Broker and PJ) */}
+          <Route element={<ProtectedRoute allowedRoles={['BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} />}>
+            <Route path="/properties" element={<PropertiesPage />} />
+            <Route path="/properties/new" element={<NewPropertyPage />} />
+            <Route path="/properties/edit/:id" element={<EditPropertyPage />} />
+            <Route path="/inspections" element={<InspectionsPage />} />
+            <Route path="/inspections/new" element={<NewInspectionPage />} />
+            <Route path="/inspections/edit/:id" element={<EditInspectionPage />} />
+            <Route path="/inspections/view/:id" element={<ViewInspectionPage />} />
+            <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/clients/new" element={<NewClientPage />} />
+            <Route path="/clients/edit/:id" element={<EditClientPage />} />
+          </Route>
+
+          {/* Common Protected Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} />}>
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

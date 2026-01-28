@@ -6,10 +6,9 @@ import { supabase } from '../lib/supabase';
 
 interface DashboardLayoutProps {
   role: UserRole;
-  setRole: (role: UserRole) => void;
 }
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, setRole }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -174,14 +173,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, setRole }) => {
           )}
         </nav>
 
-        <div className="pt-6 border-t border-slate-100">
-          <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Trocar Visão</p>
-          <div className="grid grid-cols-1 gap-2">
-            <button onClick={() => { setRole('ADMIN'); navigate('/admin'); setMobileMenuOpen(false); }} className={`text-xs p-2 rounded-lg text-left ${role === 'ADMIN' ? 'bg-slate-100 font-bold' : 'hover:bg-slate-50'}`}>Admin View</button>
-            <button onClick={() => { setRole('BROKER'); navigate('/broker'); setMobileMenuOpen(false); }} className={`text-xs p-2 rounded-lg text-left ${role === 'BROKER' ? 'bg-slate-100 font-bold' : 'hover:bg-slate-50'}`}>Broker View</button>
-            <button onClick={() => { setRole('PJ'); navigate('/pj'); setMobileMenuOpen(false); }} className={`text-xs p-2 rounded-lg text-left ${role === 'PJ' ? 'bg-slate-100 font-bold' : 'hover:bg-slate-50'}`}>PJ View</button>
-          </div>
-        </div>
       </div>
 
       <div className="p-6 border-t border-slate-100">

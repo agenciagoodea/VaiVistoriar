@@ -44,13 +44,20 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
         name: 'Envio de Laudo Técnico',
         subject: 'Laudo de Vistoria Disponível - {{property_name}}',
         html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><div style="text-align: center; margin-bottom: 30px;"><span style="background: #eff6ff; color: #2563eb; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 12px; text-transform: uppercase;">Laudo Digital</span></div><h1 style="color: #1e293b; margin-top: 0; text-align: center;">Vistoria Concluída</h1><p style="color: #64748b; line-height: 1.6; text-align: center;">Olá, <strong>{{client_name}}</strong>!</p><p style="color: #64748b; line-height: 1.6; text-align: center;">O laudo de vistoria do imóvel <strong>{{property_name}}</strong> já está disponível para visualização e assinatura digital.</p><div style="text-align: center; margin: 40px 0;"><a href="{{report_link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Acessar Laudo Digital</a></div><p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 40px;">Este link é único e seguro. Em caso de dúvidas, entre em contato com o responsável.</p></div></div>`
+    },
+    {
+        id: 'password_reset',
+        name: 'Recuperação de Senha',
+        subject: 'Recuperação de sua Senha - VistoriaPro',
+        html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><div style="text-align: center; margin-bottom: 30px;"><div style="width: 60px; hieght: 60px; background: #fef2f2; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; color: #ef4444;"><span style="font-size: 32px;">🔑</span></div></div><h1 style="color: #1e293b; margin-top: 0; text-align: center;">Recuperar Senha</h1><p style="color: #64748b; line-height: 1.6; text-align: center;">Olá! Você solicitou a recuperação de senha para sua conta no VistoriaPro. Clique no botão abaixo para criar uma nova senha.</p><div style="text-align: center; margin: 40px 0;"><a href="{{link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);">Definir Nova Senha</a></div><p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 40px;">Este link expira em 24 horas. Se você não solicitou esta alteração, pode ignorar este e-mail com segurança.</p></div></div>`
     }
 ];
 
 const TEMPLATE_VARIABLES: Record<string, string[]> = {
     invite: ['{{user_name}}', '{{link}}'],
     payment_success: ['{{plan_name}}', '{{amount}}', '{{date}}'],
-    send_report: ['{{client_name}}', '{{property_name}}', '{{report_link}}']
+    send_report: ['{{client_name}}', '{{property_name}}', '{{report_link}}'],
+    password_reset: ['{{user_name}}', '{{link}}']
 };
 
 const SNIPPETS = [
