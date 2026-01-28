@@ -98,110 +98,135 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, setRole }) => {
     fetchUser();
   }, [navigate]);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const SidebarContent = (
+    <div className="flex flex-col h-full bg-white border-r border-slate-200">
+      <div className="h-20 flex items-center px-6 shrink-0">
+        <div className="flex items-center gap-3">
+          {brand.logoUrl ? (
+            <img src={brand.logoUrl} className="h-8 w-auto object-contain" alt="Logo" />
+          ) : (
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: brand.primaryColor }}>
+              <span className="material-symbols-outlined font-bold text-2xl">home_app_logo</span>
+            </div>
+          )}
+          <div>
+            <span className="font-extrabold text-[15px] text-slate-900 block leading-tight">VistoriaPro</span>
+            <span className="text-[11px] text-slate-400 font-medium">{role === 'ADMIN' ? 'Super Admin' : 'Painel'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 py-4 px-4 space-y-8 overflow-y-auto">
+        <nav className="space-y-1">
+          {currentMenu.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-semibold text-sm ${isActive(item.path)
+                ? 'bg-opacity-10'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              style={{
+                backgroundColor: isActive(item.path) ? `${brand.primaryColor}15` : undefined,
+                color: isActive(item.path) ? brand.primaryColor : undefined
+              }}
+            >
+              <span className={`material-symbols-outlined text-[22px] ${isActive(item.path) ? 'fill-icon' : ''}`}>
+                {item.icon}
+              </span>
+              {item.label}
+            </Link>
+          ))}
+
+          {role === 'ADMIN' && (
+            <div className="space-y-1">
+              <button
+                onClick={() => setIsConfigOpen(!isConfigOpen)}
+                className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl transition-all font-semibold text-sm ${isConfigOpen || location.pathname.startsWith('/admin/') ? '' : 'text-slate-500 hover:bg-slate-50'}`}
+                style={{ color: (isConfigOpen || location.pathname.startsWith('/admin/')) ? brand.primaryColor : undefined }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[22px]">settings</span>
+                  Configurações
+                </div>
+                <span className={`material-symbols-outlined transition-transform duration-300 ${isConfigOpen ? 'rotate-180' : ''}`}>expand_more</span>
+              </button>
+
+              {isConfigOpen && (
+                <div className="pl-9 space-y-1 mt-1 animate-in slide-in-from-top-2 duration-300">
+                  {configSubMenu.map((sub) => (
+                    <Link
+                      key={sub.path}
+                      to={sub.path}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block py-2 text-xs font-bold transition-all ${isActive(sub.path) ? '' : 'text-slate-400 hover:text-slate-900'}`}
+                      style={{ color: isActive(sub.path) ? brand.primaryColor : undefined }}
+                    >
+                      {sub.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </nav>
+
+        <div className="pt-6 border-t border-slate-100">
+          <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Trocar Visão</p>
+          <div className="grid grid-cols-1 gap-2">
+            <button onClick={() => { setRole('ADMIN'); navigate('/admin'); setMobileMenuOpen(false); }} className={`text-xs p-2 rounded-lg text-left ${role === 'ADMIN' ? 'bg-slate-100 font-bold' : 'hover:bg-slate-50'}`}>Admin View</button>
+            <button onClick={() => { setRole('BROKER'); navigate('/broker'); setMobileMenuOpen(false); }} className={`text-xs p-2 rounded-lg text-left ${role === 'BROKER' ? 'bg-slate-100 font-bold' : 'hover:bg-slate-50'}`}>Broker View</button>
+            <button onClick={() => { setRole('PJ'); navigate('/pj'); setMobileMenuOpen(false); }} className={`text-xs p-2 rounded-lg text-left ${role === 'PJ' ? 'bg-slate-100 font-bold' : 'hover:bg-slate-50'}`}>PJ View</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 border-t border-slate-100">
+        <button
+          onClick={async () => {
+            await supabase.auth.signOut();
+            navigate('/');
+          }}
+          className="flex items-center gap-3 px-3 py-2 w-full text-sm font-bold text-slate-500 hover:text-red-500 transition-colors"
+        >
+          <span className="material-symbols-outlined text-[22px]">logout</span>
+          Sair
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex h-screen w-full bg-[#F8FAFC] text-slate-900 overflow-hidden font-['Inter']">
+      {/* Mobile Drawer */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden font-['Inter']">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setMobileMenuOpen(false)} />
+          <div className="fixed inset-y-0 left-0 w-64 shadow-2xl transform transition-transform animate-in slide-in-from-left duration-200">
+            {SidebarContent}
+          </div>
+        </div>
+      )}
+
       {/* Sidebar Desktop */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col shrink-0">
-        <div className="h-20 flex items-center px-6">
-          <div className="flex items-center gap-3">
-            {brand.logoUrl ? (
-              <img src={brand.logoUrl} className="h-8 w-auto object-contain" alt="Logo" />
-            ) : (
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: brand.primaryColor }}>
-                <span className="material-symbols-outlined font-bold text-2xl">home_app_logo</span>
-              </div>
-            )}
-            <div>
-              <span className="font-extrabold text-[15px] text-slate-900 block leading-tight">VistoriaPro</span>
-              <span className="text-[11px] text-slate-400 font-medium">{role === 'ADMIN' ? 'Super Admin' : 'Painel'}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 py-4 px-4 space-y-8 overflow-y-auto">
-          <nav className="space-y-1">
-            {currentMenu.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-semibold text-sm ${isActive(item.path)
-                  ? 'bg-opacity-10'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                style={{
-                  backgroundColor: isActive(item.path) ? `${brand.primaryColor}15` : undefined,
-                  color: isActive(item.path) ? brand.primaryColor : undefined
-                }}
-              >
-                <span className={`material-symbols-outlined text-[22px] ${isActive(item.path) ? 'fill-icon' : ''}`}>
-                  {item.icon}
-                </span>
-                {item.label}
-              </Link>
-            ))}
-
-            {role === 'ADMIN' && (
-              <div className="space-y-1">
-                <button
-                  onClick={() => setIsConfigOpen(!isConfigOpen)}
-                  className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl transition-all font-semibold text-sm ${isConfigOpen || location.pathname.startsWith('/admin/') ? '' : 'text-slate-500 hover:bg-slate-50'}`}
-                  style={{ color: (isConfigOpen || location.pathname.startsWith('/admin/')) ? brand.primaryColor : undefined }}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-[22px]">settings</span>
-                    Configurações
-                  </div>
-                  <span className={`material-symbols-outlined transition-transform duration-300 ${isConfigOpen ? 'rotate-180' : ''}`}>expand_more</span>
-                </button>
-
-                {isConfigOpen && (
-                  <div className="pl-9 space-y-1 mt-1 animate-in slide-in-from-top-2 duration-300">
-                    {configSubMenu.map((sub) => (
-                      <Link
-                        key={sub.path}
-                        to={sub.path}
-                        className={`block py-2 text-xs font-bold transition-all ${isActive(sub.path) ? '' : 'text-slate-400 hover:text-slate-900'}`}
-                        style={{ color: isActive(sub.path) ? brand.primaryColor : undefined }}
-                      >
-                        {sub.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </nav>
-
-          <div className="pt-6 border-t border-slate-100">
-            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Trocar Visão</p>
-            <div className="grid grid-cols-1 gap-2">
-              <button onClick={() => { setRole('ADMIN'); navigate('/admin'); }} className={`text-xs p-2 rounded-lg text-left ${role === 'ADMIN' ? 'bg-slate-100 font-bold' : 'hover:bg-slate-50'}`}>Admin View</button>
-              <button onClick={() => { setRole('BROKER'); navigate('/broker'); }} className={`text-xs p-2 rounded-lg text-left ${role === 'BROKER' ? 'bg-slate-100 font-bold' : 'hover:bg-slate-50'}`}>Broker View</button>
-              <button onClick={() => { setRole('PJ'); navigate('/pj'); }} className={`text-xs p-2 rounded-lg text-left ${role === 'PJ' ? 'bg-slate-100 font-bold' : 'hover:bg-slate-50'}`}>PJ View</button>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border-t border-slate-100">
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate('/');
-            }}
-            className="flex items-center gap-3 px-3 py-2 w-full text-sm font-bold text-slate-500 hover:text-red-500 transition-colors"
-          >
-            <span className="material-symbols-outlined text-[22px]">logout</span>
-            Sair
-          </button>
-        </div>
+      <aside className="hidden lg:flex w-64 shrink-0">
+        {SidebarContent}
       </aside>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Navbar */}
-        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 shrink-0 z-20">
-          <div className="flex items-center gap-8 flex-1 max-w-2xl">
-            <h2 className="text-xl font-bold text-slate-900 whitespace-nowrap">
+        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 lg:px-8 shrink-0 z-20 gap-4">
+          <div className="flex items-center gap-4 lg:gap-8 flex-1 max-w-2xl overflow-hidden">
+            {/* Mobile Toggle */}
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">
+              <span className="material-symbols-outlined">menu</span>
+            </button>
+
+            <h2 className="text-lg lg:text-xl font-bold text-slate-900 whitespace-nowrap truncate hidden sm:block">
               {isActive('/admin') && 'Visão Geral'}
               {isActive('/admin/plans') && 'Gestão de Ofertas'}
               {isActive('/admin/email') && 'Configuração de E-mail'}
@@ -220,22 +245,22 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, setRole }) => {
               {isActive('/users') && 'Membros'}
               {isActive('/settings') && 'Configurações'}
             </h2>
-            <div className="relative w-full">
+            <div className="relative w-full max-w-[200px] lg:max-w-none">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400 text-[20px]">search</span>
               <input
                 type="text"
-                placeholder="Buscar usuário, imobiliária ou fatura..."
+                placeholder="Buscar..."
                 className="pl-10 pr-4 py-2.5 bg-[#F1F5F9] border-none rounded-xl text-sm w-full focus:ring-2 focus:ring-blue-500/10 transition-all outline-none"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 lg:gap-6">
             <div
               onClick={() => navigate('/settings')}
-              className="flex items-center gap-3 pl-4 border-l border-slate-100 cursor-pointer group"
+              className="flex items-center gap-3 lg:pl-4 lg:border-l border-slate-100 cursor-pointer group"
             >
-              <div className="text-right hidden sm:block">
+              <div className="text-right hidden md:block">
                 <p className="text-[13px] font-black text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">{userProfile?.full_name}</p>
                 <p className="text-[10px] font-semibold text-slate-400">{userProfile?.email}</p>
               </div>
@@ -246,8 +271,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, setRole }) => {
           </div>
         </header>
 
-        {/* Scrollable Dashboard Body */}
-        <div className="flex-1 overflow-y-auto p-8">
+        {/* Scrollable Dashboard Body - Responsive Padding */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
           <Outlet />
         </div>
       </main>

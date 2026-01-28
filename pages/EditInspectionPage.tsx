@@ -263,7 +263,7 @@ const EditInspectionPage: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-[40px] border border-slate-200 shadow-2xl overflow-hidden">
-                <div className="p-8 md:p-12">
+                <div className="p-5 md:p-12">
 
                     {step === 1 && (
                         <div className="space-y-8">

@@ -193,16 +193,16 @@ const ViewInspectionPage: React.FC = () => {
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{inspection.report_type} • {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : 'Data N/A'}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={shareWhatsApp} className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-green-100">
+                <div className="flex flex-wrap items-center gap-2">
+                    <button onClick={shareWhatsApp} className="flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-green-100 flex-1 sm:flex-none justify-center">
                         <span className="material-symbols-outlined text-[18px]">share</span>
                         WhatsApp
                     </button>
-                    <button onClick={openEmailModal} className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-200">
+                    <button onClick={openEmailModal} className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-200 flex-1 sm:flex-none justify-center">
                         <span className="material-symbols-outlined text-[18px]">mail</span>
                         E-mail
                     </button>
-                    <button onClick={downloadPDF} disabled={exporting} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50">
+                    <button onClick={downloadPDF} disabled={exporting} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 flex-1 sm:flex-none justify-center">
                         {exporting ? (
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
                         ) : (
@@ -272,8 +272,8 @@ const ViewInspectionPage: React.FC = () => {
                     </div>
 
                     {/* Nova Seção de Identificação do Imóvel (Layout Conforme Esquema) */}
-                    <div className="bg-slate-50/50 rounded-[48px] border border-slate-100 p-8 md:p-12 space-y-12">
-                        <div className="grid md:grid-cols-5 gap-12 items-start">
+                    <div className="bg-slate-50/50 rounded-[48px] border border-slate-100 p-6 md:p-12 space-y-12">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-12 items-start">
                             {/* Coluna Esquerda: ID + Dados Técnicos (3/5) */}
                             <div className="md:col-span-3 space-y-10">
                                 <div className="space-y-4">
@@ -441,26 +441,26 @@ const ViewInspectionPage: React.FC = () => {
                     {inspection.extra_costs && inspection.extra_costs.length > 0 && (
                         <div className="space-y-8 break-inside-avoid pt-12">
                             <h3 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em] border-b-2 border-rose-50 pb-3 text-center">DEMONSTRATIVO DE REPAROS E DESPESAS</h3>
-                            <div className="bg-white border-4 border-slate-50 rounded-[48px] overflow-hidden shadow-2xl">
-                                <table className="w-full">
+                            <div className="bg-white border-4 border-slate-50 rounded-[48px] overflow-hidden shadow-2xl overflow-x-auto">
+                                <table className="w-full min-w-[600px]">
                                     <thead className="bg-slate-50/50 border-b border-slate-100">
                                         <tr>
-                                            <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição da Despesa</th>
-                                            <th className="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Estimado</th>
+                                            <th className="px-6 md:px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição da Despesa</th>
+                                            <th className="px-6 md:px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Estimado</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {inspection.extra_costs.map((cost: any, cIdx: number) => (
                                             <tr key={cIdx} className="hover:bg-slate-50/30 transition-colors">
-                                                <td className="px-10 py-6 text-sm font-bold text-slate-700 uppercase tracking-tight">{cost.description}</td>
-                                                <td className="px-10 py-6 text-right text-sm font-black text-slate-900 tabular-nums">R$ {parseFloat(cost.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                                <td className="px-6 md:px-10 py-6 text-sm font-bold text-slate-700 uppercase tracking-tight">{cost.description}</td>
+                                                <td className="px-6 md:px-10 py-6 text-right text-sm font-black text-slate-900 tabular-nums">R$ {parseFloat(cost.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                     <tfoot className="bg-slate-900">
                                         <tr>
-                                            <td className="px-10 py-7 text-xs font-black text-white uppercase tracking-[0.3em]">CUSTO TOTAL CALCULADO</td>
-                                            <td className="px-10 py-7 text-right text-xl font-black text-blue-400 tabular-nums">
+                                            <td className="px-6 md:px-10 py-7 text-xs font-black text-white uppercase tracking-[0.3em]">CUSTO TOTAL CALCULADO</td>
+                                            <td className="px-6 md:px-10 py-7 text-right text-xl font-black text-blue-400 tabular-nums">
                                                 R$ {inspection.extra_costs.reduce((acc: number, cost: any) => acc + (parseFloat(cost.value) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </td>
                                         </tr>

@@ -115,7 +115,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
             </div>
 
             <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden transform transition-all">
-                <div className="p-8 pb-4 text-center">
+                <div className="p-6 md:p-8 pb-4 text-center">
                     <div className="inline-flex items-center gap-2 mb-6" style={{ color: brand.primaryColor }}>
                         {brand.logoUrl ? (
                             <img src={brand.logoUrl} className="h-10 w-auto object-contain" alt="Logo" />

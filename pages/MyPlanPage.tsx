@@ -323,7 +323,7 @@ const MyPlanPage: React.FC = () => {
                     Meus Pedidos e Faturas
                 </h3>
 
-                <div className="bg-white rounded-[40px] border border-slate-100 shadow-xl overflow-hidden">
+                <div className="bg-white rounded-[40px] border border-slate-100 shadow-xl overflow-hidden overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
                         <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-widest border-b border-slate-100">
                             <tr>
