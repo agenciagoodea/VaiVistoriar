@@ -15,23 +15,26 @@ const PaymentsPage: React.FC = () => {
     const fetchPayments = async () => {
       try {
         setLoading(true);
-        // Buscamos o histórico real de pagamentos
-        const { data: history } = await supabase
-          .from('payment_history')
-          .select('*, profiles:user_id(full_name)');
+        // Admin Function Call for REAL system-wide payments
+        const { data: result, error } = await supabase.functions.invoke('admin-dash', {
+          body: { action: 'get_payments' }
+        });
+
+        if (error) throw error;
+        const history = result?.payments || [];
 
         if (history) {
           let totalVal = 0;
           let pendingCount = 0;
 
-          const mapped = history.map(h => {
+          const mapped = history.map((h: any) => {
             const price = parseFloat(h.amount || 0);
             if (h.status === 'approved') totalVal += price;
             if (h.status === 'pending') pendingCount++;
 
             return {
               id: `#TR-${h.id.slice(0, 4)}`,
-              client: h.profiles?.full_name || 'Usuário',
+              client: h.user?.full_name || h.user?.email || 'Usuário',
               plan: h.plan_name || 'Plano',
               val: `R$ ${price.toFixed(price % 1 === 0 ? 0 : 2).replace('.', ',')}`,
               method: 'Mercado Pago',

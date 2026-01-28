@@ -11,24 +11,37 @@ const SubscriptionsPage: React.FC = () => {
          try {
             setLoading(true);
             // Buscamos corretores e seus planos
-            const { data, error } = await supabase
+            const { data: profiles, error } = await supabase
                .from('broker_profiles')
                .select('*, plans:subscription_plan_id(*)');
 
             if (error) throw error;
 
-            if (data) {
-               setSubs(data.map(profile => ({
-                  id: profile.user_id,
-                  client: profile.full_name || 'Usuário sem Nome',
-                  email: profile.full_name ? '' : '(Nenhum e-mail vinculado)',
-                  plan: profile.plans?.name || 'Vistoria Free',
-                  price: profile.plans?.price ? `R$ ${parseFloat(profile.plans.price).toFixed(2).replace('.', ',')} / mês` : 'Gratuito',
-                  status: profile.subscription_status || 'Ativa',
-                  renewal: profile.subscription_expires_at
-                     ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR')
-                     : 'Permanente'
-               })));
+            // Buscamos todos os pagamentos via Admin Function (para garantir acesso)
+            const { data: paymentsData, error: payError } = await supabase.functions.invoke('admin-dash', {
+               body: { action: 'get_payments' }
+            });
+            const allPayments = paymentsData?.payments || [];
+
+            if (profiles) {
+               setSubs(profiles.map(profile => {
+                  // Encontrar último pagamento aprovado deste usuário
+                  const lastPayment = allPayments.find((p: any) => p.user_id === profile.user_id && p.status === 'approved');
+
+                  return {
+                     id: profile.user_id,
+                     client: profile.full_name || 'Usuário sem Nome',
+                     email: profile.full_name ? '' : '(Nenhum e-mail vinculado)',
+                     plan: profile.plans?.name || 'Vistoria Free',
+                     price: profile.plans?.price ? `R$ ${parseFloat(profile.plans.price).toFixed(2).replace('.', ',')} / mês` : 'Gratuito',
+                     status: profile.subscription_status || 'Ativa',
+                     renewal: profile.subscription_expires_at
+                        ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR')
+                        : 'Permanente',
+                     lastVal: lastPayment ? `R$ ${parseFloat(lastPayment.amount).toFixed(2).replace('.', ',')}` : '--',
+                     lastDate: lastPayment ? new Date(lastPayment.created_at).toLocaleDateString('pt-BR') : '--'
+                  };
+               }));
             }
          } catch (err) {
             console.error('Erro ao buscar assinaturas:', err);
@@ -55,12 +68,14 @@ const SubscriptionsPage: React.FC = () => {
             </div>
          </div>
 
-         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
                <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-widest border-b border-slate-100">
                   <tr>
                      <th className="px-6 py-4">Cliente</th>
                      <th className="px-6 py-4">Plano</th>
+                     <th className="px-6 py-4">Valor (Último)</th>
+                     <th className="px-6 py-4">Data Pagamento</th>
                      <th className="px-6 py-4">Status</th>
                      <th className="px-6 py-4">Próxima Renovação</th>
                   </tr>
@@ -83,6 +98,8 @@ const SubscriptionsPage: React.FC = () => {
                            <p className="font-bold text-slate-700">{s.plan}</p>
                            <p className="text-[10px] text-slate-400 font-medium">{s.price}</p>
                         </td>
+                        <td className="px-6 py-4 font-bold text-slate-700">{s.lastVal}</td>
+                        <td className="px-6 py-4 font-medium text-slate-500 text-xs">{s.lastDate}</td>
                         <td className="px-6 py-4">
                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${s.status === 'Ativo' || s.status === 'Ativa' ? 'bg-green-50 text-green-700' :
                               s.status === 'Pendente' ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
@@ -96,7 +113,7 @@ const SubscriptionsPage: React.FC = () => {
                   ))}
                   {subs.length === 0 && (
                      <tr>
-                        <td colSpan={4} className="p-10 text-center text-slate-400 text-xs font-bold uppercase italic">Nenhuma assinatura encontrada.</td>
+                        <td colSpan={6} className="p-10 text-center text-slate-400 text-xs font-bold uppercase italic">Nenhuma assinatura encontrada.</td>
                      </tr>
                   )}
                </tbody>

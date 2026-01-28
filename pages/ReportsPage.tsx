@@ -16,48 +16,21 @@ const ReportsPage: React.FC = () => {
             try {
                 setLoading(true);
 
-                // 1. Total Subscribers & Revenue
-                const { data: profiles } = await supabase
-                    .from('broker_profiles')
-                    .select('subscription_status');
-
-                // Revenue based on actual Payment History (approved only)
-                const { data: payments } = await supabase
-                    .from('payment_history')
-                    .select('amount')
-                    .eq('status', 'approved');
-
-                let revenue = 0;
-                let activeCount = 0;
-
-                if (profiles) {
-                    activeCount = profiles.filter(p => p.subscription_status === 'Ativo').length;
-                }
-
-                if (payments) {
-                    // Sum total approved payments
-                    revenue = payments.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-                }
-
-                // 2. Total Inspections
-                const { count: inspectionCount } = await supabase
-                    .from('inspections')
-                    .select('*', { count: 'exact', head: true });
-
-                // 3. New Users Last 30 Days
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                const { count: newUserCount } = await supabase
-                    .from('broker_profiles')
-                    .select('*', { count: 'exact', head: true })
-                    .gt('created_at', thirtyDaysAgo.toISOString());
-
-                setStats({
-                    totalSubscribers: activeCount,
-                    activeRevenue: revenue,
-                    totalInspections: inspectionCount || 0,
-                    newUsersLast30Days: newUserCount || 0
+                // Admin Function Call
+                const { data: metrics, error } = await supabase.functions.invoke('admin-dash', {
+                    body: { action: 'get_metrics' }
                 });
+
+                if (error) throw error;
+
+                if (metrics) {
+                    setStats({
+                        totalSubscribers: metrics.active_plans || 0,
+                        activeRevenue: metrics.revenue || 0,
+                        totalInspections: metrics.inspections_count || 0,
+                        newUsersLast30Days: metrics.new_users_30d || 0
+                    });
+                }
 
             } catch (err) {
                 console.error('Erro ao buscar estatísticas:', err);

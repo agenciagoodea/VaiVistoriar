@@ -120,14 +120,19 @@ const UsersPage: React.FC = () => {
       await sendInviteEmail(user.email, user.full_name);
    };
 
-   const handleDeleteUser = async (email: string) => {
-      if (!confirm('Deseja realmente excluir este usuário?')) return;
+   const handleDeleteUser = async (user_id: string) => {
+      if (!confirm('Deseja realmente excluir este usuário e todos os seus dados? Esta ação não pode ser desfeita.')) return;
       try {
-         const { error } = await supabase.from('broker_profiles').delete().eq('email', email);
-         if (error) throw error;
+         const { error } = await supabase.functions.invoke('admin-dash', {
+            body: { action: 'delete_user', payload: { user_id } }
+         });
+
+         if (error) throw new Error(error.message || 'Erro na API');
+
+         alert('Usuário excluído com sucesso.');
          fetchUsers();
       } catch (err: any) {
-         alert('Erro ao excluir: ' + err.message);
+         alert('Erro ao excluir: ' + (err.message || 'Falha desconhecida'));
       }
    };
 
@@ -203,7 +208,7 @@ const UsersPage: React.FC = () => {
                                  )}
                                  <button onClick={() => handleEditClick(u)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                  {!isCurrentUser && (
-                                    <button onClick={() => handleDeleteUser(u.email)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                                    <button onClick={() => handleDeleteUser(u.user_id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                                  )}
                               </div>
                            </td>
