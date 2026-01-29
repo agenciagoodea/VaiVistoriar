@@ -69,38 +69,58 @@ Deno.serve(async (req) => {
                 console.log(`Sincronizando status: ${latestStatus} para PrefID: ${prefId}`);
 
                 // Atualizar histórico no banco independente do status
-                await supabaseAdmin.from('payment_history')
-                    .update({ status: latestStatus })
-                    .eq('mp_id', prefId);
+                if (prefId) {
+                    await supabaseAdmin.from('payment_history')
+                        .update({ status: latestStatus })
+                        .eq('mp_id', prefId);
+                }
 
                 if (latestStatus === 'approved') {
-                    // BUSCA DEFINITIVA DO USUÁRIO/PLANO
-                    const { data: orderData } = await supabaseAdmin
-                        .from('payment_history')
-                        .select('*')
-                        .eq('mp_id', prefId)
-                        .single();
+                    // BUSCA DA VERDADE NO METADATA DO PAGAMENTO
+                    // Isso previne que o cliente envie um planId falso
+                    const metadata = latestPayment.metadata || {};
+                    let finalUserId = metadata.user_id || userId;
+                    let finalPlanId = metadata.plan_id || planId;
 
-                    const finalUserId = orderData?.user_id || userId;
-                    const finalPlanId = orderData?.plan_id || planId;
+                    // Se não tiver no metadata (casos antigos/bug), tenta via payment_history
+                    if (!finalPlanId || !finalUserId) {
+                        const { data: orderData } = await supabaseAdmin
+                            .from('payment_history')
+                            .select('*')
+                            .eq('mp_id', prefId)
+                            .single();
 
-                    console.log(`Ativando plano ${finalPlanId} para o usuário ${finalUserId}`);
+                        if (orderData) {
+                            finalUserId = finalUserId || orderData.user_id;
+                            finalPlanId = finalPlanId || orderData.plan_id;
+                        }
+                    }
 
-                    // Ativar plano no banco
-                    const nextMonth = new Date()
-                    nextMonth.setMonth(nextMonth.getMonth() + 1)
+                    console.log(`Ativando plano ${finalPlanId} para o usuário ${finalUserId} (Status: ${latestStatus})`);
 
-                    const { error: profErr } = await supabaseAdmin
-                        .from('broker_profiles')
-                        .update({
-                            subscription_plan_id: finalPlanId,
-                            subscription_status: 'Ativo',
-                            subscription_expires_at: nextMonth.toISOString(),
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('user_id', finalUserId);
+                    if (finalUserId && finalPlanId) {
+                        // Ativar plano no banco
+                        const nextMonth = new Date()
+                        nextMonth.setMonth(nextMonth.getMonth() + 1)
 
-                    if (profErr) console.error('Erro ao atualizar broker_profiles:', profErr.message);
+                        const { error: profErr } = await supabaseAdmin
+                            .from('broker_profiles')
+                            .update({
+                                subscription_plan_id: finalPlanId,
+                                subscription_status: 'Ativo',
+                                subscription_expires_at: nextMonth.toISOString(), // TODO: Calcular baseado na periodicidade do plano
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('user_id', finalUserId);
+
+                        if (profErr) {
+                            console.error('Erro ao atualizar broker_profiles:', profErr.message);
+                        } else {
+                            console.log('Broker profile updated successfully');
+                        }
+                    } else {
+                        console.error('MISSING DATA: Cannot activate plan. Missing userId or planId from metadata/history.');
+                    }
 
                     return new Response(JSON.stringify({
                         success: true,
@@ -111,21 +131,19 @@ Deno.serve(async (req) => {
 
                 // Se não for aprovado (devolvido, recusado, etc)
                 if (['refunded', 'cancelled', 'rejected', 'charged_back'].includes(latestStatus)) {
-                    const { data: orderData } = await supabaseAdmin
-                        .from('payment_history')
-                        .select('*')
-                        .eq('mp_id', prefId)
-                        .single();
+                    const metadata = latestPayment.metadata || {};
+                    const finalUserId = metadata.user_id || userId;
+                    const finalPlanId = metadata.plan_id || planId;
 
-                    if (orderData?.user_id && orderData?.plan_id) {
+                    if (finalUserId) {
                         await supabaseAdmin
                             .from('broker_profiles')
                             .update({
                                 subscription_status: latestStatus === 'refunded' ? 'Estornado' : 'Inativo',
                                 updated_at: new Date().toISOString()
                             })
-                            .eq('user_id', orderData.user_id)
-                            .eq('subscription_plan_id', orderData.plan_id);
+                            .eq('user_id', finalUserId)
+                            .eq('subscription_plan_id', finalPlanId);  // Safety check
                     }
                 }
 

@@ -80,17 +80,20 @@ Deno.serve(async (req) => {
             console.log('Usando fallback por external_reference:', fallbackUserId);
         }
 
-        const userId = orderData?.user_id || paymentData.external_reference || paymentData.metadata?.user_id;
-        const planId = orderData?.plan_id || paymentData.metadata?.plan_id;
+        const metadata = paymentData.metadata || {};
+        const userId = metadata.user_id || orderData?.user_id || paymentData.external_reference;
+        const planId = metadata.plan_id || orderData?.plan_id;
 
-        console.log(`Ativando para User=${userId}, Plan=${planId}`);
+        console.log(`Processing Webhook for User=${userId}, Plan=${planId}, Status=${status}`);
 
         // 1. Atualizar histórico (sempre que houver mudança de status)
-        const { error: histErr } = await supabaseClient.from('payment_history')
-            .update({ status: status })
-            .eq('mp_id', preferenceId);
+        if (preferenceId) {
+            const { error: histErr } = await supabaseClient.from('payment_history')
+                .update({ status: status })
+                .eq('mp_id', preferenceId);
 
-        if (histErr) console.error('Erro ao atualizar histórico:', histErr.message);
+            if (histErr) console.error('Erro ao atualizar histórico:', histErr.message);
+        }
 
         // 2. ATIVAÇÃO OU DESATIVAÇÃO REAL
         if (userId && planId) {
@@ -98,7 +101,7 @@ Deno.serve(async (req) => {
                 const nextMonth = new Date()
                 nextMonth.setMonth(nextMonth.getMonth() + 1)
 
-                await supabaseClient
+                const { error: profErr } = await supabaseClient
                     .from('broker_profiles')
                     .update({
                         subscription_plan_id: planId,
@@ -108,7 +111,11 @@ Deno.serve(async (req) => {
                     })
                     .eq('user_id', userId);
 
-                console.log(`SUCESSO: Plano ${planId} ativado para ${userId}`);
+                if (profErr) {
+                    console.error(`FALHA ao ativar plano: ${profErr.message}`);
+                } else {
+                    console.log(`SUCESSO: Plano ${planId} ativado para ${userId}`);
+                }
             }
             else if (['refunded', 'cancelled', 'rejected', 'charged_back'].includes(status)) {
                 // Se o pagamento foi devolvido ou cancelado, removemos o plano ativo
@@ -123,6 +130,8 @@ Deno.serve(async (req) => {
 
                 console.log(`AVISO: Plano ${planId} desativado para ${userId} devido ao status: ${status}`);
             }
+        } else {
+            console.error('DADOS INSUFICIENTES: UserID ou PlanID faltando. Não foi possivel processar ativação.');
         }
 
         return new Response(JSON.stringify({ received: true, status: status }), {

@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { mercadopagoService } from '../lib/mercadopago';
 
 const CheckoutSuccess: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -18,27 +19,17 @@ const CheckoutSuccess: React.FC = () => {
             if (status === 'approved') {
                 setActivating(true);
                 try {
-                    // 1. ATIVAÇÃO DO PLANO NO BANCO (LADO CLIENTE PARA VELOCIDADE)
+                    // 1. ATIVAÇÃO DO PLANO VIA API SECURE (LADO SERVER)
                     const { data: { user } } = await supabase.auth.getUser();
                     if (user) {
                         const planId = searchParams.get('plan_id');
 
-                        if (planId) {
-                            const nextMonth = new Date();
-                            nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        // Chama a API para verificar e ativar
+                        // A API agora é inteligente e busca os dados reais no metadata do pagamento
+                        const result = await mercadopagoService.checkPaymentStatus(user.id, planId || '', paymentId || undefined);
 
-                            const { error: updateError } = await supabase
-                                .from('broker_profiles')
-                                .update({
-                                    subscription_plan_id: planId,
-                                    subscription_status: 'Ativo',
-                                    subscription_expires_at: nextMonth.toISOString()
-                                })
-                                .eq('user_id', user.id);
-
-                            if (updateError) throw updateError;
-                            console.log('Plano ativado com sucesso!');
-
+                        if (result?.success || result?.paymentApproved) {
+                            console.log('Plano ativado/verificado com sucesso via API!');
                             // 2. Notificação por Email (Mover para cá para ter 'user' e 'planId')
                             await supabase.functions.invoke('send-email', {
                                 body: {
@@ -46,12 +37,14 @@ const CheckoutSuccess: React.FC = () => {
                                     templateId: 'payment_success',
                                     origin: window.location.origin,
                                     variables: {
-                                        plan_name: planId || 'Premium',
+                                        plan_name: planId || result?.payment?.metadata?.plan_slug || 'Premium',
                                         amount: 'Ver fatura',
                                         date: new Date().toLocaleDateString('pt-BR')
                                     }
                                 }
                             });
+                        } else {
+                            console.warn('Pagamento não confirmado pela API ainda.');
                         }
                     }
                 } catch (err) {
