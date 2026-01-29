@@ -34,6 +34,7 @@ import CheckoutSuccess from './pages/CheckoutSuccess';
 import CheckoutFailure from './pages/CheckoutFailure';
 import CheckoutPending from './pages/CheckoutPending';
 import EmailConfigPage from './pages/EmailConfigPage';
+import SEOConfigPage from './pages/SEOConfigPage';
 import MyPlanPage from './pages/MyPlanPage';
 import ReportsPage from './pages/ReportsPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -114,6 +115,7 @@ const App: React.FC = () => {
             <Route path="/admin/checkout" element={<CheckoutConfigPage />} />
             <Route path="/admin/plans" element={<PlanConfigPage />} />
             <Route path="/admin/email" element={<EmailConfigPage />} />
+            <Route path="/admin/seo" element={<SEOConfigPage />} />
           </Route>
 
           {/* Broker Specific Routes */}

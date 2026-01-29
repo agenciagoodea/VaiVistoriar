@@ -28,6 +28,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
     { label: 'Checkout Pagamento', path: '/admin/checkout', icon: 'shopping_cart_checkout' },
     { label: 'Planos', path: '/admin/plans', icon: 'format_list_bulleted' },
     { label: 'Configuração de E-mail', path: '/admin/email', icon: 'mail' },
+    { label: 'SEO e Indexação', path: '/admin/seo', icon: 'search' },
   ];
 
   const brokerMenu = [
@@ -234,6 +235,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
               {isActive('/clients/new') && 'Novo Cliente'}
               {isActive('/clients/edit') && 'Modificar Dados'}
               {isActive('/users') && 'Membros'}
+              {isActive('/admin/seo') && 'SEO e Indexação'}
               {isActive('/settings') && 'Configurações'}
             </h2>
             <div className="relative w-full max-w-[200px] lg:max-w-none">

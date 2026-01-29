@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Plan } from '../types';
+import MetaTags from '../components/MetaTags';
 
 interface HeroSlider {
   id: string;
@@ -126,6 +127,7 @@ const LandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-white overflow-x-hidden selection:bg-blue-100 selection:text-blue-900">
+      <MetaTags />
 
       {/* Navbar Premium */}
       <header

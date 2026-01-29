@@ -55,9 +55,19 @@ const CheckoutConfigPage: React.FC = () => {
         try {
             const { mercadopagoService } = await import('../lib/mercadopago');
             const result = await mercadopagoService.testToken(mpAccessToken);
-            alert(`Conexão OK! Usuário: ${result.nickname} (${result.id})`);
+
+            if (result.success === false) {
+                let errorDetails = result.message || result.error || 'Erro desconhecido';
+                if (result.mp_status === 401) errorDetails = 'Access Token inválido ou expirado.';
+                if (result.mp_status === 403) errorDetails = 'A conta não tem permissão para acessar este recurso. Verifique se o Token é de Produção e se a conta está ativa.';
+
+                alert(`Erro no Mercado Pago: ${errorDetails}`);
+                return;
+            }
+
+            alert(`Conexão OK! Usuário: ${result.nickname} (ID: ${result.id})\nTipo: ${result.user_type}\nPaís: ${result.site_id}`);
         } catch (err: any) {
-            alert(`Erro no Teste: ${err.message}`);
+            alert(`Erro na Conexão: ${err.message}`);
         } finally {
             setTestingMP(false);
         }
@@ -154,6 +164,45 @@ const CheckoutConfigPage: React.FC = () => {
                                 </div>
                                 <span className="material-symbols-outlined text-amber-500">pending</span>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-slate-900 rounded-[40px] p-10 text-white space-y-8">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center">
+                            <span className="material-symbols-outlined text-blue-400 text-3xl">help_center</span>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black">Como configurar o Mercado Pago?</h3>
+                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Guia de Integração para Assinaturas</p>
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-10">
+                        <div className="space-y-4">
+                            <h4 className="font-black text-blue-400 uppercase text-[10px] tracking-widest">1. Obter Credenciais</h4>
+                            <p className="text-sm text-slate-300 leading-relaxed">
+                                Acesse o <a href="https://www.mercadopago.com.br/developers/panel" target="_blank" className="text-blue-400 underline" rel="noreferrer">Painel do Desenvolvedor</a>, selecione sua aplicação e vá em <strong>Credenciais de Produção</strong>. Copie o <i>Access Token</i> e a <i>Public Key</i>.
+                            </p>
+                        </div>
+                        <div className="space-y-4">
+                            <h4 className="font-black text-blue-400 uppercase text-[10px] tracking-widest">2. Checkout Transparente</h4>
+                            <p className="text-sm text-slate-300 leading-relaxed">
+                                Para habilitar o checkout dentro do seu site (sem redirecionar), você deve ter o <strong>Certificado Digital (SSL)</strong> ativo e seguir as normas do Mercado Pago para sua conta.
+                            </p>
+                        </div>
+                        <div className="space-y-4">
+                            <h4 className="font-black text-blue-400 uppercase text-[10px] tracking-widest">3. Assinaturas Recorrentes</h4>
+                            <p className="text-sm text-slate-300 leading-relaxed">
+                                O sistema utiliza o fluxo de <i>Preferences</i>. Para assinaturas automáticas "set-and-forget", é necessário configurar o <strong>WebHook</strong> do Mercado Pago apontando para a URL exibida acima.
+                            </p>
+                        </div>
+                        <div className="space-y-4">
+                            <h4 className="font-black text-emerald-400 uppercase text-[10px] tracking-widest">Dica Premium</h4>
+                            <p className="text-sm text-slate-300 leading-relaxed">
+                                Certifique-se de que sua conta do Mercado Pago é uma <strong>Conta Vendedor</strong> e que você já preencheu os dados fiscais necessários no painel deles.
+                            </p>
                         </div>
                     </div>
                 </div>

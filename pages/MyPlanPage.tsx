@@ -48,6 +48,7 @@ const MyPlanPage: React.FC = () => {
                 .select('*')
                 .eq('status', 'Ativo')
                 .eq('plan_type', 'PF')
+                .neq('price', 0)
                 .order('price', { ascending: true });
 
             if (allPlans) {
