@@ -92,31 +92,40 @@ Deno.serve(async (req) => {
 
         if (histErr) console.error('Erro ao atualizar histórico:', histErr.message);
 
-        // 2. ATIVAÇÃO REAL: Se aprovado, garante que o perfil receba o plano
-        if (status === 'approved' && userId && planId) {
-            const nextMonth = new Date()
-            nextMonth.setMonth(nextMonth.getMonth() + 1)
+        // 2. ATIVAÇÃO OU DESATIVAÇÃO REAL
+        if (userId && planId) {
+            if (status === 'approved') {
+                const nextMonth = new Date()
+                nextMonth.setMonth(nextMonth.getMonth() + 1)
 
-            const { error: profErr } = await supabaseClient
-                .from('broker_profiles')
-                .update({
-                    subscription_plan_id: planId,
-                    subscription_status: 'Ativo',
-                    subscription_expires_at: nextMonth.toISOString(),
-                    updated_at: new Date().toISOString()
-                })
-                .eq('user_id', userId)
+                await supabaseClient
+                    .from('broker_profiles')
+                    .update({
+                        subscription_plan_id: planId,
+                        subscription_status: 'Ativo',
+                        subscription_expires_at: nextMonth.toISOString(),
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', userId);
 
-            if (profErr) {
-                console.error('ERRO FATAL ao ativar plano no perfil:', profErr.message);
-            } else {
-                console.log(`SUCESSO TOTAL: Plano ${planId} ativado agora para o usuário ${userId}`);
+                console.log(`SUCESSO: Plano ${planId} ativado para ${userId}`);
             }
-        } else {
-            console.log(`Ativação pulada: Status=${status}, UserID=${userId}, PlanID=${planId}`);
+            else if (['refunded', 'cancelled', 'rejected', 'charged_back'].includes(status)) {
+                // Se o pagamento foi devolvido ou cancelado, removemos o plano ativo
+                await supabaseClient
+                    .from('broker_profiles')
+                    .update({
+                        subscription_status: status === 'refunded' ? 'Estornado' : 'Inativo',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', userId)
+                    .eq('subscription_plan_id', planId); // Apenas se for o plano desse pagamento
+
+                console.log(`AVISO: Plano ${planId} desativado para ${userId} devido ao status: ${status}`);
+            }
         }
 
-        return new Response(JSON.stringify({ received: true, status: paymentData.status }), {
+        return new Response(JSON.stringify({ received: true, status: status }), {
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })

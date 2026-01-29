@@ -61,16 +61,20 @@ Deno.serve(async (req) => {
             console.log(`MP Response Count: ${data.results?.length}`);
 
             if (data.results?.length > 0) {
-                const approvedPayment = data.results.find((p: any) => p.status === 'approved');
-                console.log(`Found approved payment? ${approvedPayment ? 'YES' : 'NO'}`);
+                // Sincronizar status do pagamento mais recente para essa preferência
+                const latestPayment = data.results[0];
+                const latestStatus = latestPayment.status;
+                const prefId = latestPayment.preference_id || preferenceId;
 
-                if (approvedPayment) {
-                    const status = approvedPayment.status;
-                    const prefId = approvedPayment.preference_id;
+                console.log(`Sincronizando status: ${latestStatus} para PrefID: ${prefId}`);
 
-                    console.log(`Verificação Manual: Aprovado! PrefID=${prefId}`);
+                // Atualizar histórico no banco independente do status
+                await supabaseAdmin.from('payment_history')
+                    .update({ status: latestStatus })
+                    .eq('mp_id', prefId);
 
-                    // BUSCA DEFINITIVA
+                if (latestStatus === 'approved') {
+                    // BUSCA DEFINITIVA DO USUÁRIO/PLANO
                     const { data: orderData } = await supabaseAdmin
                         .from('payment_history')
                         .select('*')
@@ -98,22 +102,38 @@ Deno.serve(async (req) => {
 
                     if (profErr) console.error('Erro ao atualizar broker_profiles:', profErr.message);
 
-                    // Atualizar histórico
-                    await supabaseAdmin.from('payment_history')
-                        .update({ status: 'approved' })
-                        .eq('mp_id', prefId);
-
                     return new Response(JSON.stringify({
                         success: true,
                         paymentApproved: true,
-                        payment: approvedPayment
+                        payment: latestPayment
                     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                }
+
+                // Se não for aprovado (devolvido, recusado, etc)
+                if (['refunded', 'cancelled', 'rejected', 'charged_back'].includes(latestStatus)) {
+                    const { data: orderData } = await supabaseAdmin
+                        .from('payment_history')
+                        .select('*')
+                        .eq('mp_id', prefId)
+                        .single();
+
+                    if (orderData?.user_id && orderData?.plan_id) {
+                        await supabaseAdmin
+                            .from('broker_profiles')
+                            .update({
+                                subscription_status: latestStatus === 'refunded' ? 'Estornado' : 'Inativo',
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('user_id', orderData.user_id)
+                            .eq('subscription_plan_id', orderData.plan_id);
+                    }
                 }
 
                 return new Response(JSON.stringify({
                     success: true,
                     paymentApproved: false,
-                    latestStatus: data.results[0]?.status || 'unknown'
+                    latestStatus: latestStatus,
+                    payment: latestPayment
                 }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
 

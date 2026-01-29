@@ -365,7 +365,9 @@ const MyPlanPage: React.FC = () => {
                                                 order.status === 'pending' ? 'Aguardando' :
                                                     order.status === 'rejected' ? 'Recusado' :
                                                         order.status === 'refunded' ? 'Estornado' :
-                                                            order.status}
+                                                            order.status === 'cancelled' ? 'Cancelado' :
+                                                                order.status === 'charged_back' ? 'Contestação' :
+                                                                    order.status}
                                         </span>
                                     </td>
                                     <td className="px-8 py-5 text-right">
