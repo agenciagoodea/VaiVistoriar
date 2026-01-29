@@ -336,7 +336,9 @@ const MyPlanPage: React.FC = () => {
                         <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[9px] tracking-widest border-b border-slate-100">
                             <tr>
                                 <th className="px-8 py-5">Identificador</th>
+                                <th className="px-8 py-5">Nº Transação MP</th>
                                 <th className="px-8 py-5">Plano</th>
+                                <th className="px-8 py-5">Data/Hora</th>
                                 <th className="px-8 py-5">Valor</th>
                                 <th className="px-8 py-5">Status</th>
                                 <th className="px-8 py-5 text-right">Ação</th>
@@ -346,13 +348,24 @@ const MyPlanPage: React.FC = () => {
                             {orders.map((order, i) => (
                                 <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-8 py-5 font-bold text-slate-500 text-xs">#{order.id.slice(0, 8)}</td>
+                                    <td className="px-8 py-5 font-mono text-[10px] text-slate-400">{order.mp_id || '-'}</td>
                                     <td className="px-8 py-5 font-black text-slate-900">{order.plan_name}</td>
+                                    <td className="px-8 py-5 text-xs text-slate-500">
+                                        {new Date(order.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </td>
                                     <td className="px-8 py-5 font-bold text-slate-700">R$ {parseFloat(order.amount).toFixed(2).replace('.', ',')}</td>
                                     <td className="px-8 py-5">
                                         <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${order.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                                            order.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-400'
+                                            order.status === 'pending' ? 'bg-amber-50 text-amber-600' :
+                                                order.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                                                    order.status === 'refunded' ? 'bg-slate-100 text-slate-500' :
+                                                        'bg-slate-50 text-slate-400'
                                             }`}>
-                                            {order.status === 'approved' ? 'Pago' : order.status === 'pending' ? 'Aguardando' : order.status}
+                                            {order.status === 'approved' ? 'Pago' :
+                                                order.status === 'pending' ? 'Aguardando' :
+                                                    order.status === 'rejected' ? 'Recusado' :
+                                                        order.status === 'refunded' ? 'Estornado' :
+                                                            order.status}
                                         </span>
                                     </td>
                                     <td className="px-8 py-5 text-right">

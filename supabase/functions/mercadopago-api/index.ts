@@ -65,11 +65,12 @@ Deno.serve(async (req) => {
                 console.log(`Found approved payment? ${approvedPayment ? 'YES' : 'NO'}`);
 
                 if (approvedPayment) {
+                    console.log(`Ativando plano ${planId} para o usuário ${userId}`);
                     // Ativar plano no banco
                     const nextMonth = new Date()
                     nextMonth.setMonth(nextMonth.getMonth() + 1)
 
-                    await supabaseAdmin
+                    const { error: profErr } = await supabaseAdmin
                         .from('broker_profiles')
                         .update({
                             subscription_plan_id: planId,
@@ -78,11 +79,19 @@ Deno.serve(async (req) => {
                         })
                         .eq('user_id', userId);
 
+                    if (profErr) {
+                        console.error('Erro ao atualizar broker_profiles:', profErr.message);
+                    } else {
+                        console.log('broker_profiles atualizado com sucesso');
+                    }
+
                     // Atualizar histórico
-                    await supabaseAdmin.from('payment_history')
+                    const { error: histErr } = await supabaseAdmin.from('payment_history')
                         .update({ status: 'approved' })
                         .eq('user_id', userId)
                         .eq('status', 'pending');
+
+                    if (histErr) console.error('Erro ao atualizar payment_history:', histErr.message);
 
                     return new Response(JSON.stringify({
                         success: true,
@@ -112,7 +121,7 @@ Deno.serve(async (req) => {
                 const { error: insertError } = await supabaseAdmin.from('payment_history').insert({
                     user_id: payload.external_reference || payload.metadata?.user_id,
                     plan_id: payload.metadata?.plan_id,
-                    plan_name: payload.items?.[0]?.title?.replace('Plano VistoriaPro: ', '') || 'Plano',
+                    plan_name: payload.items?.[0]?.title?.replace('Plano VaiVistoriar: ', '') || 'Plano',
                     amount: payload.items?.[0]?.unit_price,
                     status: 'pending',
                     mp_id: data.id,

@@ -67,7 +67,9 @@ export const mercadopagoService = {
         const preferenceData = {
             items: [{
                 id: plan.id,
-                title: `Plano VistoriaPro: ${plan.name}`,
+                title: `Plano VaiVistoriar: ${plan.name}`,
+                description: plan.name,
+                category_id: plan.type, // Modalidade
                 unit_price: unitPrice,
                 quantity: 1,
                 currency_id: 'BRL',
