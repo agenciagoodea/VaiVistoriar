@@ -34,7 +34,7 @@ const PrivacyPage: React.FC = () => {
                 <div className="max-w-4xl mx-auto px-6 h-20 flex items-center justify-between">
                     <Link to="/" className="flex items-center gap-2 text-blue-600">
                         <span className="material-symbols-outlined font-bold text-3xl">home_app_logo</span>
-                        <span className="text-xl font-black text-slate-900 tracking-tight">VistoriaPro</span>
+                        <span className="text-xl font-black text-slate-900 tracking-tight">VaiVistoriar</span>
                     </Link>
                     <Link to="/login" className="text-sm font-black text-blue-600 uppercase tracking-widest hover:underline">Entrar</Link>
                 </div>
@@ -71,7 +71,7 @@ const PrivacyPage: React.FC = () => {
             </main>
 
             <footer className="py-12 text-center border-t border-slate-100 bg-white mt-20">
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">© {new Date().getFullYear()} VistoriaPro • Todos os direitos reservados</p>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">© {new Date().getFullYear()} VaiVistoriar • Todos os direitos reservados</p>
             </footer>
         </div>
     );

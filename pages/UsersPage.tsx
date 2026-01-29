@@ -128,7 +128,7 @@ const UsersPage: React.FC = () => {
       if (!confirm('Deseja realmente excluir este usuário e todos os seus dados? Esta ação não pode ser desfeita.')) return;
       try {
          const { error } = await supabase.functions.invoke('admin-dash', {
-            body: { action: 'delete_user', payload: { user_id } }
+            body: { action: 'delete_user', user_id }
          });
 
          if (error) throw new Error(error.message || 'Erro na API');
@@ -139,6 +139,18 @@ const UsersPage: React.FC = () => {
          alert('Erro ao excluir: ' + (err.message || 'Falha desconhecida'));
       }
    };
+
+   const [filterStatus, setFilterStatus] = useState<'all' | 'Ativo' | 'Pendente' | 'Bloqueado'>('all');
+   const [filterRole, setFilterRole] = useState<'all' | 'BROKER' | 'PJ' | 'ADMIN'>('all');
+   const [searchTerm, setSearchTerm] = useState('');
+
+   const filteredUsers = users.filter(user => {
+      const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
+      const matchesRole = filterRole === 'all' || user.role === filterRole;
+      const matchesSearch = user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesStatus && matchesRole && matchesSearch;
+   });
 
    if (loading) return <div className="p-20 text-center font-bold text-slate-400 animate-pulse">CARREGANDO...</div>;
 
@@ -162,6 +174,41 @@ const UsersPage: React.FC = () => {
             </button>
          </div>
 
+         <div className="flex flex-col lg:flex-row gap-4 mt-6">
+            <div className="flex-1 relative">
+               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+               <input
+                  type="text"
+                  placeholder="Buscar por nome ou e-mail..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-6 py-3.5 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+               />
+            </div>
+            <div className="flex gap-4">
+               <select
+                  value={filterStatus}
+                  onChange={e => setFilterStatus(e.target.value as any)}
+                  className="px-6 py-3.5 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-sm outline-none cursor-pointer"
+               >
+                  <option value="all">Todos Status</option>
+                  <option value="Ativo">Ativos</option>
+                  <option value="Pendente">Pendentes</option>
+                  <option value="Bloqueado">Bloqueados</option>
+               </select>
+               <select
+                  value={filterRole}
+                  onChange={e => setFilterRole(e.target.value as any)}
+                  className="px-6 py-3.5 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-sm outline-none cursor-pointer"
+               >
+                  <option value="all">Todos Tipos</option>
+                  <option value="BROKER">Corretor (PF)</option>
+                  <option value="PJ">Imobiliária (PJ)</option>
+                  <option value="ADMIN">Administrador</option>
+               </select>
+            </div>
+         </div>
+
          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-left text-sm whitespace-nowrap">
                <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
@@ -174,7 +221,7 @@ const UsersPage: React.FC = () => {
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
-                  {users.map((u, i) => {
+                  {filteredUsers.map((u, i) => {
                      const isCurrentUser = currentUser && (u.user_id === currentUser.id || u.email === currentUser.email);
                      return (
                         <tr key={i} className="hover:bg-slate-50/50 transition-colors group">

@@ -41,4 +41,5 @@ export interface Plan {
   storageGb: number;
   subscribers: number;
   type: 'PF' | 'PJ';
+  badgeText?: string;
 }

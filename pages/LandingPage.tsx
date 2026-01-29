@@ -144,7 +144,7 @@ const LandingPage: React.FC = () => {
               <img src={logoUrl} alt="Logo" style={{ height: `${headerConfig.logoHeight}px` }} className="w-auto object-contain" />
             ) : (
               <div className="flex items-center gap-2 font-black text-2xl tracking-tighter" style={{ color: primaryColor }}>
-                <span className="material-symbols-outlined text-4xl">home_app_logo</span> VistoriaPro
+                <span className="material-symbols-outlined text-4xl">home_app_logo</span> VaiVistoriar
               </div>
             )}
           </Link>
@@ -262,7 +262,7 @@ const LandingPage: React.FC = () => {
             <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-20 pb-24 border-b border-white/5">
               <div className="lg:col-span-2 space-y-10">
                 <Link to="/" className="flex items-center gap-3">
-                  {logoUrl ? <img src={logoUrl} alt="Logo" className="h-10 w-auto brightness-0 invert" /> : <div className="flex items-center gap-2 font-black text-3xl tracking-tighter text-white"><span className="material-symbols-outlined text-4xl" style={{ color: primaryColor }}>home_app_logo</span> VistoriaPro</div>}
+                  {logoUrl ? <img src={logoUrl} alt="Logo" className="h-10 w-auto brightness-0 invert" /> : <div className="flex items-center gap-2 font-black text-3xl tracking-tighter text-white"><span className="material-symbols-outlined text-4xl" style={{ color: primaryColor }}>home_app_logo</span> VaiVistoriar</div>}
                 </Link>
                 <p className="text-xl text-slate-400 font-medium leading-relaxed max-w-md">
                   {footer.col1_text}
@@ -295,7 +295,7 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
             <div className="pt-16 flex flex-col md:flex-row justify-between items-center gap-8 text-[11px] font-black uppercase tracking-[0.3em] text-slate-600">
-              <p>© {new Date().getFullYear()} VistoriaPro • Todos os direitos reservados</p>
+              <p>© {new Date().getFullYear()} VaiVistoriar • Todos os direitos reservados</p>
               <div className="flex gap-8">
                 <a href="/legal/terms" className="hover:text-white transition-colors">Termos</a>
                 <a href="/legal/privacy" className="hover:text-white transition-colors">Privacidade</a>

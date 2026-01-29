@@ -50,7 +50,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   const [isConfigOpen, setIsConfigOpen] = useState(location.pathname.startsWith('/admin/'));
   const currentMenu = role === 'ADMIN' ? adminMenu : role === 'BROKER' ? brokerMenu : pjMenu;
 
-  const [brand, setBrand] = useState({ primaryColor: '#2563eb', logoUrl: '' });
+  const [brand, setBrand] = useState<{ primaryColor: string; logoUrl: string | null } | null>(null);
   const [userProfile, setUserProfile] = React.useState<{ full_name: string; avatar_url: string; email: string } | null>(null);
 
   React.useEffect(() => {
@@ -59,7 +59,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
       if (data) {
         const primary = data.find(c => c.key === 'home_primary_color')?.value;
         const logo = data.find(c => c.key === 'home_logo_url')?.value;
-        if (primary || logo) setBrand({ primaryColor: primary || '#2563eb', logoUrl: logo || '' });
+        setBrand({ primaryColor: primary || '#2563eb', logoUrl: logo || null });
+      } else {
+        setBrand({ primaryColor: '#2563eb', logoUrl: null });
       }
     };
     fetchConfigs();
@@ -102,19 +104,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
 
   const SidebarContent = (
     <div className="flex flex-col h-full bg-white border-r border-slate-200">
-      <div className="h-20 flex items-center px-6 shrink-0">
-        <div className="flex items-center gap-3">
-          {brand.logoUrl ? (
-            <img src={brand.logoUrl} className="h-8 w-auto object-contain" alt="Logo" />
+      <div className="h-20 flex items-center justify-center px-6 shrink-0">
+        <div className="flex items-center">
+          {brand?.logoUrl ? (
+            <img src={brand.logoUrl} className="h-10 w-auto object-contain" alt="Logo" />
           ) : (
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: brand.primaryColor }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: brand?.primaryColor || '#2563eb' }}>
               <span className="material-symbols-outlined font-bold text-2xl">home_app_logo</span>
             </div>
           )}
-          <div>
-            <span className="font-extrabold text-[15px] text-slate-900 block leading-tight">VistoriaPro</span>
-            <span className="text-[11px] text-slate-400 font-medium">{role === 'ADMIN' ? 'Super Admin' : 'Painel'}</span>
-          </div>
         </div>
       </div>
 
@@ -249,9 +247,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
           </div>
 
           <div className="flex items-center gap-4 lg:gap-6">
+            <div className="hidden lg:flex flex-col items-end mr-2 pr-4 border-r border-slate-100">
+              <span className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none">VaiVistoriar</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{role === 'ADMIN' ? 'Super Admin' : 'Painel de Gestão'}</span>
+            </div>
+
             <div
               onClick={() => navigate('/settings')}
-              className="flex items-center gap-3 lg:pl-4 lg:border-l border-slate-100 cursor-pointer group"
+              className="flex items-center gap-3 lg:pl-1 cursor-pointer group"
             >
               <div className="text-right hidden md:block">
                 <p className="text-[13px] font-black text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">{userProfile?.full_name}</p>

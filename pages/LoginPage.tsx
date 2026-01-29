@@ -82,7 +82,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                     current_session_id: sessionId
                 }).eq('user_id', session?.user.id);
 
-                localStorage.setItem('vpro_session_token', sessionId);
+                localStorage.setItem('vvist_session_token', sessionId);
 
                 // Redirecionamento baseado no papel do usuário
                 const userRole = session?.user?.user_metadata?.role || 'BROKER';
@@ -175,7 +175,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                         ) : (
                             <>
                                 <span className="material-symbols-outlined font-bold text-4xl">home_app_logo</span>
-                                <span className="text-2xl font-black text-slate-900 tracking-tight">VistoriaPro</span>
+                                <span className="text-2xl font-black text-slate-900 tracking-tight">VaiVistoriar</span>
                             </>
                         )}
                     </div>

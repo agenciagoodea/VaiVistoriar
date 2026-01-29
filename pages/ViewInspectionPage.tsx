@@ -507,7 +507,7 @@ const ViewInspectionPage: React.FC = () => {
                     </div>
 
                     <div className="pt-20 text-center">
-                        <p className="text-[8px] font-black uppercase tracking-[0.6em] text-slate-300">Plataforma VistoriaPro • Certificação Digital de Vistoria • Imobiliária e Vendas</p>
+                        <p className="text-[8px] font-black uppercase tracking-[0.6em] text-slate-300">Plataforma VaiVistoriar • Certificação Digital de Vistoria • Imobiliária e Vendas</p>
                     </div>
 
                 </div>

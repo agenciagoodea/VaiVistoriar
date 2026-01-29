@@ -54,6 +54,7 @@ const HomeConfigPage: React.FC = () => {
     const [secondaryColor, setSecondaryColor] = useState('#f8fafc');
     const [logoUrl, setLogoUrl] = useState('');
     const [supportWhatsapp, setSupportWhatsapp] = useState('');
+    const [whatsappMessage, setWhatsappMessage] = useState('');
 
     // Hero Sliders
     const [sliders, setSliders] = useState<HeroSlider[]>([
@@ -70,7 +71,7 @@ const HomeConfigPage: React.FC = () => {
         col2_title: 'Menu Rápido',
         col2_links: [{ label: 'Funcionalidades', url: '#funcionalidades' }, { label: 'Planos', url: '#planos' }],
         col3_title: 'Contato',
-        col3_contact: 'contato@vistoriapro.com.br',
+        col3_contact: 'contato@vaivistoriar.com.br',
         socials: [{ provider: 'instagram', url: '#' }]
     });
 
@@ -105,6 +106,7 @@ const HomeConfigPage: React.FC = () => {
                 if (find('home_secondary_color')) setSecondaryColor(find('home_secondary_color'));
                 if (find('home_logo_url')) setLogoUrl(find('home_logo_url'));
                 if (find('support_whatsapp')) setSupportWhatsapp(find('support_whatsapp'));
+                if (find('support_whatsapp_message')) setWhatsappMessage(find('support_whatsapp_message'));
 
                 const savedSliders = find('home_sliders_json');
                 if (savedSliders) setSliders(JSON.parse(savedSliders));
@@ -148,6 +150,17 @@ const HomeConfigPage: React.FC = () => {
         }
     };
 
+    const updateFeature = (idx: number, key: string, value: any) => {
+        const newF = [...features];
+        (newF[idx] as any)[key] = value;
+        setFeatures(newF);
+    };
+
+    const removeFeature = (idx: number) => {
+        setFeatures(features.filter((_, i) => i !== idx));
+        if (activeFeatureIdx === idx) setActiveFeatureIdx(null);
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -156,6 +169,7 @@ const HomeConfigPage: React.FC = () => {
                 { key: 'home_secondary_color', value: secondaryColor },
                 { key: 'home_logo_url', value: logoUrl },
                 { key: 'support_whatsapp', value: supportWhatsapp },
+                { key: 'support_whatsapp_message', value: whatsappMessage },
                 { key: 'home_sliders_json', value: JSON.stringify(sliders) },
                 { key: 'home_features_json', value: JSON.stringify(features) },
                 { key: 'home_footer_json', value: JSON.stringify(footer) },
@@ -228,19 +242,31 @@ const HomeConfigPage: React.FC = () => {
                         </div>
 
                         {/* WhatsApp Suporte */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">WhatsApp de Suporte</label>
-                            <div className="flex gap-2 items-center">
-                                <span className="material-symbols-outlined text-green-500 text-[24px]">chat</span>
-                                <input
-                                    type="text"
-                                    value={supportWhatsapp}
-                                    onChange={e => setSupportWhatsapp(e.target.value)}
-                                    placeholder="Ex: 5511999999999"
-                                    className="flex-1 px-4 py-3 bg-slate-50 rounded-2xl text-xs font-bold border-none focus:ring-2 focus:ring-green-500"
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">WhatsApp de Suporte</label>
+                                <div className="flex gap-2 items-center">
+                                    <span className="material-symbols-outlined text-green-500 text-[24px]">chat</span>
+                                    <input
+                                        type="text"
+                                        value={supportWhatsapp}
+                                        onChange={e => setSupportWhatsapp(e.target.value)}
+                                        placeholder="Ex: 5511999999999"
+                                        className="flex-1 px-4 py-3 bg-slate-50 rounded-2xl text-xs font-bold border-none focus:ring-2 focus:ring-green-500"
+                                    />
+                                </div>
+                                <p className="text-[9px] text-slate-400">Formato internacional sem espaços ou símbolos. Ex: 5511999999999</p>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Mensagem Padrão do WhatsApp</label>
+                                <textarea
+                                    value={whatsappMessage}
+                                    onChange={e => setWhatsappMessage(e.target.value)}
+                                    placeholder="Olá, gostaria de saber mais sobre..."
+                                    rows={2}
+                                    className="w-full px-4 py-3 bg-slate-50 rounded-2xl text-xs font-bold border-none focus:ring-2 focus:ring-green-500 leading-tight"
                                 />
                             </div>
-                            <p className="text-[9px] text-slate-400">Formato internacional sem espaços ou símbolos. Ex: 5511999999999</p>
                         </div>
                     </section>
 
@@ -540,7 +566,7 @@ const HomeConfigPage: React.FC = () => {
                                 </div>
                                 <div className="flex items-center gap-2 px-6 py-2 bg-slate-900/40 rounded-full text-[10px] text-slate-500 font-black tracking-[0.2em] shadow-inner uppercase">
                                     <span className="material-symbols-outlined text-[14px]">lock</span>
-                                    VistoriaPro.com
+                                    VaiVistoriar.com.br
                                 </div>
                                 <div className="w-16" />
                             </div>
@@ -564,7 +590,7 @@ const HomeConfigPage: React.FC = () => {
                                             <img src={logoUrl} style={{ height: `${header.logoHeight / 2}px` }} className="w-auto object-contain" />
                                         ) : (
                                             <div className="flex items-center gap-1 font-black leading-none" style={{ color: primaryColor }}>
-                                                <span className="material-symbols-outlined">home_app_logo</span> VistoriaPro
+                                                <span className="material-symbols-outlined">home_app_logo</span> VaiVistoriar
                                             </div>
                                         )}
                                     </div>
@@ -620,7 +646,7 @@ const HomeConfigPage: React.FC = () => {
                                 {/* FOOTER PREVIEW */}
                                 <div className="bg-slate-900 text-white p-12 space-y-12 rounded-t-[50px]">
                                     <div className="space-y-6">
-                                        {logoUrl ? <img src={logoUrl} className="h-6 w-auto brightness-0 invert opacity-50" /> : <span className="font-black text-blue-500">VistoriaPro</span>}
+                                        {logoUrl ? <img src={logoUrl} className="h-6 w-auto brightness-0 invert opacity-50" /> : <span className="font-black text-blue-500">VaiVistoriar</span>}
                                         <p className="text-[10px] text-slate-500 leading-relaxed font-bold">{footer.col1_text}</p>
                                     </div>
                                     <div className="grid grid-cols-2 gap-8 pt-8 border-t border-slate-800">

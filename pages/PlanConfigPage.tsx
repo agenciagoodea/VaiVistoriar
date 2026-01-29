@@ -23,6 +23,7 @@ const PlanConfigPage: React.FC = () => {
       maxRooms: 0,
       maxBrokers: 0,
       storageGb: 0,
+      badgeText: '',
       features: { inspections: '', storage: '', users: '' }
    });
 
@@ -50,6 +51,7 @@ const PlanConfigPage: React.FC = () => {
             maxRooms: p.max_rooms || 0,
             maxBrokers: p.max_brokers || 0,
             storageGb: p.storage_gb || 0,
+            badgeText: p.plan_badge_text || '',
             subscribers: 0 // Mock por enquanto
          }));
 
@@ -88,7 +90,8 @@ const PlanConfigPage: React.FC = () => {
             max_photos: form.maxPhotos,
             max_rooms: form.maxRooms,
             max_brokers: form.maxBrokers,
-            storage_gb: form.storageGb
+            storage_gb: form.storageGb,
+            plan_badge_text: form.badgeText
          }).eq('id', selectedPlanId);
 
          if (error) throw error;
@@ -116,7 +119,8 @@ const PlanConfigPage: React.FC = () => {
             max_photos: form.maxPhotos,
             max_rooms: form.maxRooms,
             max_brokers: form.maxBrokers,
-            storage_gb: form.storageGb
+            storage_gb: form.storageGb,
+            plan_badge_text: form.badgeText
          }]);
 
          if (error) throw error;
@@ -194,7 +198,7 @@ const PlanConfigPage: React.FC = () => {
                   >
                      <div className="flex justify-between items-start">
                         <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${plan.type === 'PF' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                           {plan.type} - {plan.name.split(' ')[1]?.toUpperCase() || 'PLANO'}
+                           {plan.badgeText || `${plan.type} - ${plan.name.split(' ')[1]?.toUpperCase() || 'PLANO'}`}
                         </span>
                         <div className={`w-3 h-3 rounded-full ${plan.status === 'Ativo' ? 'bg-emerald-500 shadow-lg shadow-emerald-200' : 'bg-slate-200'}`} />
                      </div>
@@ -376,7 +380,7 @@ const PlanConfigPage: React.FC = () => {
                      <div className="w-full max-w-[340px] bg-white rounded-[40px] border-4 border-blue-600 p-8 shadow-2xl space-y-8 relative z-10 transform scale-110">
                         <div className="flex items-center justify-between">
                            <span className="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest">
-                              {form.type} - {form.name?.split(' ')[1]?.toUpperCase() || 'PREVIEW'}
+                              {form.badgeText || `${form.type} - ${form.name?.split(' ')[1]?.toUpperCase() || 'PREVIEW'}`}
                            </span>
                         </div>
                         <div className="text-left space-y-1">

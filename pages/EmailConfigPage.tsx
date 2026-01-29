@@ -30,14 +30,14 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
     {
         id: 'invite',
         name: 'Solicitação de Convite',
-        subject: 'Você foi convidado para o VistoriaPro',
-        html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><h1 style="color: #1e293b; margin-top: 0;">Olá, {{user_name}}!</h1><p style="color: #64748b; line-height: 1.6;">Você acaba de ser convidado para fazer parte da equipe do VistoriaPro. Clique no botão abaixo para concluir seu cadastro.</p><a href="{{link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px;">Concluir Cadastro</a><p style="color: #94a3b8; font-size: 12px; margin-top: 40px;">Se você não solicitou este convite, ignore este e-mail.</p></div></div>`
+        subject: 'Você foi convidado para o VaiVistoriar',
+        html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><h1 style="color: #1e293b; margin-top: 0;">Olá, {{user_name}}!</h1><p style="color: #64748b; line-height: 1.6;">Você acaba de ser convidado para fazer parte da equipe do VaiVistoriar. Clique no botão abaixo para concluir seu cadastro.</p><a href="{{link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px;">Concluir Cadastro</a><p style="color: #94a3b8; font-size: 12px; margin-top: 40px;">Se você não solicitou este convite, ignore este e-mail.</p></div></div>`
     },
     {
         id: 'payment_success',
         name: 'Confirmação de Pagamento',
         subject: 'Seu pagamento foi confirmado!',
-        html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><h1 style="color: #1e293b; margin-top: 0;">Pagamento Confirmado! 🎉</h1><p style="color: #64748b; line-height: 1.6;">O seu plano {{plan_name}} já está ativo em sua conta. Aproveite todas as funcionalidades premium do VistoriaPro.</p><div style="background: #f1f5f9; padding: 20px; border-radius: 12px; margin: 24px 0;"><p style="margin: 0; color: #475569;">Valor: <strong>R$ {{amount}}</strong></p><p style="margin: 8px 0 0; color: #475569;">Data: <strong>{{date}}</strong></p></div><p style="color: #64748b;">Dúvidas? Entre em contato conosco.</p></div></div>`
+        html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><h1 style="color: #1e293b; margin-top: 0;">Pagamento Confirmado! 🎉</h1><p style="color: #64748b; line-height: 1.6;">O seu plano {{plan_name}} já está ativo em sua conta. Aproveite todas as funcionalidades premium do VaiVistoriar.</p><div style="background: #f1f5f9; padding: 20px; border-radius: 12px; margin: 24px 0;"><p style="margin: 0; color: #475569;">Valor: <strong>R$ {{amount}}</strong></p><p style="margin: 8px 0 0; color: #475569;">Data: <strong>{{date}}</strong></p></div><p style="color: #64748b;">Dúvidas? Entre em contato conosco.</p></div></div>`
     },
     {
         id: 'send_report',
@@ -48,8 +48,8 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
     {
         id: 'password_reset',
         name: 'Recuperação de Senha',
-        subject: 'Recuperação de sua Senha - VistoriaPro',
-        html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><div style="text-align: center; margin-bottom: 30px;"><div style="width: 60px; hieght: 60px; background: #fef2f2; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; color: #ef4444;"><span style="font-size: 32px;">🔑</span></div></div><h1 style="color: #1e293b; margin-top: 0; text-align: center;">Recuperar Senha</h1><p style="color: #64748b; line-height: 1.6; text-align: center;">Olá! Você solicitou a recuperação de senha para sua conta no VistoriaPro. Clique no botão abaixo para criar uma nova senha.</p><div style="text-align: center; margin: 40px 0;"><a href="{{link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);">Definir Nova Senha</a></div><p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 40px;">Este link expira em 24 horas. Se você não solicitou esta alteração, pode ignorar este e-mail com segurança.</p></div></div>`
+        subject: 'Recuperação de sua Senha - VaiVistoriar',
+        html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><div style="text-align: center; margin-bottom: 30px;"><div style="width: 60px; hieght: 60px; background: #fef2f2; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; color: #ef4444;"><span style="font-size: 32px;">🔑</span></div></div><h1 style="color: #1e293b; margin-top: 0; text-align: center;">Recuperar Senha</h1><p style="color: #64748b; line-height: 1.6; text-align: center;">Olá! Você solicitou a recuperação de senha para sua conta no VaiVistoriar. Clique no botão abaixo para criar uma nova senha.</p><div style="text-align: center; margin: 40px 0;"><a href="{{link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);">Definir Nova Senha</a></div><p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 40px;">Este link expira em 24 horas. Se você não solicitou esta alteração, pode ignorar este e-mail com segurança.</p></div></div>`
     }
 ];
 
@@ -76,7 +76,7 @@ const EmailConfigPage: React.FC = () => {
     const [testEmail, setTestEmail] = useState('');
     const [logs, setLogs] = useState<EmailLog[]>([]);
     const [smtp, setSmtp] = useState<SMTPConfig>({
-        host: '', port: 587, user: '', pass: '', senderName: 'VistoriaPro', senderEmail: '', useSSL: false
+        host: '', port: 587, user: '', pass: '', senderName: 'VaiVistoriar', senderEmail: '', useSSL: false
     });
     const [templates, setTemplates] = useState<EmailTemplate[]>(DEFAULT_TEMPLATES);
     const [activeTemplateIdx, setActiveTemplateIdx] = useState(0);

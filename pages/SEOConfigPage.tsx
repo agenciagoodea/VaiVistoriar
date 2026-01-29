@@ -8,7 +8,7 @@ const SEOConfigPage: React.FC = () => {
     const [message, setMessage] = useState({ text: '', type: '' });
 
     const [configs, setConfigs] = useState({
-        seo_title: 'VistoriaPro - Laudos de Vistoria Online',
+        seo_title: 'VaiVistoriar - Laudos de Vistoria Online',
         seo_description: 'Plataforma completa para gestão de vistorias imobiliárias com segurança jurídica e facilidade.',
         seo_keywords: 'vistoria imobiliaria, laudo de vistorias, corretor de imoveis, imobiliaria',
         seo_og_image: '',
@@ -109,7 +109,7 @@ const SEOConfigPage: React.FC = () => {
         <div className="max-w-4xl space-y-8 animate-in fade-in duration-500 pb-20">
             <div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">SEO & Indexação</h1>
-                <p className="text-slate-500 mt-1">Configure como o VistoriaPro aparece nos motores de busca (Google, Bing) e redes sociais.</p>
+                <p className="text-slate-500 mt-1">Configure como o VaiVistoriar aparece nos motores de busca (Google, Bing) e redes sociais.</p>
             </div>
 
             {message.text && (

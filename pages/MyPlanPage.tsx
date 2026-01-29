@@ -218,7 +218,7 @@ const MyPlanPage: React.FC = () => {
 
                         <div className="relative z-10 flex flex-col items-center text-center">
                             <span className="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest mb-6">Plano Atual</span>
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">{currentPlan?.name || 'Vistoria Free'}</h2>
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">{currentPlan?.name || 'Assinatura Ativa'}</h2>
                             <div className="flex items-baseline gap-1 mt-2">
                                 <span className="text-2xl font-black text-slate-900">R$ {(currentPlan?.price ? parseFloat(currentPlan.price) : 0).toFixed(2).replace('.', ',')}</span>
                                 <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">/ mês</span>
@@ -380,7 +380,7 @@ const MyPlanPage: React.FC = () => {
                 <h3 className="text-lg font-black tracking-tight leading-tight">Precisa de ajuda?</h3>
                 <p className="text-xs text-slate-400 font-medium leading-relaxed">Estamos aqui para te ajudar! Entre em contato pelo WhatsApp e tire suas dúvidas sobre planos e vistorias.</p>
                 <a
-                    href={supportWhatsapp ? `https://wa.me/${supportWhatsapp.replace(/\D/g, '')}?text=Olá! Preciso de ajuda com meu plano VistoriaPro.` : '#'}
+                    href={supportWhatsapp ? `https://wa.me/${supportWhatsapp.replace(/\D/g, '')}?text=Olá! Preciso de ajuda com meu plano VaiVistoriar.` : '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-3 px-6 py-3 bg-green-500 hover:bg-green-400 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-colors shadow-lg"
