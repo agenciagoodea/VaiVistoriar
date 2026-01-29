@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
             const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
                 type: 'recovery',
                 email: to,
-                options: { redirectTo: `${origin || 'https://www.vaivistoriar.com.br'}/#/reset-password` }
+                options: { redirectTo: 'https://www.vaivistoriar.com.br' }
             })
             if (linkError) return respond({ success: false, error: `Erro ao gerar link: ${linkError.message}` })
             vars.link = linkData.properties.action_link;
