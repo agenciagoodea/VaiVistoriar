@@ -50,7 +50,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   const [isConfigOpen, setIsConfigOpen] = useState(location.pathname.startsWith('/admin/'));
   const currentMenu = role === 'ADMIN' ? adminMenu : role === 'BROKER' ? brokerMenu : pjMenu;
 
-  const [brand, setBrand] = useState<{ primaryColor: string; logoUrl: string | null } | null>(null);
+  const [brand, setBrand] = useState<{ primaryColor: string; logoUrl: string | null }>({ primaryColor: '#2563eb', logoUrl: null });
   const [userProfile, setUserProfile] = React.useState<{ full_name: string; avatar_url: string; email: string } | null>(null);
 
   React.useEffect(() => {
