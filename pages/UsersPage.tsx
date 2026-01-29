@@ -50,11 +50,15 @@ const UsersPage: React.FC = () => {
    };
 
    const sendInviteEmail = async (email: string, name: string) => {
-      const { error: emailError } = await supabase.functions.invoke('send-invite', {
+      const { error: emailError } = await supabase.functions.invoke('send-email', {
          body: {
             to: email,
-            name: name,
-            invite_link: `${window.location.origin}/#/register?email=${email}&name=${encodeURIComponent(name)}`
+            templateId: 'invite',
+            origin: window.location.origin,
+            variables: {
+               user_name: name,
+               link: `${window.location.origin}/#/register?email=${email}&name=${encodeURIComponent(name)}`
+            }
          }
       });
 

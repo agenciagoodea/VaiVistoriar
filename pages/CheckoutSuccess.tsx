@@ -18,24 +18,9 @@ const CheckoutSuccess: React.FC = () => {
             if (status === 'approved') {
                 setActivating(true);
                 try {
-                    // 1. Notificação por Email
-                    await supabase.functions.invoke('send-payment-notification', {
-                        body: { paymentId: paymentId, status: status }
-                    });
-
-                    // 2. ATIVAÇÃO DO PLANO NO BANCO (LADO CLIENTE PARA VELOCIDADE)
-                    // Buscamos o ID do plano via metadados ou external_reference se tivermos passado concatenado
-                    // No nosso caso em mercadopago.ts passamos userId como external_reference
-                    // E os metadados contêm o plan_id. O MP retorna isso se configurado.
-                    // Para simplificar agora, se o pagamento foi aprovado, vamos assumir que precisamos atualizar o perfil.
-
+                    // 1. ATIVAÇÃO DO PLANO NO BANCO (LADO CLIENTE PARA VELOCIDADE)
                     const { data: { user } } = await supabase.auth.getUser();
                     if (user) {
-                        // Buscamos o último plano de upgrade solicitado (ou passamos via URL o ID do plano)
-                        // Para robustez máxima, deveríamos ter uma tabela 'subscriptions' ou 'payment_logs'
-                        // Mas aqui vamos atualizar o perfil baseado no pagamento aprovado.
-
-                        // Pegamos o plan_id da URL (que adicionaremos no mercadopago.ts)
                         const planId = searchParams.get('plan_id');
 
                         if (planId) {
@@ -53,6 +38,20 @@ const CheckoutSuccess: React.FC = () => {
 
                             if (updateError) throw updateError;
                             console.log('Plano ativado com sucesso!');
+
+                            // 2. Notificação por Email (Mover para cá para ter 'user' e 'planId')
+                            await supabase.functions.invoke('send-email', {
+                                body: {
+                                    to: user.email,
+                                    templateId: 'payment_success',
+                                    origin: window.location.origin,
+                                    variables: {
+                                        plan_name: planId || 'Premium',
+                                        amount: 'Ver fatura',
+                                        date: new Date().toLocaleDateString('pt-BR')
+                                    }
+                                }
+                            });
                         }
                     }
                 } catch (err) {

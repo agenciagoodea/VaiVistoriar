@@ -127,16 +127,15 @@ const EmailConfigPage: React.FC = () => {
         setTestingSmtp(true);
         try {
             const testTemplate = templates.find(t => t.id === 'invite');
-            const { data, error: emailError } = await supabase.functions.invoke('send-invite', {
+            const { data, error: emailError } = await supabase.functions.invoke('send-email', {
                 body: {
                     to: testEmail,
-                    name: 'Teste de Conexão',
-                    invite_link: `${window.location.origin}/#/register?email=${testEmail}&name=${encodeURIComponent('Usuário de Teste')}`,
+                    templateId: 'invite',
+                    origin: window.location.origin,
                     config: smtp,
-                    template: testTemplate,
                     variables: {
                         user_name: 'Teste',
-                        link: '#',
+                        link: `${window.location.origin}/#/register?email=${testEmail}`,
                         client_name: 'Cliente Teste',
                         property_name: 'Imóvel Exemplo',
                         report_link: '#'

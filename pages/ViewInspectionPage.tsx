@@ -104,10 +104,11 @@ const ViewInspectionPage: React.FC = () => {
             if (targets.length === 0) throw new Error('Selecione ao menos um destinatário.');
 
             for (const target of targets) {
-                const { error } = await supabase.functions.invoke('send-invite', {
+                const { error } = await supabase.functions.invoke('send-email', {
                     body: {
                         to: target.email,
-                        template: template,
+                        templateId: 'send_report',
+                        origin: window.location.origin,
                         variables: {
                             client_name: target.name,
                             property_name: inspection.property_name || inspection.property?.name,

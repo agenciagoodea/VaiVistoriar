@@ -141,6 +141,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                 body: {
                     to: targetEmail,
                     templateId: 'password_reset',
+                    origin: window.location.origin,
                     variables: {
                         user_name: targetEmail.split('@')[0]
                     }
