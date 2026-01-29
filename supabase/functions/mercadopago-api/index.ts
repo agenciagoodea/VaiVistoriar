@@ -65,7 +65,23 @@ Deno.serve(async (req) => {
                 console.log(`Found approved payment? ${approvedPayment ? 'YES' : 'NO'}`);
 
                 if (approvedPayment) {
-                    console.log(`Ativando plano ${planId} para o usuário ${userId}`);
+                    const status = approvedPayment.status;
+                    const prefId = approvedPayment.preference_id;
+
+                    console.log(`Verificação Manual: Aprovado! PrefID=${prefId}`);
+
+                    // BUSCA DEFINITIVA
+                    const { data: orderData } = await supabaseAdmin
+                        .from('payment_history')
+                        .select('*')
+                        .eq('mp_id', prefId)
+                        .single();
+
+                    const finalUserId = orderData?.user_id || userId;
+                    const finalPlanId = orderData?.plan_id || planId;
+
+                    console.log(`Ativando plano ${finalPlanId} para o usuário ${finalUserId}`);
+
                     // Ativar plano no banco
                     const nextMonth = new Date()
                     nextMonth.setMonth(nextMonth.getMonth() + 1)
@@ -73,25 +89,19 @@ Deno.serve(async (req) => {
                     const { error: profErr } = await supabaseAdmin
                         .from('broker_profiles')
                         .update({
-                            subscription_plan_id: planId,
+                            subscription_plan_id: finalPlanId,
                             subscription_status: 'Ativo',
-                            subscription_expires_at: nextMonth.toISOString()
+                            subscription_expires_at: nextMonth.toISOString(),
+                            updated_at: new Date().toISOString()
                         })
-                        .eq('user_id', userId);
+                        .eq('user_id', finalUserId);
 
-                    if (profErr) {
-                        console.error('Erro ao atualizar broker_profiles:', profErr.message);
-                    } else {
-                        console.log('broker_profiles atualizado com sucesso');
-                    }
+                    if (profErr) console.error('Erro ao atualizar broker_profiles:', profErr.message);
 
                     // Atualizar histórico
-                    const { error: histErr } = await supabaseAdmin.from('payment_history')
+                    await supabaseAdmin.from('payment_history')
                         .update({ status: 'approved' })
-                        .eq('user_id', userId)
-                        .eq('status', 'pending');
-
-                    if (histErr) console.error('Erro ao atualizar payment_history:', histErr.message);
+                        .eq('mp_id', prefId);
 
                     return new Response(JSON.stringify({
                         success: true,

@@ -57,47 +57,43 @@ Deno.serve(async (req) => {
 
         const paymentData = await mpResponse.json()
         const status = paymentData.status;
-        console.log(`Payment Status: ${status}, User: ${paymentData.external_reference}`);
+        const preferenceId = paymentData.preference_id;
+        console.log(`Webhook MP: Status=${status}, PrefID=${preferenceId}, InternalID=${paymentData.id}`);
 
-        const userId = paymentData.external_reference || paymentData.metadata?.user_id
-        let planId = paymentData.metadata?.plan_id
+        // BUSCA DEFINITIVA: Localizar o pedido original no banco usando o preference_id
+        const { data: orderData, error: orderErr } = await supabaseClient
+            .from('payment_history')
+            .select('*')
+            .eq('mp_id', preferenceId)
+            .single();
 
-        if (!userId) {
-            console.log('Nenhum user_id encontrado no pagamento');
-            return new Response(JSON.stringify({ received: true, warning: 'No user_id' }), {
-                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-        }
-
-        // 1. Fetch latest pending payment to get plan_id if missing
-        if (!planId) {
-            const { data: latestPayment } = await supabaseClient
-                .from('payment_history')
-                .select('plan_id')
-                .eq('user_id', userId)
-                .eq('status', 'pending')
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (latestPayment) {
-                planId = latestPayment.plan_id;
-                console.log(`PlanID recuperado do histórico: ${planId}`);
+        if (orderErr || !orderData) {
+            console.error('Pedido não encontrado para a preferência:', preferenceId);
+            // Fallback para external_reference se preferência falhar
+            const fallbackUserId = paymentData.external_reference || paymentData.metadata?.user_id;
+            if (!fallbackUserId) {
+                return new Response(JSON.stringify({ received: true, error: 'Order not found' }), {
+                    status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
             }
+            // Se achou o usuário pelo fallback, tenta seguir mas sem plan_id garantido
+            console.log('Usando fallback por external_reference:', fallbackUserId);
         }
 
-        // 2. Update payment history
+        const userId = orderData?.user_id || paymentData.external_reference || paymentData.metadata?.user_id;
+        const planId = orderData?.plan_id || paymentData.metadata?.plan_id;
+
+        console.log(`Ativando para User=${userId}, Plan=${planId}`);
+
+        // 1. Atualizar histórico (sempre que houver mudança de status)
         const { error: histErr } = await supabaseClient.from('payment_history')
             .update({ status: status })
-            .eq('user_id', userId)
-            .eq('status', 'pending')
-            .order('created_at', { ascending: false })
-            .limit(1);
+            .eq('mp_id', preferenceId);
 
         if (histErr) console.error('Erro ao atualizar histórico:', histErr.message);
 
-        // 3. Activate plan if approved
-        if (status === 'approved' && planId) {
+        // 2. ATIVAÇÃO REAL: Se aprovado, garante que o perfil receba o plano
+        if (status === 'approved' && userId && planId) {
             const nextMonth = new Date()
             nextMonth.setMonth(nextMonth.getMonth() + 1)
 
@@ -106,17 +102,18 @@ Deno.serve(async (req) => {
                 .update({
                     subscription_plan_id: planId,
                     subscription_status: 'Ativo',
-                    subscription_expires_at: nextMonth.toISOString()
+                    subscription_expires_at: nextMonth.toISOString(),
+                    updated_at: new Date().toISOString()
                 })
                 .eq('user_id', userId)
 
             if (profErr) {
-                console.error('Erro ao ativar plano no broker_profiles:', profErr.message);
+                console.error('ERRO FATAL ao ativar plano no perfil:', profErr.message);
             } else {
-                console.log(`Sucesso: Plano ${planId} ativado para ${userId}`);
+                console.log(`SUCESSO TOTAL: Plano ${planId} ativado agora para o usuário ${userId}`);
             }
         } else {
-            console.log(`Plano não ativado. Status=${status}, PlanID=${planId}`);
+            console.log(`Ativação pulada: Status=${status}, UserID=${userId}, PlanID=${planId}`);
         }
 
         return new Response(JSON.stringify({ received: true, status: paymentData.status }), {
