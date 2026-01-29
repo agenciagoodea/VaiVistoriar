@@ -56,10 +56,11 @@ Deno.serve(async (req) => {
         }
 
         const paymentData = await mpResponse.json()
-        console.log(`Payment Status: ${paymentData.status}, User: ${paymentData.external_reference}`);
+        const status = paymentData.status;
+        console.log(`Payment Status: ${status}, User: ${paymentData.external_reference}`);
 
         const userId = paymentData.external_reference || paymentData.metadata?.user_id
-        const planId = paymentData.metadata?.plan_id
+        let planId = paymentData.metadata?.plan_id
 
         if (!userId) {
             console.log('Nenhum user_id encontrado no pagamento');
@@ -68,9 +69,26 @@ Deno.serve(async (req) => {
             });
         }
 
-        // 1. Update payment history by user_id (since mp_id may differ)
+        // 1. Fetch latest pending payment to get plan_id if missing
+        if (!planId) {
+            const { data: latestPayment } = await supabaseClient
+                .from('payment_history')
+                .select('plan_id')
+                .eq('user_id', userId)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (latestPayment) {
+                planId = latestPayment.plan_id;
+                console.log(`PlanID recuperado do histórico: ${planId}`);
+            }
+        }
+
+        // 2. Update payment history
         const { error: histErr } = await supabaseClient.from('payment_history')
-            .update({ status: paymentData.status })
+            .update({ status: status })
             .eq('user_id', userId)
             .eq('status', 'pending')
             .order('created_at', { ascending: false })
@@ -78,8 +96,8 @@ Deno.serve(async (req) => {
 
         if (histErr) console.error('Erro ao atualizar histórico:', histErr.message);
 
-        // 2. Activate plan if approved
-        if (paymentData.status === 'approved' && planId) {
+        // 3. Activate plan if approved
+        if (status === 'approved' && planId) {
             const nextMonth = new Date()
             nextMonth.setMonth(nextMonth.getMonth() + 1)
 
@@ -93,10 +111,12 @@ Deno.serve(async (req) => {
                 .eq('user_id', userId)
 
             if (profErr) {
-                console.error('Erro ao ativar plano:', profErr.message);
+                console.error('Erro ao ativar plano no broker_profiles:', profErr.message);
             } else {
                 console.log(`Sucesso: Plano ${planId} ativado para ${userId}`);
             }
+        } else {
+            console.log(`Plano não ativado. Status=${status}, PlanID=${planId}`);
         }
 
         return new Response(JSON.stringify({ received: true, status: paymentData.status }), {

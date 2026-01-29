@@ -159,10 +159,10 @@ const CheckoutConfigPage: React.FC = () => {
                             </div>
                             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pendente</p>
-                                    <code className="text-xs font-mono text-amber-600">/checkout/pending</code>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WebHook (Notificações de Pagamento)</p>
+                                    <code className="text-xs font-mono text-purple-600">https://cmrgzaoexmjilvbuduek.supabase.co/functions/v1/mercadopago-webhook</code>
                                 </div>
-                                <span className="material-symbols-outlined text-amber-500">pending</span>
+                                <span className="material-symbols-outlined text-purple-500">notifications_active</span>
                             </div>
                         </div>
                     </div>

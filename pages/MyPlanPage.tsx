@@ -99,9 +99,12 @@ const MyPlanPage: React.FC = () => {
                 table: 'broker_profiles',
                 filter: `user_id=eq.${profile.user_id}`
             }, (payload) => {
-                if (payload.new.subscription_status === 'Ativo') {
-                    fetchData(); // Recarrega tudo
-                    alert('Assinatura Ativada! Seu acesso foi liberado.');
+                // Se o plano ou o status mudou para algo diferente de gratuito/pendente
+                if (payload.new.subscription_plan_id !== payload.old?.subscription_plan_id || payload.new.subscription_status !== payload.old?.subscription_status) {
+                    fetchData();
+                    if (payload.new.subscription_status === 'Ativo' && payload.old?.subscription_status !== 'Ativo') {
+                        alert('🎉 Assinatura Ativada! Seu acesso foi liberado.');
+                    }
                 }
             })
             .subscribe();
@@ -202,10 +205,14 @@ const MyPlanPage: React.FC = () => {
                 <div className="flex items-center gap-4">
                     <div className="text-right">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status da Conta</p>
-                        <p className="text-sm font-black text-emerald-600 uppercase tracking-tight">Assinatura Ativa</p>
+                        <p className={`text-sm font-black uppercase tracking-tight ${profile?.subscription_status === 'Ativo' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            {profile?.subscription_status || 'Pendente'}
+                        </p>
                     </div>
-                    <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
-                        <span className="material-symbols-outlined text-2xl">verified</span>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${profile?.subscription_status === 'Ativo' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                        <span className="material-symbols-outlined text-2xl">
+                            {profile?.subscription_status === 'Ativo' ? 'verified' : 'pending_actions'}
+                        </span>
                     </div>
                 </div>
             </div>
