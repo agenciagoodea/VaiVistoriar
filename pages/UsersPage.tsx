@@ -8,6 +8,7 @@ interface UserProfile {
    role: 'ADMIN' | 'BROKER' | 'PJ';
    status: 'Ativo' | 'Inativo' | 'Pendente';
    last_access?: string;
+   avatar_url?: string;
 }
 
 const UsersPage: React.FC = () => {
@@ -35,13 +36,27 @@ const UsersPage: React.FC = () => {
          const { data: { user } } = await supabase.auth.getUser();
          setCurrentUser(user);
 
-         const { data, error } = await supabase
-            .from('broker_profiles')
-            .select('*')
-            .order('full_name', { ascending: true });
+         // Call Edge Function to get users with last_access data
+         const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
+            body: { action: 'get_users' }
+         });
 
          if (error) throw error;
-         if (data) setUsers(data as UserProfile[]);
+
+         if (responseData && responseData.users) {
+            const mappedUsers = responseData.users.map((u: any) => ({
+               user_id: u.user_id,
+               full_name: u.full_name,
+               email: u.email,
+               role: u.role,
+               status: u.status,
+               last_access: u.last_sign_in_at
+                  ? new Date(u.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : 'Nunca acessou',
+               avatar_url: u.avatar_url // Ensure avatar_url is passed if needed, though we use initials mostly
+            }));
+            setUsers(mappedUsers);
+         }
       } catch (err) {
          console.error('Erro ao buscar usuários:', err);
       } finally {

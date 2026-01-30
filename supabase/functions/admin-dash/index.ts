@@ -113,6 +113,43 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({ success: true, profiles, payments }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
+        // ACTION: GET USERS WITH AUTH DATA (Last Access)
+        if (action === 'get_users') {
+            const { data: profiles, error } = await supabaseAdmin.from('broker_profiles').select('*').order('full_name', { ascending: true });
+            if (error) throw error;
+
+            // Fetch Auth Users to get last_sign_in_at
+            // Note: listUsers defaults to 50 users. We set perPage to 1000 to cover most cases for now.
+            const { data: { users: authUsers }, error: authListError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+
+            if (authListError) console.error('Error fetching auth users:', authListError);
+
+            const authMap: Record<string, any> = {};
+            authUsers?.forEach(u => { authMap[u.id] = u });
+
+            const enrichedProfiles = profiles.map((p: any) => {
+                const authData = authMap[p.user_id];
+                return {
+                    ...p,
+                    last_sign_in_at: authData?.last_sign_in_at || null,
+                    email: p.email || authData?.email // Fallback email
+                };
+            });
+
+            return new Response(JSON.stringify({ success: true, users: enrichedProfiles }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // ACTION: DELETE USER
+        if (action === 'delete_user') {
+            const { user_id } = payload
+            if (!user_id) throw new Error('Missing user_id')
+
+            const { error } = await supabaseAdmin.auth.admin.deleteUser(user_id)
+            if (error) throw error
+
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
         throw new Error('Unknown Action')
 
     } catch (error: any) {
