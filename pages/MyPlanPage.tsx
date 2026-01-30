@@ -2,8 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plan } from '../types';
+import { mercadopagoService } from '../lib/mercadopago';
 
-const MyPlanPage: React.FC = () => {
+interface MyPlanPageProps {
+    role?: 'PJ' | 'BROKER' | 'ADMIN';
+}
+
+const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
     const [loading, setLoading] = useState(true);
     const [plans, setPlans] = useState<Plan[]>([]);
     const [currentPlan, setCurrentPlan] = useState<any>(null);
@@ -43,11 +48,15 @@ const MyPlanPage: React.FC = () => {
             }
 
             // 3. Fetch All Available Tier Plans
+            // Usar o role da prop se disponível, senão fallback para o do perfil ou metadata
+            const effectiveRole = (propRole || profileData?.role || user.user_metadata?.role || 'PF').toUpperCase();
+            console.log('🔍 Effective Role for Plan Filtering:', effectiveRole);
+
             const { data: allPlans } = await supabase
                 .from('plans')
                 .select('*')
                 .eq('status', 'Ativo')
-                .eq('plan_type', profileData.role === 'PJ' ? 'PJ' : 'PF')
+                .eq('plan_type', effectiveRole === 'PJ' ? 'PJ' : 'PF')
                 .neq('price', 0)
                 .order('price', { ascending: true });
 
@@ -182,6 +191,24 @@ const MyPlanPage: React.FC = () => {
             alert('Atenção: ' + (err.message || 'Ocorreu um erro ao iniciar o pagamento.'));
         } finally {
             setUpgradingId(null);
+        }
+    };
+
+    const handleSyncStatus = async (order: any) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Sessão expirada');
+
+            const result = await mercadopagoService.checkPaymentStatus(user.id, order.plan_id, undefined, order.mp_id);
+
+            if (result?.paymentApproved) {
+                alert('✅ Pagamento Confirmado! Seu plano foi ativado.');
+                fetchData();
+            } else {
+                alert(`Status atual: ${result?.latestStatus || 'Pendente'}. Caso já tenha pago, aguarde alguns minutos.`);
+            }
+        } catch (err: any) {
+            alert('Erro ao sincronizar: ' + err.message);
         }
     };
 
@@ -372,12 +399,21 @@ const MyPlanPage: React.FC = () => {
                                     </td>
                                     <td className="px-8 py-5 text-right">
                                         {order.status === 'pending' && order.init_point && (
-                                            <button
-                                                onClick={() => window.open(order.init_point, 'MercadoPago', 'width=800,height=800')}
-                                                className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 underline tracking-widest"
-                                            >
-                                                Ver Pix / Pagar
-                                            </button>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <button
+                                                    onClick={() => window.open(order.init_point, 'MercadoPago', 'width=800,height=800')}
+                                                    className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 underline tracking-widest"
+                                                >
+                                                    Pagar / Pix
+                                                </button>
+                                                <button
+                                                    onClick={() => handleSyncStatus(order)}
+                                                    className="text-[9px] font-bold uppercase text-slate-400 hover:text-blue-600 flex items-center gap-1"
+                                                >
+                                                    <span className="material-symbols-outlined text-[12px]">sync</span>
+                                                    Sincronizar
+                                                </button>
+                                            </div>
                                         )}
                                         {order.status === 'approved' && (
                                             <span className="material-symbols-outlined text-emerald-500 text-[20px]">check_circle</span>

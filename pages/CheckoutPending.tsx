@@ -1,32 +1,116 @@
 
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { mercadopagoService } from '../lib/mercadopago';
 
 const CheckoutPending: React.FC = () => {
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const paymentId = searchParams.get('payment_id');
+    const preferenceId = searchParams.get('preference_id');
+    const [checking, setChecking] = useState(false);
+    const [status, setStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+
+    useEffect(() => {
+        let interval: any;
+
+        const checkStatus = async () => {
+            if (checking) return;
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+
+                console.log('Verificando status do pagamento pendente...');
+                const result = await mercadopagoService.checkPaymentStatus(user.id, '', paymentId || undefined, preferenceId || undefined);
+
+                if (result?.paymentApproved) {
+                    setStatus('approved');
+                    console.log('Pagamento aprovado! Redirecionando...');
+                    setTimeout(() => {
+                        navigate('/checkout/success?' + searchParams.toString());
+                    }, 2000);
+                } else if (result?.latestStatus === 'rejected') {
+                    setStatus('rejected');
+                }
+            } catch (err) {
+                console.error('Erro ao verificar status:', err);
+            }
+        };
+
+        // Verifica imediatamente
+        checkStatus();
+
+        // Polling a cada 10 segundos
+        interval = setInterval(checkStatus, 10000);
+
+        // Listener Real-time como backup (se o webhook atualizar o banco antes do polling)
+        const channel = supabase
+            .channel('public:payment_history')
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'payment_history',
+                filter: preferenceId ? `mp_id=eq.${preferenceId}` : undefined
+            }, (payload) => {
+                if (payload.new.status === 'approved') {
+                    setStatus('approved');
+                    setTimeout(() => {
+                        navigate('/checkout/success?' + searchParams.toString());
+                    }, 1500);
+                }
+            })
+            .subscribe();
+
+        return () => {
+            clearInterval(interval);
+            supabase.removeChannel(channel);
+        };
+    }, [paymentId, preferenceId, navigate, searchParams]);
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-4 font-['Inter']">
             <div className="w-full max-w-md bg-white rounded-[40px] shadow-2xl shadow-blue-100/50 border border-slate-100 p-10 text-center space-y-8 animate-in zoom-in-95 duration-500">
-                <div className="inline-flex w-24 h-24 bg-blue-50 text-blue-500 rounded-[32px] items-center justify-center animate-pulse">
-                    <span className="material-symbols-outlined text-5xl">schedule</span>
-                </div>
+
+                {status === 'approved' ? (
+                    <div className="inline-flex w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[32px] items-center justify-center animate-bounce">
+                        <span className="material-symbols-outlined text-5xl">check_circle</span>
+                    </div>
+                ) : status === 'rejected' ? (
+                    <div className="inline-flex w-24 h-24 bg-rose-50 text-rose-500 rounded-[32px] items-center justify-center">
+                        <span className="material-symbols-outlined text-5xl">cancel</span>
+                    </div>
+                ) : (
+                    <div className="inline-flex w-24 h-24 bg-blue-50 text-blue-500 rounded-[32px] items-center justify-center animate-pulse">
+                        <span className="material-symbols-outlined text-5xl">schedule</span>
+                    </div>
+                )}
 
                 <div className="space-y-3">
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Pagamento Pendente</h1>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                        {status === 'approved' ? 'Pagamento Confirmado!' : status === 'rejected' ? 'Pagamento Recusado' : 'Pagamento Pendente'}
+                    </h1>
                     <p className="text-slate-500 font-medium leading-relaxed">
-                        Seu pagamento está sendo processado. Isso pode levar alguns minutos dependendo do método escolhido (ex: boleto ou análise de cartão).
+                        {status === 'approved'
+                            ? 'Sua assinatura foi ativada com sucesso. Estamos te redirecionando...'
+                            : status === 'rejected'
+                                ? 'Infelizmente seu pagamento não foi aprovado pela operadora.'
+                                : 'Seu pagamento está sendo processado. Assim que ouvirmos a confirmação do banco, esta página atualizará automaticamente.'}
                     </p>
                 </div>
 
-                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3">
-                    <span className="material-symbols-outlined text-blue-500">info</span>
-                    <p className="text-[11px] font-bold text-blue-700 text-left">
-                        Assim que o pagamento for confirmado, seu plano será atualizado automaticamente. Você receberá um e-mail de confirmação.
-                    </p>
-                </div>
+                {status === 'pending' && (
+                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-[11px] font-bold text-blue-700 text-left">
+                            Aguardando confirmação do Mercado Pago... não feche esta página.
+                        </p>
+                    </div>
+                )}
 
                 <div className="pt-4 flex flex-col gap-3">
                     <Link
-                        to="/admin"
+                        to="/pj"
                         className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
                         Voltar ao Dashboard
