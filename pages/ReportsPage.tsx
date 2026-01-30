@@ -23,12 +23,12 @@ const ReportsPage: React.FC = () => {
 
                 if (error) throw error;
 
-                if (metrics) {
+                if (metrics && metrics.stats) {
                     setStats({
-                        totalSubscribers: metrics.active_plans || 0,
-                        activeRevenue: metrics.revenue || 0,
-                        totalInspections: metrics.inspections_count || 0,
-                        newUsersLast30Days: metrics.new_users_30d || 0
+                        totalSubscribers: metrics.stats.activeSubs || 0,
+                        activeRevenue: metrics.stats.mrr || 0,
+                        totalInspections: metrics.stats.totalInspections || 0,
+                        newUsersLast30Days: metrics.stats.newUsers30d || 0
                     });
                 }
 

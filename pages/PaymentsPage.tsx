@@ -34,7 +34,7 @@ const PaymentsPage: React.FC = () => {
 
             return {
               id: `#TR-${h.id.slice(0, 4)}`,
-              client: h.user?.full_name || h.user?.email || 'Usuário',
+              client: h.profiles?.full_name || h.profiles?.email || 'Usuário',
               plan: h.plan_name || 'Plano',
               val: `R$ ${price.toFixed(price % 1 === 0 ? 0 : 2).replace('.', ',')}`,
               method: 'Mercado Pago',
