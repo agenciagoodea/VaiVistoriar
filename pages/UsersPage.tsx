@@ -258,7 +258,7 @@ const UsersPage: React.FC = () => {
                                  <div>
                                     <p className="font-bold text-slate-900 flex items-center gap-2">
                                        {u.full_name || 'Sem nome'}
-                                       {isCurrentUser && <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-100 text-slate-400">VOCÃŠ</span>}
+                                       {isCurrentUser && <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-100 text-slate-400">VOCÊ</span>}
                                     </p>
                                     <p className="text-[10px] text-slate-400 font-medium">{u.email}</p>
                                  </div>
@@ -295,13 +295,13 @@ const UsersPage: React.FC = () => {
             </table>
          </div>
 
-         {/* ADICIONAR/EDITAR USUÃRIO MODAL */}
+         {/* ADICIONAR/EDITAR USUÁRIO MODAL */}
          {showModal && (
             <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                <div className="bg-white rounded-[32px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
                   <div className="p-8 border-b border-slate-50 bg-slate-50/50">
                      <h3 className="text-xl font-black text-slate-900 tracking-tight">{editingUser ? 'Editar Membro' : 'Adicionar Membro'}</h3>
-                     <p className="text-xs text-slate-500 font-medium mt-1">{editingUser ? 'Atualize as informaÃ§Ãµes do perfil abaixo.' : 'O novo usuÃ¡rio receberÃ¡ as credenciais por e-mail.'}</p>
+                     <p className="text-xs text-slate-500 font-medium mt-1">{editingUser ? 'Atualize as informações do perfil abaixo.' : 'O novo usuário receberá as credenciais por e-mail.'}</p>
                   </div>
                   <form onSubmit={handleSaveUser} className="p-8 space-y-5">
                      <div className="space-y-1">
@@ -340,13 +340,13 @@ const UsersPage: React.FC = () => {
                               onClick={() => setNewUser({ ...newUser, role: 'PJ' })}
                               className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newUser.role === 'PJ' ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-slate-400 border-slate-100'}`}
                            >
-                              ImobiliÃ¡ria (PJ)
+                              Imobiliária (PJ)
                            </button>
                         </div>
                      </div>
                      <div className="flex gap-3 pt-4">
                         <button type="button" onClick={() => { setShowModal(false); setEditingUser(null); }} className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 rounded-2xl transition-all">Cancelar</button>
-                        <button type="submit" className="flex-1 py-4 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95">{editingUser ? 'Salvar EdiÃ§Ã£o' : 'Salvar UsuÃ¡rio'}</button>
+                        <button type="submit" className="flex-1 py-4 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95">{editingUser ? 'Salvar Edição' : 'Salvar Usuário'}</button>
                      </div>
                   </form>
                </div>
