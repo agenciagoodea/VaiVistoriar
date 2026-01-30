@@ -41,6 +41,7 @@ const SubscriptionsPage: React.FC = () => {
                      id: profile.user_id,
                      client: profile.full_name || 'Usuário sem Nome',
                      email: profile.email || '(Nenhum e-mail vinculado)',
+                     avatar: profile.avatar_url || null,
                      plan: profile.plans?.name || 'Vistoria Free',
                      price: profile.plans?.price ? `R$ ${parseFloat(profile.plans.price).toFixed(2).replace('.', ',')} / mês` : 'Gratuito',
                      status: profile.status || 'Ativa',
@@ -94,9 +95,13 @@ const SubscriptionsPage: React.FC = () => {
                      <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-4">
                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-black text-[10px]">
-                                 {s.client.split(' ').map((n: string) => n[0]).join('')}
-                              </div>
+                              {s.avatar ? (
+                                 <img src={s.avatar} alt={s.client} className="w-10 h-10 rounded-full object-cover" />
+                              ) : (
+                                 <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-slate-400 text-[20px]">person</span>
+                                 </div>
+                              )}
                               <div>
                                  <p className="font-bold text-slate-900">{s.client}</p>
                                  <p className="text-[10px] text-slate-400 font-medium">{s.email}</p>
