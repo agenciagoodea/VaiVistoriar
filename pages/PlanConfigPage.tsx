@@ -269,8 +269,8 @@ const PlanConfigPage: React.FC = () => {
 
                <div className="p-10 grid xl:grid-cols-2 gap-16 bg-slate-50/30">
                   <div className="space-y-8">
-                     <div className="grid md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
+                     <div className="grid md:grid-cols-3 gap-6">
+                        <div className="md:col-span-2 space-y-2">
                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Plano</label>
                            <input
                               type="text"
@@ -280,14 +280,24 @@ const PlanConfigPage: React.FC = () => {
                            />
                         </div>
                         <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Slug (Link Identificador)</label>
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Texto do Badge</label>
                            <input
                               type="text"
-                              value={form.slug}
-                              onChange={e => setForm({ ...form, slug: e.target.value })}
-                              className="w-full px-6 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                              value={form.badgeText}
+                              onChange={e => setForm({ ...form, badgeText: e.target.value })}
+                              className="w-full px-6 py-4 bg-blue-50/30 border border-blue-100/50 rounded-2xl text-sm font-bold shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-blue-600"
+                              placeholder="Ex: MAIS POPULAR"
                            />
                         </div>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Slug (Link Identificador)</label>
+                        <input
+                           type="text"
+                           value={form.slug}
+                           onChange={e => setForm({ ...form, slug: e.target.value })}
+                           className="w-full px-6 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                        />
                      </div>
 
                      <div className="grid md:grid-cols-3 gap-6">
@@ -453,6 +463,14 @@ const PlanConfigPage: React.FC = () => {
                               <input type="number" placeholder="Corretores" onChange={e => setForm({ ...form, maxBrokers: parseInt(e.target.value) })} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-sm" />
                            )}
                            <input type="number" placeholder="Storage (GB)" onChange={e => setForm({ ...form, storageGb: parseInt(e.target.value) })} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-sm" />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Texto do Badge (Novo)</label>
+                           <input
+                              placeholder="Ex: PROMOCIONAL"
+                              onChange={e => setForm({ ...form, badgeText: e.target.value })}
+                              className="w-full px-6 py-4 bg-blue-50 border border-blue-100 rounded-2xl outline-none font-bold text-blue-600"
+                           />
                         </div>
                      </div>
                   </div>
