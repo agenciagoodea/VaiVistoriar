@@ -47,7 +47,7 @@ const MyPlanPage: React.FC = () => {
                 .from('plans')
                 .select('*')
                 .eq('status', 'Ativo')
-                .eq('plan_type', 'PF')
+                .eq('plan_type', profileData.role === 'PJ' ? 'PJ' : 'PF')
                 .neq('price', 0)
                 .order('price', { ascending: true });
 
@@ -281,7 +281,7 @@ const MyPlanPage: React.FC = () => {
                                 </div>
 
                                 <h4 className="text-2xl font-black text-slate-900 mb-2 tracking-tight group-hover:text-blue-600 transition-colors uppercase">{plan.name}</h4>
-                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-8">Corretor Independente</p>
+                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-8">{plan.type === 'PJ' ? 'Plano Empresarial' : 'Corretor Independente'}</p>
 
                                 <div className="space-y-4 mb-10">
                                     <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
@@ -316,7 +316,7 @@ const MyPlanPage: React.FC = () => {
                         {plans.filter(p => p.id !== currentPlan?.id).length === 0 && (
                             <div className="col-span-2 p-20 text-center bg-slate-50 rounded-[40px] border border-dashed border-slate-200">
                                 <span className="material-symbols-outlined text-4xl text-slate-300 mb-4 font-bold">verified</span>
-                                <h4 className="text-sm font-black text-slate-500 uppercase tracking-widest">Você já possui o melhor plano individual!</h4>
+                                <h4 className="text-sm font-black text-slate-500 uppercase tracking-widest">Você já possui o melhor plano para sua categoria!</h4>
                                 <p className="text-xs text-slate-400 mt-2 font-medium">Interessado em soluções para equipes? Fale conosco.</p>
                             </div>
                         )}

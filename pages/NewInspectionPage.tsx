@@ -276,7 +276,7 @@ const NewInspectionPage: React.FC = () => {
                         </div>
                         <div className="pt-4 space-y-4">
                             <button
-                                onClick={() => navigate('/plan-config')}
+                                onClick={() => navigate('/broker/plan')}
                                 className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all font-bold"
                             >
                                 Fazer Upgrade Agora
