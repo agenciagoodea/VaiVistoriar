@@ -106,7 +106,6 @@ const App: React.FC = () => {
           {/* Admin Specific Routes */}
           <Route element={<ProtectedRoute allowedRoles={['ADMIN']} userRole={role} isAuthenticated={!!session} />}>
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/users" element={<UsersPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
@@ -118,10 +117,19 @@ const App: React.FC = () => {
             <Route path="/admin/seo" element={<SEOConfigPage />} />
           </Route>
 
+          {/* Shared Admin and PJ Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'PJ']} userRole={role} isAuthenticated={!!session} />}>
+            <Route path="/users" element={<UsersPage />} />
+          </Route>
+
+          {/* Shared Broker and PJ Routes for Plans */}
+          <Route element={<ProtectedRoute allowedRoles={['BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} />}>
+            <Route path="/broker/plan" element={<MyPlanPage />} />
+          </Route>
+
           {/* Broker Specific Routes */}
           <Route element={<ProtectedRoute allowedRoles={['BROKER']} userRole={role} isAuthenticated={!!session} />}>
             <Route path="/broker" element={<BrokerDashboard />} />
-            <Route path="/broker/plan" element={<MyPlanPage />} />
           </Route>
 
           {/* PJ Specific Routes */}
