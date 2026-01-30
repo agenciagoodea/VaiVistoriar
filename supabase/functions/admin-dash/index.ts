@@ -105,12 +105,27 @@ Deno.serve(async (req) => {
 
         // ACTION: GET SUBSCRIPTIONS
         if (action === 'get_subscriptions') {
-            const { data: profiles, error } = await supabaseAdmin.from('broker_profiles').select('*, plans:subscription_plan_id(*)').order('created_at', { ascending: false });
-            if (error) throw error;
+            // 1. Fetch Profiles
+            const { data: profiles, error: errProfiles } = await supabaseAdmin.from('broker_profiles').select('*').order('created_at', { ascending: false });
+            if (errProfiles) throw errProfiles;
 
+            // 2. Fetch Plans (Manual Join Strategy)
+            const { data: plans, error: errPlans } = await supabaseAdmin.from('plans').select('*');
+            if (errPlans) console.error('Error fetching plans:', errPlans);
+
+            const plansMap: Record<string, any> = {};
+            plans?.forEach((p: any) => { plansMap[p.id] = p });
+
+            // 3. Enrich Profiles with Manual Plan Data
+            const enrichedProfiles = profiles.map((p: any) => ({
+                ...p,
+                plans: plansMap[p.subscription_plan_id] || null
+            }));
+
+            // 4. Fetch Payments
             const { data: payments } = await supabaseAdmin.from('payment_history').select('*').eq('status', 'approved');
 
-            return new Response(JSON.stringify({ success: true, profiles, payments }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            return new Response(JSON.stringify({ success: true, profiles: enrichedProfiles, payments }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         // ACTION: GET USERS WITH AUTH DATA (Last Access & Avatar Fallback)
