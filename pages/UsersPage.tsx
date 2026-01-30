@@ -191,7 +191,7 @@ const UsersPage: React.FC = () => {
                className="h-10 flex items-center gap-2 px-6 rounded-lg bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all transform active:scale-95"
             >
                <span className="material-symbols-outlined text-[20px]">person_add</span>
-               Adicionar Novo UsuÃ¡rio
+               Adicionar Novo Usuário
             </button>
          </div>
 
@@ -224,7 +224,7 @@ const UsersPage: React.FC = () => {
                >
                   <option value="all">Todos Tipos</option>
                   <option value="BROKER">Corretor (PF)</option>
-                  <option value="PJ">ImobiliÃ¡ria (PJ)</option>
+                  <option value="PJ">Imobiliária (PJ)</option>
                   <option value="ADMIN">Administrador</option>
                </select>
             </div>
@@ -234,11 +234,11 @@ const UsersPage: React.FC = () => {
             <table className="w-full text-left text-sm whitespace-nowrap">
                <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
                   <tr>
-                     <th className="px-6 py-4">UsuÃ¡rio / Empresa</th>
+                     <th className="px-6 py-4">Usuário / Empresa</th>
                      <th className="px-6 py-4 text-center">Tipo</th>
                      <th className="px-6 py-4">Status</th>
-                     <th className="px-6 py-4">Ãšltimo Acesso</th>
-                     <th className="px-6 py-4 text-right">AÃ§Ãµes</th>
+                     <th className="px-6 py-4">Último Acesso</th>
+                     <th className="px-6 py-4 text-right">Ações</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">

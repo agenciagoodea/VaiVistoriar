@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
 
                 // 1. Fetch Profiles
                 console.log('📊 Fetching profiles...')
-                const { data: profiles, error: errProfiles } = await supabaseAdmin.from('broker_profiles').select('*').order('created_at', { ascending: false });
+                const { data: profiles, error: errProfiles } = await supabaseAdmin.from('broker_profiles').select('*').order('full_name', { ascending: true });
 
                 if (errProfiles) {
                     console.error('❌ Error fetching profiles:', errProfiles)
@@ -161,16 +161,7 @@ Deno.serve(async (req) => {
                 return new Response(JSON.stringify({ success: true, profiles: enrichedProfiles, payments: payments || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             } catch (error: any) {
                 console.error('❌ Fatal error in get_subscriptions:', error)
-                // Retornar erro detalhado ao frontend em vez de lançar
-                return new Response(JSON.stringify({
-                    success: false,
-                    error: error.message || 'Erro desconhecido',
-                    details: error.toString(),
-                    stack: error.stack
-                }), {
-                    status: 200, // Retornar 200 para o frontend poder ler o erro
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                })
+                return new Response(JSON.stringify({ success: false, error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
         }
 
