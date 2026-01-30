@@ -113,13 +113,11 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({ success: true, profiles, payments }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        // ACTION: GET USERS WITH AUTH DATA (Last Access)
+        // ACTION: GET USERS WITH AUTH DATA (Last Access & Avatar Fallback)
         if (action === 'get_users') {
             const { data: profiles, error } = await supabaseAdmin.from('broker_profiles').select('*').order('full_name', { ascending: true });
             if (error) throw error;
 
-            // Fetch Auth Users to get last_sign_in_at
-            // Note: listUsers defaults to 50 users. We set perPage to 1000 to cover most cases for now.
             const { data: { users: authUsers }, error: authListError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
 
             if (authListError) console.error('Error fetching auth users:', authListError);
@@ -132,7 +130,8 @@ Deno.serve(async (req) => {
                 return {
                     ...p,
                     last_sign_in_at: authData?.last_sign_in_at || null,
-                    email: p.email || authData?.email // Fallback email
+                    email: p.email || authData?.email,
+                    avatar_url: p.avatar_url || authData?.user_metadata?.avatar_url || authData?.user_metadata?.picture || null
                 };
             });
 
@@ -144,8 +143,20 @@ Deno.serve(async (req) => {
             const { user_id } = payload
             if (!user_id) throw new Error('Missing user_id')
 
+            // 1. Try to delete from Auth (updates broker_profiles via Cascade usually)
             const { error } = await supabaseAdmin.auth.admin.deleteUser(user_id)
-            if (error) throw error
+
+            if (error) {
+                // If user not found in Auth, try to delete orphan profile directly
+                if (error.message.includes('User not found') || error.status === 404) {
+                    const { error: dbError } = await supabaseAdmin.from('broker_profiles').delete().eq('user_id', user_id);
+                    if (dbError) throw dbError;
+                    return new Response(JSON.stringify({ success: true, note: 'Orphan profile deleted' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                }
+
+                // Return descriptive error
+                return new Response(JSON.stringify({ success: false, error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
 
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
