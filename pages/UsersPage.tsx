@@ -140,15 +140,21 @@ const UsersPage: React.FC = () => {
    };
 
    const handleDeleteUser = async (user_id: string) => {
-      if (!confirm('Deseja realmente excluir este usuÃ¡rio e todos os seus dados? Esta aÃ§Ã£o nÃ£o pode ser desfeita.')) return;
+      if (!confirm('Deseja realmente excluir este usuário e todos os seus dados? Esta ação não pode ser desfeita.')) return;
       try {
-         const { error } = await supabase.functions.invoke('admin-dash', {
+         const { data, error } = await supabase.functions.invoke('admin-dash', {
             body: { action: 'delete_user', user_id }
          });
 
+         // Verificar erro do invoke
          if (error) throw new Error(error.message || 'Erro na API');
 
-         alert('UsuÃ¡rio excluÃ­do com sucesso.');
+         // Verificar success no body da resposta
+         if (data && !data.success) {
+            throw new Error(data.error || 'Erro ao excluir usuário');
+         }
+
+         alert('Usuário excluído com sucesso.');
          fetchUsers();
       } catch (err: any) {
          alert('Erro ao excluir: ' + (err.message || 'Falha desconhecida'));
@@ -243,12 +249,12 @@ const UsersPage: React.FC = () => {
                            <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                  <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-black text-[10px] text-slate-500 overflow-hidden relative">
-                                     {u.avatar_url ? (
-                                         <img src={u.avatar_url} alt={u.full_name} className="w-full h-full object-cover" />
-                                     ) : (
-                                        <span className="material-symbols-outlined text-slate-400 text-[24px]">person</span>
-                                     )}
-                                  </div>
+                                    {u.avatar_url ? (
+                                       <img src={u.avatar_url} alt={u.full_name} className="w-full h-full object-cover" />
+                                    ) : (
+                                       <span className="material-symbols-outlined text-slate-400 text-[24px]">person</span>
+                                    )}
+                                 </div>
                                  <div>
                                     <p className="font-bold text-slate-900 flex items-center gap-2">
                                        {u.full_name || 'Sem nome'}

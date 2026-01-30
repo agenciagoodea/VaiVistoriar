@@ -10,27 +10,37 @@ const SubscriptionsPage: React.FC = () => {
       const fetchData = async () => {
          try {
             setLoading(true);
-            setLoading(true);
 
             // Call Edge Function to get profiles AND payments securely (Bypassing RLS)
             const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
                body: { action: 'get_subscriptions' }
             });
 
+            console.log('🔍 Subscriptions API Response:', responseData);
+            console.log('🔍 Subscriptions API Error:', error);
+
             if (error) throw error;
+
+            // Verificar success no body
+            if (responseData && !responseData.success) {
+               throw new Error(responseData.error || 'Erro ao buscar assinaturas');
+            }
 
             const profiles = responseData.profiles || [];
             const allPayments = responseData.payments || [];
 
+            console.log('📊 Profiles Count:', profiles.length);
+            console.log('💰 Payments Count:', allPayments.length);
+
             if (profiles) {
                setSubs(profiles.map((profile: any) => {
                   // Encontrar último pagamento aprovado deste usuário
-                  const lastPayment = allPayments.find((p: any) => p.user_id === profile.user_id && p.status === 'approved'); // Logic simplificada, idealmente sortear por data
+                  const lastPayment = allPayments.find((p: any) => p.user_id === profile.user_id && p.status === 'approved');
 
                   return {
                      id: profile.user_id,
                      client: profile.full_name || 'Usuário sem Nome',
-                     email: profile.email || '(Nenhum e-mail vinculado)', // Agora garantimos email no select se disponivel ou no profile
+                     email: profile.email || '(Nenhum e-mail vinculado)',
                      plan: profile.plans?.name || 'Vistoria Free',
                      price: profile.plans?.price ? `R$ ${parseFloat(profile.plans.price).toFixed(2).replace('.', ',')} / mês` : 'Gratuito',
                      status: profile.status || 'Ativa',
@@ -43,7 +53,7 @@ const SubscriptionsPage: React.FC = () => {
                }));
             }
          } catch (err) {
-            console.error('Erro ao buscar assinaturas:', err);
+            console.error('❌ Erro ao buscar assinaturas:', err);
          } finally {
             setLoading(false);
          }
