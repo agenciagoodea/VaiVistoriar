@@ -213,6 +213,43 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
+        // ACTION: CREATE USER PJ (Direct registration by Imobiliária)
+        if (action === 'create_user_pj') {
+            const { email, password, full_name, role, company_name } = payload;
+
+            if (!email || !password || !full_name) {
+                throw new Error('E-mail, senha e nome completo são obrigatórios.');
+            }
+
+            // 1. Create User in Auth
+            const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                email,
+                password,
+                email_confirm: true,
+                user_metadata: { full_name, role }
+            });
+
+            if (authError) throw authError;
+
+            // 2. Create Profile in DB (linked to company)
+            const { error: profileError } = await supabaseAdmin.from('broker_profiles').insert([{
+                user_id: authUser.user.id,
+                full_name,
+                email,
+                role: role || 'BROKER',
+                company_name,
+                status: 'Ativo' // PJ registers are active immediately
+            }]);
+
+            if (profileError) {
+                // Rollback Auth creation if profile fails
+                await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+                throw profileError;
+            }
+
+            return new Response(JSON.stringify({ success: true, user_id: authUser.user.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
 
         console.log('⚠️ Unknown action received:', action)
         throw new Error(`Unknown Action: ${action}`)

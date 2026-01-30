@@ -21,10 +21,25 @@ const PropertiesPage: React.FC = () => {
 
    const fetchProperties = async () => {
       try {
-         const { data: dbData, error } = await supabase
-            .from('properties')
-            .select('*')
-            .order('created_at', { ascending: false });
+         const { data: { user } } = await supabase.auth.getUser();
+         if (!user) return;
+
+         // Buscar perfil para saber cargo
+         const { data: profile } = await supabase
+            .from('broker_profiles')
+            .select('role')
+            .eq('user_id', user.id)
+            .single();
+
+         let query = supabase.from('properties').select('*');
+
+         // Se for PJ ou Corretor, filtramos pelo owner_id (quem cadastrou ou é dono)
+         // Para PJ isso garante que ele veja seus imóveis e possivelmente os da equipe se cadastrados sob seu ID
+         if (profile?.role === 'PJ' || profile?.role === 'BROKER') {
+            query = query.eq('owner_id', user.id);
+         }
+
+         const { data: dbData, error } = await query.order('created_at', { ascending: false });
 
          if (error) throw error;
 

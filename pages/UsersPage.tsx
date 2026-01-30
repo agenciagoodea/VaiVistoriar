@@ -24,8 +24,12 @@ const UsersPage: React.FC = () => {
       full_name: '',
       email: '',
       role: 'BROKER' as 'BROKER' | 'PJ',
-      password: ''
+      password: '',
+      confirmPassword: ''
    });
+
+   const [userRole, setUserRole] = useState<'ADMIN' | 'PJ' | 'BROKER'>('ADMIN');
+   const [userCompany, setUserCompany] = useState<string>('');
 
    useEffect(() => {
       fetchUsers();
@@ -36,6 +40,18 @@ const UsersPage: React.FC = () => {
          const { data: { user } } = await supabase.auth.getUser();
          setCurrentUser(user);
 
+         // Buscar perfil do usuário logado para saber o cargo e empresa
+         const { data: myProfile } = await supabase
+            .from('broker_profiles')
+            .select('role, company_name')
+            .eq('user_id', user?.id)
+            .single();
+
+         if (myProfile) {
+            setUserRole(myProfile.role);
+            setUserCompany(myProfile.company_name || '');
+         }
+
          // Call Edge Function to get users with last_access data
          const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
             body: { action: 'get_users' }
@@ -44,21 +60,29 @@ const UsersPage: React.FC = () => {
          if (error) throw error;
 
          if (responseData && responseData.users) {
-            const mappedUsers = responseData.users.map((u: any) => ({
+            let userList = responseData.users;
+
+            // Se for PJ, filtrar apenas os membros da mesma empresa
+            if (myProfile?.role === 'PJ') {
+               userList = userList.filter((u: any) => u.company_name === myProfile.company_name);
+            }
+
+            const mappedUsers = userList.map((u: any) => ({
                user_id: u.user_id,
                full_name: u.full_name,
                email: u.email,
                role: u.role,
                status: u.status,
+               company_name: u.company_name,
                last_access: u.last_sign_in_at
                   ? new Date(u.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                   : 'Nunca acessou',
-               avatar_url: u.avatar_url // Ensure avatar_url is passed if needed, though we use initials mostly
+               avatar_url: u.avatar_url
             }));
             setUsers(mappedUsers);
          }
       } catch (err) {
-         console.error('Erro ao buscar usuÃ¡rios:', err);
+         console.error('Erro ao buscar usuários:', err);
       } finally {
          setLoading(false);
       }
@@ -101,23 +125,54 @@ const UsersPage: React.FC = () => {
             if (updateError) throw updateError;
             alert('UsuÃ¡rio atualizado com sucesso!');
          } else {
-            // Modo Novo UsuÃ¡rio
-            const { error: profileError } = await supabase
-               .from('broker_profiles')
-               .insert([{
-                  full_name: newUser.full_name,
-                  email: newUser.email,
-                  role: newUser.role,
-                  status: 'Pendente'
-               }]);
+            // Modo Novo Usuário
+            if (userRole === 'PJ') {
+               // Validação de senha para cadastro direto PJ
+               if (!newUser.password || newUser.password.length < 6) {
+                  alert('A senha deve ter pelo menos 6 caracteres.');
+                  return;
+               }
+               if (newUser.password !== newUser.confirmPassword) {
+                  alert('As senhas não coincidem.');
+                  return;
+               }
 
-            if (profileError) throw profileError;
-            await sendInviteEmail(newUser.email, newUser.full_name);
+               // Criar usuário via Edge Function (Auth + Profile)
+               const { data: createData, error: createError } = await supabase.functions.invoke('admin-dash', {
+                  body: {
+                     action: 'create_user_pj',
+                     email: newUser.email,
+                     password: newUser.password,
+                     full_name: newUser.full_name,
+                     role: 'BROKER',
+                     company_name: userCompany
+                  }
+               });
+
+               if (createError || (createData && !createData.success)) {
+                  throw new Error(createData?.error || createError?.message || 'Erro ao criar usuário');
+               }
+
+               alert('Membro da equipe cadastrado com sucesso!');
+            } else {
+               // Fluxo Normal (Convite Admin)
+               const { error: profileError } = await supabase
+                  .from('broker_profiles')
+                  .insert([{
+                     full_name: newUser.full_name,
+                     email: newUser.email,
+                     role: newUser.role,
+                     status: 'Pendente'
+                  }]);
+
+               if (profileError) throw profileError;
+               await sendInviteEmail(newUser.email, newUser.full_name);
+            }
          }
 
          setShowModal(false);
          setEditingUser(null);
-         setNewUser({ full_name: '', email: '', role: 'BROKER', password: '' });
+         setNewUser({ full_name: '', email: '', role: 'BROKER', password: '', confirmPassword: '' });
          fetchUsers();
       } catch (err: any) {
          alert('Erro ao salvar usuÃ¡rio: ' + err.message);
@@ -130,7 +185,8 @@ const UsersPage: React.FC = () => {
          full_name: user.full_name,
          email: user.email,
          role: user.role as 'BROKER' | 'PJ',
-         password: ''
+         password: '',
+         confirmPassword: ''
       });
       setShowModal(true);
    };
@@ -300,8 +356,14 @@ const UsersPage: React.FC = () => {
             <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                <div className="bg-white rounded-[32px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
                   <div className="p-8 border-b border-slate-50 bg-slate-50/50">
-                     <h3 className="text-xl font-black text-slate-900 tracking-tight">{editingUser ? 'Editar Membro' : 'Adicionar Membro'}</h3>
-                     <p className="text-xs text-slate-500 font-medium mt-1">{editingUser ? 'Atualize as informações do perfil abaixo.' : 'O novo usuário receberá as credenciais por e-mail.'}</p>
+                     <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                        {userRole === 'PJ' ? (editingUser ? 'Editar Membro da Equipe' : 'Novo Membro da Equipe') : (editingUser ? 'Editar Usuário' : 'Adicionar Novo Usuário')}
+                     </h3>
+                     <p className="text-xs text-slate-500 font-medium mt-1">
+                        {userRole === 'PJ'
+                           ? (editingUser ? 'Atualize os dados do corretor abaixo.' : 'Cadastre o corretor diretamente com senha de acesso.')
+                           : (editingUser ? 'Atualize as informações do perfil abaixo.' : 'O novo usuário receberá as credenciais por e-mail.')}
+                     </p>
                   </div>
                   <form onSubmit={handleSaveUser} className="p-8 space-y-5">
                      <div className="space-y-1">
@@ -325,25 +387,54 @@ const UsersPage: React.FC = () => {
                            className={`w-full px-5 py-3.5 border rounded-2xl outline-none text-sm font-bold ${editingUser ? 'bg-slate-100 text-slate-400 border-transparent cursor-not-allowed' : 'bg-slate-50 border-slate-100 focus:ring-4 focus:ring-blue-500/5'}`}
                         />
                      </div>
-                     <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tipo de Acesso</label>
-                        <div className="grid grid-cols-2 gap-3">
-                           <button
-                              type="button"
-                              onClick={() => setNewUser({ ...newUser, role: 'BROKER' })}
-                              className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newUser.role === 'BROKER' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' : 'bg-white text-slate-400 border-slate-100'}`}
-                           >
-                              Corretor (PF)
-                           </button>
-                           <button
-                              type="button"
-                              onClick={() => setNewUser({ ...newUser, role: 'PJ' })}
-                              className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newUser.role === 'PJ' ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-slate-400 border-slate-100'}`}
-                           >
-                              Imobiliária (PJ)
-                           </button>
+                     {userRole === 'PJ' ? (
+                        !editingUser && (
+                           <>
+                              <div className="space-y-1">
+                                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha de Acesso</label>
+                                 <input
+                                    required
+                                    type="password"
+                                    value={newUser.password}
+                                    onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 text-sm font-bold"
+                                    placeholder="Mínimo 6 caracteres"
+                                 />
+                              </div>
+                              <div className="space-y-1">
+                                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Confirmar Senha</label>
+                                 <input
+                                    required
+                                    type="password"
+                                    value={newUser.confirmPassword}
+                                    onChange={e => setNewUser({ ...newUser, confirmPassword: e.target.value })}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 text-sm font-bold"
+                                    placeholder="Repita a senha"
+                                 />
+                              </div>
+                           </>
+                        )
+                     ) : (
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tipo de Acesso</label>
+                           <div className="grid grid-cols-2 gap-3">
+                              <button
+                                 type="button"
+                                 onClick={() => setNewUser({ ...newUser, role: 'BROKER' })}
+                                 className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newUser.role === 'BROKER' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' : 'bg-white text-slate-400 border-slate-100'}`}
+                              >
+                                 Corretor (PF)
+                              </button>
+                              <button
+                                 type="button"
+                                 onClick={() => setNewUser({ ...newUser, role: 'PJ' })}
+                                 className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newUser.role === 'PJ' ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-slate-400 border-slate-100'}`}
+                              >
+                                 Imobiliária (PJ)
+                              </button>
+                           </div>
                         </div>
-                     </div>
+                     )}
                      <div className="flex gap-3 pt-4">
                         <button type="button" onClick={() => { setShowModal(false); setEditingUser(null); }} className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 rounded-2xl transition-all">Cancelar</button>
                         <button type="submit" className="flex-1 py-4 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95">{editingUser ? 'Salvar Edição' : 'Salvar Usuário'}</button>

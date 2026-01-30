@@ -17,10 +17,38 @@ const InspectionsPage: React.FC = () => {
 
   const fetchInspections = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Buscar perfil do usuário para saber o cargo
+      const { data: profile } = await supabase
+        .from('broker_profiles')
+        .select('role, company_name')
+        .eq('user_id', user.id)
+        .single();
+
+      setMyRole(profile?.role || 'BROKER');
+
+      let query = supabase
         .from('inspections')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select(`
+          *,
+          broker_profiles:inspector_id (
+            full_name,
+            company_name
+          )
+        `);
+
+      // 2. Aplicar filtros baseados no cargo
+      if (profile?.role === 'PJ') {
+        // Se for PJ, vê todas as vistorias da empresa (onde o inspetor pertence à empresa)
+        query = query.eq('broker_profiles.company_name', profile.company_name);
+      } else if (profile?.role === 'BROKER') {
+        // Se for Corretor, vê apenas as suas vistorias
+        query = query.eq('inspector_id', user.id);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setInspections(data || []);
@@ -30,6 +58,8 @@ const InspectionsPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const [myRole, setMyRole] = useState<string>('BROKER');
 
   const handleDeleteClick = (inspection: any) => {
     setInspectionToDelete(inspection);
@@ -126,6 +156,7 @@ const InspectionsPage: React.FC = () => {
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Imóvel</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tipo</th>
+                {myRole === 'PJ' && <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Corretor</th>}
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Data</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
@@ -171,13 +202,20 @@ const InspectionsPage: React.FC = () => {
                       {inspection.type}
                     </span>
                   </td>
+                  {myRole === 'PJ' && (
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-700 text-[11px] uppercase truncate max-w-[120px]">
+                        {inspection.broker_profiles?.full_name || 'Desconhecido'}
+                      </p>
+                    </td>
+                  )}
                   <td className="px-6 py-4 text-center text-[11px] font-bold text-slate-500">
                     {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : '--'}
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Finalizada' ? 'bg-emerald-50 text-emerald-600' :
-                        inspection.status === 'Agendada' ? 'bg-blue-50 text-blue-600' :
-                          'bg-slate-100 text-slate-500'
+                      inspection.status === 'Agendada' ? 'bg-blue-50 text-blue-600' :
+                        'bg-slate-100 text-slate-500'
                       }`}>
                       {inspection.status}
                     </span>
