@@ -8,6 +8,12 @@ const SubscriptionsPage: React.FC = () => {
    const [allPlans, setAllPlans] = useState<any[]>([]);
    const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
+   // Modal State
+   const [selectedUser, setSelectedUser] = useState<any | null>(null);
+   const [newPlanId, setNewPlanId] = useState("");
+   const [adminPassword, setAdminPassword] = useState("");
+   const [modalLoading, setModalLoading] = useState(false);
+
    const fetchData = async () => {
       try {
          setLoading(true);
@@ -16,8 +22,6 @@ const SubscriptionsPage: React.FC = () => {
          const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
             body: { action: 'get_subscriptions' }
          });
-
-         console.log('🔍 Subscriptions API Response:', responseData);
 
          if (error) throw error;
 
@@ -34,8 +38,11 @@ const SubscriptionsPage: React.FC = () => {
          if (profiles) {
             setSubs(profiles.map((profile: any) => {
                // Encontrar último pagamento aprovado deste usuário
-               // Como allPayments vem ordenado decrescente pelo servidor, o find pega o mais recente
                const lastPayment = allPayments.find((p: any) => p.user_id === profile.user_id && p.status === 'approved');
+
+               // Lógica PF/PJ baseada no cpf_cnpj (CNPJ tem 14 dígitos, CPF tem 11)
+               const doc = (profile.cpf_cnpj || "").replace(/\D/g, "");
+               const type = doc.length > 11 ? 'PJ' : 'PF';
 
                return {
                   id: profile.user_id,
@@ -45,6 +52,7 @@ const SubscriptionsPage: React.FC = () => {
                   plan: profile.plans?.name || 'Vistoria Free',
                   price: profile.plans?.price ? `R$ ${parseFloat(profile.plans.price).toFixed(2).replace('.', ',')} / mês` : 'Gratuito',
                   status: profile.status || 'Ativa',
+                  type: type,
                   renewal: profile.subscription_expires_at
                      ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR')
                      : 'Permanente',
@@ -64,30 +72,39 @@ const SubscriptionsPage: React.FC = () => {
       fetchData();
    }, []);
 
-   const handleUpdatePlan = async (userId: string, planId: string) => {
+   const handleUpdatePlan = async () => {
+      if (!selectedUser || !newPlanId || !adminPassword) {
+         alert('Preencha todos os campos e a senha do administrador.');
+         return;
+      }
+
       try {
-         setUpdatingUserId(userId);
+         setModalLoading(true);
          const { data: response, error } = await supabase.functions.invoke('admin-dash', {
             body: {
                action: 'update_user_plan',
                payload: {
-                  user_id: userId,
-                  plan_id: planId,
+                  user_id: selectedUser.id,
+                  plan_id: newPlanId,
+                  adminPassword: adminPassword,
                   status: 'Ativo',
                   expires_at: new Date(new Date().getFullYear() + 1, new Date().getMonth(), new Date().getDate()).toISOString()
                }
             }
          });
 
-         if (error || !response.success) throw error || new Error(response?.error);
+         if (error) throw error;
+         if (!response.success) throw new Error(response.error || 'Erro na verificação');
 
          alert('✅ Plano atualizado com sucesso!');
-         await fetchData(); // Recarrega os dados
+         setSelectedUser(null);
+         setAdminPassword("");
+         await fetchData();
       } catch (err: any) {
          console.error('Erro ao atualizar plano:', err);
-         alert('❌ Erro ao atualizar plano: ' + err.message);
+         alert('❌ ' + (err.message || 'Erro ao atualizar plano'));
       } finally {
-         setUpdatingUserId(null);
+         setModalLoading(false);
       }
    };
 
@@ -125,13 +142,18 @@ const SubscriptionsPage: React.FC = () => {
                      <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-4">
                            <div className="flex items-center gap-3">
-                              {s.avatar ? (
-                                 <img src={s.avatar} alt={s.client} className="w-10 h-10 rounded-full object-cover" />
-                              ) : (
-                                 <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-slate-400 text-[20px]">person</span>
+                              <div className="relative w-10 h-10">
+                                 {s.avatar ? (
+                                    <img src={s.avatar} alt={s.client} className="w-10 h-10 rounded-full object-cover border border-slate-200" />
+                                 ) : (
+                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                                       <span className="material-symbols-outlined text-slate-400 text-[20px]">person</span>
+                                    </div>
+                                 )}
+                                 <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black border-2 border-white ${s.type === 'PJ' ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'}`}>
+                                    {s.type}
                                  </div>
-                              )}
+                              </div>
                               <div>
                                  <p className="font-bold text-slate-900">{s.client}</p>
                                  <p className="text-[10px] text-slate-400 font-medium">{s.email}</p>
@@ -154,36 +176,81 @@ const SubscriptionsPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-slate-500 text-xs font-bold">{s.renewal}</td>
                         <td className="px-6 py-4 text-right">
-                           {updatingUserId === s.id ? (
-                              <div className="w-5 h-5 border-2 border-blue-600/20 border-t-blue-600 rounded-full animate-spin ml-auto" />
-                           ) : (
-                              <select
-                                 className="text-[10px] font-black uppercase tracking-widest bg-slate-50 border-none rounded-lg px-2 py-1 outline-none hover:bg-slate-100 transition-colors cursor-pointer"
-                                 onChange={(e) => {
-                                    if (e.target.value && window.confirm(`Confirmar alteração para o plano ${allPlans.find(p => p.id === e.target.value)?.name}?`)) {
-                                       handleUpdatePlan(s.id, e.target.value);
-                                    }
-                                    e.target.value = ""; // Reset do select
-                                 }}
-                                 value=""
-                              >
-                                 <option value="" disabled>Trocar Plano</option>
-                                 {allPlans.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name} (R$ {parseFloat(p.price).toFixed(0)})</option>
-                                 ))}
-                              </select>
-                           )}
+                           <button
+                              onClick={() => {
+                                 setSelectedUser(s);
+                                 setNewPlanId("");
+                              }}
+                              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all border border-slate-100"
+                              title="Trocar Plano"
+                           >
+                              <span className="material-symbols-outlined text-[18px]">settings_suggest</span>
+                           </button>
                         </td>
                      </tr>
                   ))}
-                  {subs.length === 0 && (
-                     <tr>
-                        <td colSpan={7} className="p-10 text-center text-slate-400 text-xs font-bold uppercase italic">Nenhuma assinatura encontrada.</td>
-                     </tr>
-                  )}
                </tbody>
             </table>
          </div>
+
+         {/* Plan Change Modal */}
+         {selectedUser && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+               <div className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300">
+                  <div className="text-center space-y-2">
+                     <h3 className="text-xl font-black text-slate-900">Alterar Plano</h3>
+                     <p className="text-xs text-slate-500 font-medium">Você está alterando o plano de <span className="text-slate-900 font-black">{selectedUser.client}</span></p>
+                  </div>
+
+                  <div className="space-y-4">
+                     <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Novo Plano</label>
+                        <select
+                           value={newPlanId}
+                           onChange={(e) => setNewPlanId(e.target.value)}
+                           className="w-full h-12 px-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
+                        >
+                           <option value="" disabled>Selecione um plano...</option>
+                           {allPlans.map(p => (
+                              <option key={p.id} value={p.id}>{p.name} (R$ {parseFloat(p.price).toFixed(0)})</option>
+                           ))}
+                        </select>
+                     </div>
+
+                     <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Senha do Administrador</label>
+                        <input
+                           type="password"
+                           placeholder="Sua senha para confirmar"
+                           value={adminPassword}
+                           onChange={(e) => setAdminPassword(e.target.value)}
+                           className="w-full h-12 px-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
+                        />
+                     </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                     <button
+                        onClick={() => setSelectedUser(null)}
+                        className="flex-1 h-12 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+                     >
+                        Cancelar
+                     </button>
+                     <button
+                        disabled={modalLoading}
+                        onClick={handleUpdatePlan}
+                        className="flex-1 h-12 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                     >
+                        {modalLoading ? (
+                           <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        ) : (
+                           'Confirmar'
+                        )}
+                     </button>
+                  </div>
+               </div>
+            </div>
+         )}
       </div>
    );
 };

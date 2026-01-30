@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
 
                 // 1. Fetch Profiles
                 console.log('📊 Fetching profiles...')
-                const { data: profiles, error: errProfiles } = await supabaseAdmin.from('broker_profiles').select('*').order('full_name', { ascending: true });
+                const { data: profiles, error: errProfiles } = await supabaseAdmin.from('broker_profiles').select('*, cpf_cnpj').order('full_name', { ascending: true });
 
                 if (errProfiles) {
                     console.error('❌ Error fetching profiles:', errProfiles)
@@ -266,9 +266,22 @@ Deno.serve(async (req) => {
 
         // ACTION: UPDATE USER PLAN (Manual Admin Override)
         if (action === 'update_user_plan') {
-            const { user_id, plan_id, status, expires_at } = payload;
+            const { user_id, plan_id, status, expires_at, adminPassword } = payload;
 
             if (!user_id || !plan_id) throw new Error('Missing user_id or plan_id');
+            if (!adminPassword) throw new Error('Senha do administrador é obrigatória');
+
+            // 1. Verify Admin Password
+            console.log(`🔐 Verifying admin identity for ${user.email}`);
+            const { error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+                email: user.email!,
+                password: adminPassword,
+            });
+
+            if (signInError) {
+                console.error('❌ Admin verification failed:', signInError.message);
+                throw new Error('Senha do administrador incorreta.');
+            }
 
             console.log(`🛠️ Manually updating plan for user ${user_id} to ${plan_id}`);
 
