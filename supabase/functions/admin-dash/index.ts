@@ -179,9 +179,12 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        throw new Error('Unknown Action')
+
+        console.log('⚠️ Unknown action received:', action)
+        throw new Error(`Unknown Action: ${action}`)
 
     } catch (error: any) {
+        console.error('❌ Error in admin-dash:', error)
         return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 })

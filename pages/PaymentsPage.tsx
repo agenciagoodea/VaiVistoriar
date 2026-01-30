@@ -38,7 +38,7 @@ const PaymentsPage: React.FC = () => {
               plan: h.plan_name || 'Plano',
               val: `R$ ${price.toFixed(price % 1 === 0 ? 0 : 2).replace('.', ',')}`,
               method: 'Mercado Pago',
-              status: h.status === 'approved' ? 'Pago' : h.status === 'pending' ? 'Pendente' : h.status
+              status: h.status === 'approved' ? 'Pago' : h.status === 'pending' ? 'Pendente' : h.status === 'refunded' ? 'Reembolsado' : h.status
             };
           });
 
@@ -116,8 +116,10 @@ const PaymentsPage: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 text-right font-black text-slate-900">{t.val}</td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${t.status === 'Ativo' || t.status === 'Ativa' ? 'bg-green-50 text-green-700' :
-                    t.status === 'Pendente' ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${t.status === 'Pago' ? 'bg-green-50 text-green-700' :
+                      t.status === 'Pendente' ? 'bg-yellow-50 text-yellow-700' :
+                        t.status === 'Reembolsado' ? 'bg-slate-100 text-slate-600' :
+                          'bg-red-50 text-red-700'
                     }`}>
                     {t.status}
                   </span>

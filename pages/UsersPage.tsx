@@ -179,8 +179,8 @@ const UsersPage: React.FC = () => {
       <div className="space-y-6 animate-in fade-in duration-500">
          <div className="flex flex-col md:flex-row justify-between items-end gap-4">
             <div>
-               <h1 className="text-3xl font-black text-slate-900 tracking-tight">UsuÃ¡rios Cadastrados</h1>
-               <p className="text-slate-500 mt-1">Gerencie o acesso de corretores, imobiliÃ¡rias e construtoras.</p>
+               <h1 className="text-3xl font-black text-slate-900 tracking-tight">Usuários Cadastrados</h1>
+               <p className="text-slate-500 mt-1">Gerencie o acesso de corretores, imobiliárias e construtoras.</p>
             </div>
             <button
                onClick={() => {
