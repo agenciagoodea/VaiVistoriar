@@ -232,13 +232,18 @@ Deno.serve(async (req) => {
             if (authError) throw authError;
 
             // 2. Create Profile in DB (linked to company)
+            const PLAN_ID_PJ = '5c09eeb7-100f-4f84-aaa7-9bcc5df05306'; // IMOBILIÁRIA START
+            const PLAN_ID_PF = 'fd4c420f-09b2-40a7-b43f-972e21378368'; // CORRETOR START
+
             const { error: profileError } = await supabaseAdmin.from('broker_profiles').insert([{
                 user_id: authUser.user.id,
                 full_name,
                 email,
                 role: role || 'BROKER',
                 company_name,
-                status: 'Ativo' // PJ registers are active immediately
+                status: 'Ativo',
+                subscription_plan_id: role === 'PJ' ? PLAN_ID_PJ : PLAN_ID_PF,
+                subscription_expires_at: new Date(new Date().getFullYear() + 10, 0, 1).toISOString()
             }]);
 
             if (profileError) {

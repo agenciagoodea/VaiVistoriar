@@ -39,7 +39,7 @@ const SubscriptionsPage: React.FC = () => {
 
                   return {
                      id: profile.user_id,
-                     client: profile.full_name || 'Usuário sem Nome',
+                     client: profile.company_name || profile.full_name || 'Usuário sem Nome',
                      email: profile.email || '(Nenhum e-mail vinculado)',
                      avatar: profile.avatar_url || null,
                      plan: profile.plans?.name || 'Vistoria Free',
