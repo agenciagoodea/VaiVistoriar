@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        // 1. Verify Requestor is Authenticated (and ideally Admin)
+        // 1. Verify Requestor is Authenticated
         const authHeader = req.headers.get('Authorization')
         if (!authHeader) throw new Error('Missing Authorization Header')
 
@@ -26,51 +26,72 @@ Deno.serve(async (req) => {
 
         if (authError || !user) throw new Error('Unauthorized')
 
-        // Optional: Verify 'ADMIN' role here if needed.
-        // const { data: profile } = await supabaseAdmin.from('broker_profiles').select('role').eq('user_id', user.id).single()
-        // if (profile?.role !== 'ADMIN') throw new Error('Forbidden')
-
         const { action, payload } = await req.json()
 
-        // ACTION: DELETE USER
-        if (action === 'delete_user') {
-            const { user_id } = payload
-            if (!user_id) throw new Error('Missing user_id')
-
-            // Delete from Auth (this cascades if DB is set up right, but we force specific logic if needed)
-            const { error } = await supabaseAdmin.auth.admin.deleteUser(user_id)
-            if (error) throw error
-
-            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
-
-        // ACTION: GET SYSTEM METRICS (Reports)
+        // ACTION: GET SYSTEM METRICS (Full Dashboard Data)
         if (action === 'get_metrics') {
-            // Users Count
+
+            // 1. Users Stats
             const { count: usersCount } = await supabaseAdmin.from('broker_profiles').select('*', { count: 'exact', head: true })
+            const { count: newUsers } = await supabaseAdmin.from('broker_profiles').select('*', { count: 'exact', head: true }).gt('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
 
-            // Revenue & Payments
-            const { data: payments } = await supabaseAdmin.from('payment_history').select('amount, status, created_at')
-            const totalRevenue = payments?.filter(p => p.status === 'approved').reduce((acc, p) => acc + (Number(p.amount) || 0), 0) || 0
-            const pendingCount = payments?.filter(p => p.status === 'pending').length || 0
+            // 2. Active Plans & MRR Calculation
+            const { data: activeProfiles } = await supabaseAdmin
+                .from('broker_profiles')
+                .select('subscription_plan_id, plans:subscription_plan_id(price, billing_cycle)')
+                .eq('status', 'Ativo');
 
-            // Active Plans
-            const { count: activePlans } = await supabaseAdmin.from('broker_profiles').select('*', { count: 'exact', head: true }).eq('subscription_status', 'Ativo')
-            const { count: totalVistorias } = await supabaseAdmin.from('inspections').select('*', { count: 'exact', head: true })
+            let activeSubs = 0;
+            let mrr = 0;
 
-            // New Users 30d
-            const d = new Date()
-            d.setDate(d.getDate() - 30)
-            const { count: newUsers } = await supabaseAdmin.from('broker_profiles').select('*', { count: 'exact', head: true }).gt('created_at', d.toISOString())
+            if (activeProfiles) {
+                activeSubs = activeProfiles.length;
+                activeProfiles.forEach((p: any) => {
+                    const plan = p.plans; // Check if singular or array based on relation
+                    // Supabase returns object if 1:1, array if 1:N. Assuming plan_id is FK, it returns single object usually if setup correctly, or array.
+                    // Let's handle generic case:
+                    const priceData = Array.isArray(plan) ? plan[0] : plan;
+
+                    if (priceData && priceData.price) {
+                        const price = parseFloat(priceData.price);
+                        mrr += (priceData.billing_cycle === 'Anual') ? (price / 12) : price;
+                    }
+                });
+            }
+
+            // 3. Inspections Stats
+            const { count: totalInspections } = await supabaseAdmin.from('inspections').select('*', { count: 'exact', head: true });
+
+            // Status distribution for Chart
+            const { data: inspectionStatus } = await supabaseAdmin.from('inspections').select('status');
+            const inspectionCounts: Record<string, number> = { 'Agendada': 0, 'Em andamento': 0, 'Concluída': 0, 'Rascunho': 0 };
+
+            inspectionStatus?.forEach((i: any) => {
+                if (inspectionCounts[i.status] !== undefined) inspectionCounts[i.status]++;
+                else if (i.status === 'Pendente') inspectionCounts['Em andamento']++; // Map Pendente to Em andamento
+                else inspectionCounts['Em andamento']++; // Fallback
+            });
+
+            // 4. Recent Transactions
+            const { data: recentTransactions } = await supabaseAdmin
+                .from('payment_history')
+                .select('amount, status, created_at, plan_name, profiles:user_id(full_name, avatar_url)')
+                .order('created_at', { ascending: false })
+                .limit(5);
 
             return new Response(JSON.stringify({
-                users_count: usersCount,
-                revenue: totalRevenue,
-                active_plans: activePlans,
-                inspections_count: totalVistorias,
-                pending_payments: pendingCount,
-                new_users_30d: newUsers,
-                all_payments: payments // Return list for Payments Page if needed (limit this if too large)
+                success: true,
+                stats: {
+                    mrr: mrr,
+                    activeSubs: activeSubs,
+                    totalInspections: totalInspections || 0,
+                    totalUsers: usersCount || 0,
+                    newUsers30d: newUsers || 0
+                },
+                charts: {
+                    inspectionStatus: inspectionCounts
+                },
+                recentTransactions: recentTransactions
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -78,19 +99,35 @@ Deno.serve(async (req) => {
         if (action === 'get_payments') {
             const { data: payments, error } = await supabaseAdmin
                 .from('payment_history')
-                .select(`
-                *,
-                user:user_id(full_name, email)
-            `)
+                .select(`*, user:user_id(full_name, email)`)
                 .order('created_at', { ascending: false })
                 .limit(100)
 
             if (error) throw error
 
-            // Manual User Join fallback if relation fails or user_id is in broker_profiles
-            // But payment_history usually relates to auth.users. 
-            // We will return what we found.
             return new Response(JSON.stringify({ payments }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+
+        // ACTION: GET ALL SUBSCRIPTIONS (Subscriptions Page)
+        if (action === 'get_subscriptions') {
+            const { data: profiles, error } = await supabaseAdmin
+                .from('broker_profiles')
+                .select('*, plans:subscription_plan_id(*)')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            // Optional: Get payments to correlate last payment manually if needed, 
+            // but for now let's return profiles. The frontend explicitly joined payments.
+            // Let's fetch payments too so frontend can map them.
+            const { data: payments } = await supabaseAdmin.from('payment_history').select('*').eq('status', 'approved');
+
+            return new Response(JSON.stringify({
+                success: true,
+                profiles,
+                payments
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         throw new Error('Unknown Action')

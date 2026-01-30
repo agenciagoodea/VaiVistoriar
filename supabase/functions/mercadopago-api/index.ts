@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
                             .from('broker_profiles')
                             .update({
                                 subscription_plan_id: finalPlanId,
-                                subscription_status: 'Ativo',
+                                status: 'Ativo',
                                 subscription_expires_at: nextMonth.toISOString(), // TODO: Calcular baseado na periodicidade do plano
                                 updated_at: new Date().toISOString()
                             })
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
                         await supabaseAdmin
                             .from('broker_profiles')
                             .update({
-                                subscription_status: latestStatus === 'refunded' ? 'Estornado' : 'Inativo',
+                                status: latestStatus === 'refunded' ? 'Estornado' : 'Inativo',
                                 updated_at: new Date().toISOString()
                             })
                             .eq('user_id', finalUserId)

@@ -17,61 +17,43 @@ const AdminDashboard: React.FC = () => {
       try {
          setLoading(true);
 
-         // 1. Basic Stats
-         const { count: inspectionsCount } = await supabase.from('inspections').select('*', { count: 'exact', head: true });
-         const { count: usersCount } = await supabase.from('broker_profiles').select('*', { count: 'exact', head: true });
+         const { data, error } = await supabase.functions.invoke('admin-dash', {
+            body: { action: 'get_metrics' }
+         });
 
-         // 2. Active Subs & MRR
-         const { data: profiles } = await supabase
-            .from('broker_profiles')
-            .select('*, planes:subscription_plan_id(price, billing_cycle)');
+         if (error) throw error;
 
-         let totalMrr = 0;
-         let activeSubs = 0;
+         if (data && data.success) {
+            // 1. Basic Stats
+            setStats({
+               mrr: data.stats.mrr || 0,
+               activeSubs: data.stats.activeSubs || 0,
+               totalInspections: data.stats.totalInspections || 0,
+               totalUsers: data.stats.totalUsers || 0
+            });
 
-         profiles?.forEach(p => {
-            if (p.subscription_plan_id && p.subscription_status === 'Ativo') {
-               activeSubs++;
-               const plan = p.planes as any;
-               if (plan && plan.price) {
-                  const price = parseFloat(plan.price);
-                  totalMrr += plan.billing_cycle === 'Anual' ? price / 12 : price;
-               }
+            // 2. Inspection Status Chart
+            const counts = data.charts.inspectionStatus || { 'Agendada': 0, 'Em andamento': 0, 'Concluída': 0, 'Rascunho': 0 };
+            const totalItems = data.stats.totalInspections || 1;
+
+            setInspectionStatusStats([
+               { label: 'Agend.', val: Math.round((counts['Agendada'] / totalItems) * 100), color: 'blue' },
+               { label: 'Andam.', val: Math.round((counts['Em andamento'] / totalItems) * 100), color: 'amber' },
+               { label: 'Concl.', val: Math.round((counts['Concluída'] / totalItems) * 100), color: 'emerald' },
+               { label: 'Rasc.', val: Math.round((counts['Rascunho'] / totalItems) * 100), color: 'slate' },
+            ]);
+
+            // 3. Recent Transactions
+            if (data.recentTransactions) {
+               setRecentTransactions(data.recentTransactions.map((h: any) => ({
+                  client: h.profiles?.full_name || 'Usuário',
+                  plan: h.plan_name || 'Plano',
+                  date: new Date(h.created_at).toLocaleDateString('pt-BR'),
+                  val: `R$ ${parseFloat(h.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                  status: h.status === 'approved' ? 'Pago' : h.status === 'pending' ? 'Pendente' : h.status,
+                  img: h.profiles?.avatar_url || `https://ui-avatars.com/api/?name=${h.profiles?.full_name || 'U'}&background=f1f5f9&color=64748b`
+               })));
             }
-         });
-
-         // 3. Inspection Status Distribution
-         const { data: statusData } = await supabase.from('inspections').select('status');
-         const counts: any = { 'Agendada': 0, 'Em andamento': 0, 'Concluída': 0, 'Rascunho': 0 };
-         statusData?.forEach(i => {
-            if (counts[i.status] !== undefined) counts[i.status]++;
-            else if (i.status === 'Pendente') counts['Em andamento']++;
-         });
-
-         const totalItems = statusData?.length || 1;
-         setInspectionStatusStats([
-            { label: 'Agend.', val: Math.round((counts['Agendada'] / totalItems) * 100), color: 'blue' },
-            { label: 'Andam.', val: Math.round((counts['Em andamento'] / totalItems) * 100), color: 'amber' },
-            { label: 'Concl.', val: Math.round((counts['Concluída'] / totalItems) * 100), color: 'emerald' },
-            { label: 'Rasc.', val: Math.round((counts['Rascunho'] / totalItems) * 100), color: 'slate' },
-         ]);
-
-         // 4. Recent Transactions (Real Data from payment_history)
-         const { data: history } = await supabase
-            .from('payment_history')
-            .select('*, profiles:user_id(full_name, avatar_url)')
-            .order('created_at', { ascending: false })
-            .limit(5);
-
-         if (history) {
-            setRecentTransactions(history.map(h => ({
-               client: h.profiles?.full_name || 'Usuário',
-               plan: h.plan_name || 'Plano',
-               date: new Date(h.created_at).toLocaleDateString('pt-BR'),
-               val: `R$ ${parseFloat(h.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-               status: h.status === 'approved' ? 'Pago' : h.status === 'pending' ? 'Pendente' : h.status,
-               img: h.profiles?.avatar_url || `https://ui-avatars.com/api/?name=${h.profiles?.full_name || 'U'}&background=f1f5f9&color=64748b`
-            })));
          }
 
       } catch (err) {

@@ -143,7 +143,7 @@ async function processPayment(paymentData: any, supabaseClient: any) {
                 .from('broker_profiles')
                 .update({
                     subscription_plan_id: planId,
-                    subscription_status: 'Ativo',
+                    status: 'Ativo',
                     subscription_expires_at: nextMonth.toISOString(),
                     updated_at: new Date().toISOString()
                 })
@@ -160,7 +160,7 @@ async function processPayment(paymentData: any, supabaseClient: any) {
             await supabaseClient
                 .from('broker_profiles')
                 .update({
-                    subscription_status: status === 'refunded' ? 'Estornado' : 'Inativo',
+                    status: status === 'refunded' ? 'Estornado' : 'Inativo',
                     updated_at: new Date().toISOString()
                 })
                 .eq('user_id', userId)
