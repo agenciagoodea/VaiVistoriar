@@ -161,7 +161,16 @@ Deno.serve(async (req) => {
                 return new Response(JSON.stringify({ success: true, profiles: enrichedProfiles, payments: payments || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             } catch (error: any) {
                 console.error('❌ Fatal error in get_subscriptions:', error)
-                throw error;
+                // Retornar erro detalhado ao frontend em vez de lançar
+                return new Response(JSON.stringify({
+                    success: false,
+                    error: error.message || 'Erro desconhecido',
+                    details: error.toString(),
+                    stack: error.stack
+                }), {
+                    status: 200, // Retornar 200 para o frontend poder ler o erro
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
             }
         }
 
