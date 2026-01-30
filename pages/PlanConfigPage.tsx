@@ -97,8 +97,9 @@ const PlanConfigPage: React.FC = () => {
          if (error) throw error;
          alert('Plano atualizado com sucesso!');
          fetchPlans();
-      } catch (err) {
-         alert('Erro ao atualizar plano.');
+      } catch (err: any) {
+         console.error('Erro ao atualizar plano:', err);
+         alert(`Erro ao atualizar plano: ${err.message || 'Erro desconhecido'}`);
       } finally {
          setSaving(false);
       }
@@ -127,8 +128,9 @@ const PlanConfigPage: React.FC = () => {
          setShowNewPlanModal(false);
          alert('Plano criado!');
          fetchPlans();
-      } catch (err) {
-         alert('Erro ao criar plano.');
+      } catch (err: any) {
+         console.error('Erro ao criar plano:', err);
+         alert(`Erro ao criar plano: ${err.message || 'Erro desconhecido'}`);
       } finally {
          setSaving(false);
       }
@@ -138,12 +140,15 @@ const PlanConfigPage: React.FC = () => {
       if (!selectedPlanId || !window.confirm('Excluir este plano permanentemente?')) return;
       setSaving(true);
       try {
-         await supabase.from('plans').delete().eq('id', selectedPlanId);
+         const { error } = await supabase.from('plans').delete().eq('id', selectedPlanId);
+         if (error) throw error;
+
          alert('Plano excluído.');
          setSelectedPlanId(null);
          fetchPlans();
-      } catch (err) {
-         alert('Erro ao excluir plano.');
+      } catch (err: any) {
+         console.error('Erro ao excluir plano:', err);
+         alert(`Erro ao excluir plano: ${err.message || 'Erro desconhecido'}. Verifique se existem usuários ativos vinculados.`);
       } finally {
          setSaving(false);
       }
