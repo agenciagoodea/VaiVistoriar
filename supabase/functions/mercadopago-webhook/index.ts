@@ -125,6 +125,7 @@ async function processPayment(paymentData: any, supabaseClient: any) {
     console.log(`Processing Webhook for User=${userId}, Plan=${planId}, Status=${status}`);
 
     // 1. Atualizar histórico (sempre que houver mudança de status)
+    let histUpdated = false;
     if (preferenceId) {
         const updateData: any = { status: status };
 
@@ -133,18 +134,50 @@ async function processPayment(paymentData: any, supabaseClient: any) {
             updateData.mp_payment_id = String(paymentData.id);
         }
 
-        const { error: histErr } = await supabaseClient.from('payment_history')
+        const { error: histErr, count } = await supabaseClient.from('payment_history')
             .update(updateData)
-            .eq('mp_id', preferenceId);
+            .eq('mp_id', preferenceId)
+            .select('*', { count: 'exact' });
+
+        if (!histErr && count && count > 0) {
+            histUpdated = true;
+            console.log(`Histórico atualizado via PreferenceID: ${count} registros.`);
+        }
 
         if (histErr) {
             console.error('Erro ao atualizar histórico:', histErr.message);
             // Se falhou por falta da coluna, tentamos atualizar apenas o status
             if (histErr.message.includes('column "mp_payment_id" does not exist')) {
-                await supabaseClient.from('payment_history')
+                const { count: count2 } = await supabaseClient.from('payment_history')
                     .update({ status: status })
-                    .eq('mp_id', preferenceId);
+                    .eq('mp_id', preferenceId)
+                    .select('*', { count: 'exact' });
+                if (count2 && count2 > 0) histUpdated = true;
             }
+        }
+    }
+
+    // Fallback: Se não atualizou via PreferenceID, tenta via Metadata (User + Plan)
+    if (!histUpdated && (metadata.user_id || paymentData.external_reference)) {
+        const targetUserId = metadata.user_id || paymentData.external_reference;
+        const targetPlanId = metadata.plan_id || planId;
+
+        console.log(`Tentando fallback de histórico para User: ${targetUserId}, Plan: ${targetPlanId}`);
+
+        const { error: fallbackErr, count } = await supabaseClient.from('payment_history')
+            .update({
+                status: status,
+                mp_id: preferenceId, // Atualiza o MP_ID caso esteja errado/antigo
+                mp_payment_id: paymentData.id ? String(paymentData.id) : undefined
+            })
+            .eq('user_id', targetUserId)
+            .eq('plan_id', targetPlanId)
+            .eq('status', 'pending')
+            .select('*', { count: 'exact' });
+
+        if (!fallbackErr && count && count > 0) {
+            console.log(`Histórico atualizado via Fallback (User+Plan): ${count} registros.`);
+            histUpdated = true;
         }
     }
 
@@ -154,7 +187,7 @@ async function processPayment(paymentData: any, supabaseClient: any) {
             const nextMonth = new Date()
             nextMonth.setMonth(nextMonth.getMonth() + 1)
 
-            const { error: profErr } = await supabaseClient
+            const { data: updatedProfile, error: profErr } = await supabaseClient
                 .from('broker_profiles')
                 .update({
                     subscription_plan_id: planId,
@@ -162,12 +195,46 @@ async function processPayment(paymentData: any, supabaseClient: any) {
                     subscription_expires_at: nextMonth.toISOString(),
                     updated_at: new Date().toISOString()
                 })
-                .eq('user_id', userId);
+                .eq('user_id', userId)
+                .select('full_name, email')
+                .single();
 
             if (profErr) {
                 console.error(`FALHA ao ativar plano: ${profErr.message}`);
             } else {
                 console.log(`SUCESSO: Plano ${planId} ativado para ${userId}`);
+
+                // B. Notificação por Email
+                try {
+                    const recipientEmail = updatedProfile?.email || metadata.user_email || paymentData.payer?.email;
+                    const recipientName = updatedProfile?.full_name || 'Cliente';
+                    const amount = paymentData.transaction_details?.total_paid_amount || paymentData.transaction_amount || 0;
+
+                    if (recipientEmail) {
+                        console.log(`Enviando email de sucesso (Webhook) para: ${recipientEmail}`);
+                        const funcUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email`;
+
+                        await fetch(funcUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                to: recipientEmail,
+                                templateId: 'payment_success',
+                                variables: {
+                                    plan_name: paymentData.description || 'Assinatura VaiVistoriar',
+                                    amount: String(amount.toFixed(2).replace('.', ',')),
+                                    date: new Date().toLocaleDateString('pt-BR'),
+                                    full_name: recipientName
+                                }
+                            })
+                        }).catch(e => console.error('Erro ao invocar send-email:', e.message));
+                    }
+                } catch (emailErr: any) {
+                    console.error('Falha ao processar envio de email:', emailErr.message);
+                }
             }
         }
         else if (['refunded', 'cancelled', 'rejected', 'charged_back'].includes(status)) {

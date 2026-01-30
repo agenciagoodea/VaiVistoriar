@@ -1,0 +1,70 @@
+--- Email Templates ---
+ID: invite, Name: Solicitação de Convite
+ID: payment_success, Name: Confirmação de Pagamento
+ID: user_registered, Name: Registro de Usuário
+ID: send_report, Name: Envio de Laudo Técnico
+ID: password_reset, Name: Recuperação de Senha
+
+--- Recent Payments for irasid34@gmail.com ---
+[
+  {
+    "id": "5c062a6f-aedc-4962-9993-98037c9df6c8",
+    "user_id": "dc7efb98-6d9d-4c38-b35b-62a74a5c17cc",
+    "plan_id": "fedd89fc-5978-4d61-bb6f-b1ddf7b45643",
+    "plan_name": "PLANO1",
+    "amount": 1,
+    "status": "pending",
+    "mp_id": "12688557-a5d56c53-dddc-422c-8e31-ae1c49175baf",
+    "init_point": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=12688557-a5d56c53-dddc-422c-8e31-ae1c49175baf",
+    "created_at": "2026-01-30T17:12:22.689852+00:00",
+    "mp_payment_id": null
+  },
+  {
+    "id": "2d36f0c1-c34d-444c-96f1-114bc398f360",
+    "user_id": "dc7efb98-6d9d-4c38-b35b-62a74a5c17cc",
+    "plan_id": "f21c6d1e-0610-4cb8-aa35-350575d1f82f",
+    "plan_name": "Plano VaiVistoriar: Teste",
+    "amount": 1,
+    "status": "approved",
+    "mp_id": "12688557-9f364ea1-2437-4712-8932-d37f55c7fe0e",
+    "init_point": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=12688557-9f364ea1-2437-4712-8932-d37f55c7fe0e",
+    "created_at": "2026-01-29T19:32:56.114477+00:00",
+    "mp_payment_id": null
+  },
+  {
+    "id": "e9a1a56d-824d-4fbe-9d22-1d87e279eaaa",
+    "user_id": "dc7efb98-6d9d-4c38-b35b-62a74a5c17cc",
+    "plan_id": "f21c6d1e-0610-4cb8-aa35-350575d1f82f",
+    "plan_name": "Plano VaiVistoriar: Teste",
+    "amount": 1,
+    "status": "approved",
+    "mp_id": "12688557-d4d464e5-8e30-4c5a-b5c7-ee87586c0e16",
+    "init_point": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=12688557-d4d464e5-8e30-4c5a-b5c7-ee87586c0e16",
+    "created_at": "2026-01-29T04:38:00.990147+00:00",
+    "mp_payment_id": null
+  },
+  {
+    "id": "0e4ea344-3552-4654-b506-7d6442b2e1f8",
+    "user_id": "dc7efb98-6d9d-4c38-b35b-62a74a5c17cc",
+    "plan_id": "f21c6d1e-0610-4cb8-aa35-350575d1f82f",
+    "plan_name": "Plano VaiVistoriar: Teste",
+    "amount": 1,
+    "status": "approved",
+    "mp_id": "12688557-299fe3eb-5337-407b-92ab-c8d7e0619834",
+    "init_point": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=12688557-299fe3eb-5337-407b-92ab-c8d7e0619834",
+    "created_at": "2026-01-29T04:37:24.83675+00:00",
+    "mp_payment_id": null
+  },
+  {
+    "id": "c053c91c-e4cd-4b7f-b03d-915397de0c59",
+    "user_id": "dc7efb98-6d9d-4c38-b35b-62a74a5c17cc",
+    "plan_id": "f21c6d1e-0610-4cb8-aa35-350575d1f82f",
+    "plan_name": "Teste",
+    "amount": 1,
+    "status": "refunded",
+    "mp_id": "12688557-e3676117-de51-4b6a-91eb-2462597f85d5",
+    "init_point": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=12688557-e3676117-de51-4b6a-91eb-2462597f85d5",
+    "created_at": "2026-01-29T04:14:44.564916+00:00",
+    "mp_payment_id": null
+  }
+]

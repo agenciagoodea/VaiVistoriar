@@ -149,7 +149,11 @@ Deno.serve(async (req) => {
 
                 // 4. Fetch Payments
                 console.log('💰 Fetching payments...')
-                const { data: payments, error: errPayments } = await supabaseAdmin.from('payment_history').select('*').eq('status', 'approved');
+                const { data: payments, error: errPayments } = await supabaseAdmin
+                    .from('payment_history')
+                    .select('*')
+                    .eq('status', 'approved')
+                    .order('created_at', { ascending: false });
 
                 if (errPayments) {
                     console.error('⚠️ Error fetching payments (non-fatal):', errPayments);
@@ -158,7 +162,12 @@ Deno.serve(async (req) => {
                 console.log('✅ Payments fetched:', payments?.length || 0)
                 console.log('✅ get_subscriptions completed successfully')
 
-                return new Response(JSON.stringify({ success: true, profiles: enrichedProfiles, payments: payments || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                return new Response(JSON.stringify({
+                    success: true,
+                    profiles: enrichedProfiles,
+                    payments: payments || [],
+                    allPlans: plans || []
+                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             } catch (error: any) {
                 console.error('❌ Fatal error in get_subscriptions:', error)
                 return new Response(JSON.stringify({ success: false, error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -253,6 +262,31 @@ Deno.serve(async (req) => {
             }
 
             return new Response(JSON.stringify({ success: true, user_id: authUser.user.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // ACTION: UPDATE USER PLAN (Manual Admin Override)
+        if (action === 'update_user_plan') {
+            const { user_id, plan_id, status, expires_at } = payload;
+
+            if (!user_id || !plan_id) throw new Error('Missing user_id or plan_id');
+
+            console.log(`🛠️ Manually updating plan for user ${user_id} to ${plan_id}`);
+
+            const { data, error } = await supabaseAdmin
+                .from('broker_profiles')
+                .update({
+                    subscription_plan_id: plan_id,
+                    status: status || 'Ativo',
+                    subscription_expires_at: expires_at,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('user_id', user_id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            return new Response(JSON.stringify({ success: true, profile: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
 

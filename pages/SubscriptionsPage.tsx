@@ -5,62 +5,91 @@ import { supabase } from '../lib/supabase';
 const SubscriptionsPage: React.FC = () => {
    const [loading, setLoading] = useState(true);
    const [subs, setSubs] = useState<any[]>([]);
+   const [allPlans, setAllPlans] = useState<any[]>([]);
+   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+
+   const fetchData = async () => {
+      try {
+         setLoading(true);
+
+         // Call Edge Function to get profiles AND payments securely (Bypassing RLS)
+         const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
+            body: { action: 'get_subscriptions' }
+         });
+
+         console.log('🔍 Subscriptions API Response:', responseData);
+
+         if (error) throw error;
+
+         if (responseData && !responseData.success) {
+            throw new Error(responseData.error || 'Erro ao buscar assinaturas');
+         }
+
+         const profiles = responseData.profiles || [];
+         const allPayments = responseData.payments || [];
+         const plans = responseData.allPlans || [];
+
+         setAllPlans(plans);
+
+         if (profiles) {
+            setSubs(profiles.map((profile: any) => {
+               // Encontrar último pagamento aprovado deste usuário
+               // Como allPayments vem ordenado decrescente pelo servidor, o find pega o mais recente
+               const lastPayment = allPayments.find((p: any) => p.user_id === profile.user_id && p.status === 'approved');
+
+               return {
+                  id: profile.user_id,
+                  client: profile.company_name || profile.full_name || 'Usuário sem Nome',
+                  email: profile.email || '(Nenhum e-mail vinculado)',
+                  avatar: profile.avatar_url || null,
+                  plan: profile.plans?.name || 'Vistoria Free',
+                  price: profile.plans?.price ? `R$ ${parseFloat(profile.plans.price).toFixed(2).replace('.', ',')} / mês` : 'Gratuito',
+                  status: profile.status || 'Ativa',
+                  renewal: profile.subscription_expires_at
+                     ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR')
+                     : 'Permanente',
+                  lastVal: lastPayment ? `R$ ${parseFloat(lastPayment.amount).toFixed(2).replace('.', ',')}` : '--',
+                  lastDate: lastPayment ? new Date(lastPayment.created_at).toLocaleDateString('pt-BR') : '--'
+               };
+            }));
+         }
+      } catch (err) {
+         console.error('❌ Erro ao buscar assinaturas:', err);
+      } finally {
+         setLoading(false);
+      }
+   };
 
    useEffect(() => {
-      const fetchData = async () => {
-         try {
-            setLoading(true);
-
-            // Call Edge Function to get profiles AND payments securely (Bypassing RLS)
-            const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
-               body: { action: 'get_subscriptions' }
-            });
-
-            console.log('🔍 Subscriptions API Response:', responseData);
-            console.log('🔍 Subscriptions API Error:', error);
-
-            if (error) throw error;
-
-            // Verificar success no body
-            if (responseData && !responseData.success) {
-               throw new Error(responseData.error || 'Erro ao buscar assinaturas');
-            }
-
-            const profiles = responseData.profiles || [];
-            const allPayments = responseData.payments || [];
-
-            console.log('📊 Profiles Count:', profiles.length);
-            console.log('💰 Payments Count:', allPayments.length);
-
-            if (profiles) {
-               setSubs(profiles.map((profile: any) => {
-                  // Encontrar último pagamento aprovado deste usuário
-                  const lastPayment = allPayments.find((p: any) => p.user_id === profile.user_id && p.status === 'approved');
-
-                  return {
-                     id: profile.user_id,
-                     client: profile.company_name || profile.full_name || 'Usuário sem Nome',
-                     email: profile.email || '(Nenhum e-mail vinculado)',
-                     avatar: profile.avatar_url || null,
-                     plan: profile.plans?.name || 'Vistoria Free',
-                     price: profile.plans?.price ? `R$ ${parseFloat(profile.plans.price).toFixed(2).replace('.', ',')} / mês` : 'Gratuito',
-                     status: profile.status || 'Ativa',
-                     renewal: profile.subscription_expires_at
-                        ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR')
-                        : 'Permanente',
-                     lastVal: lastPayment ? `R$ ${parseFloat(lastPayment.amount).toFixed(2).replace('.', ',')}` : '--',
-                     lastDate: lastPayment ? new Date(lastPayment.created_at).toLocaleDateString('pt-BR') : '--'
-                  };
-               }));
-            }
-         } catch (err) {
-            console.error('❌ Erro ao buscar assinaturas:', err);
-         } finally {
-            setLoading(false);
-         }
-      };
       fetchData();
    }, []);
+
+   const handleUpdatePlan = async (userId: string, planId: string) => {
+      try {
+         setUpdatingUserId(userId);
+         const { data: response, error } = await supabase.functions.invoke('admin-dash', {
+            body: {
+               action: 'update_user_plan',
+               payload: {
+                  user_id: userId,
+                  plan_id: planId,
+                  status: 'Ativo',
+                  expires_at: new Date(new Date().getFullYear() + 1, new Date().getMonth(), new Date().getDate()).toISOString()
+               }
+            }
+         });
+
+         if (error || !response.success) throw error || new Error(response?.error);
+
+         alert('✅ Plano atualizado com sucesso!');
+         await fetchData(); // Recarrega os dados
+      } catch (err: any) {
+         console.error('Erro ao atualizar plano:', err);
+         alert('❌ Erro ao atualizar plano: ' + err.message);
+      } finally {
+         setUpdatingUserId(null);
+      }
+   };
 
    if (loading) return (
       <div className="flex flex-col items-center justify-center p-20 space-y-4">
@@ -88,6 +117,7 @@ const SubscriptionsPage: React.FC = () => {
                      <th className="px-6 py-4">Data Pagamento</th>
                      <th className="px-6 py-4">Status</th>
                      <th className="px-6 py-4">Próxima Renovação</th>
+                     <th className="px-6 py-4 text-right">Ação</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
@@ -123,11 +153,32 @@ const SubscriptionsPage: React.FC = () => {
                            </span>
                         </td>
                         <td className="px-6 py-4 text-slate-500 text-xs font-bold">{s.renewal}</td>
+                        <td className="px-6 py-4 text-right">
+                           {updatingUserId === s.id ? (
+                              <div className="w-5 h-5 border-2 border-blue-600/20 border-t-blue-600 rounded-full animate-spin ml-auto" />
+                           ) : (
+                              <select
+                                 className="text-[10px] font-black uppercase tracking-widest bg-slate-50 border-none rounded-lg px-2 py-1 outline-none hover:bg-slate-100 transition-colors cursor-pointer"
+                                 onChange={(e) => {
+                                    if (e.target.value && window.confirm(`Confirmar alteração para o plano ${allPlans.find(p => p.id === e.target.value)?.name}?`)) {
+                                       handleUpdatePlan(s.id, e.target.value);
+                                    }
+                                    e.target.value = ""; // Reset do select
+                                 }}
+                                 value=""
+                              >
+                                 <option value="" disabled>Trocar Plano</option>
+                                 {allPlans.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} (R$ {parseFloat(p.price).toFixed(0)})</option>
+                                 ))}
+                              </select>
+                           )}
+                        </td>
                      </tr>
                   ))}
                   {subs.length === 0 && (
                      <tr>
-                        <td colSpan={6} className="p-10 text-center text-slate-400 text-xs font-bold uppercase italic">Nenhuma assinatura encontrada.</td>
+                        <td colSpan={7} className="p-10 text-center text-slate-400 text-xs font-bold uppercase italic">Nenhuma assinatura encontrada.</td>
                      </tr>
                   )}
                </tbody>

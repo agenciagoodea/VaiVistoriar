@@ -138,21 +138,54 @@ async function handlePaymentActivation(latestPayment: any, latestStatus: string,
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     }
 
-    // Atualizar histórico no banco independente do status
+    // 1. Atualizar histórico no banco independente do status
+    let histUpdated = false;
     if (prefId) {
         const updateData: any = { status: latestStatus };
         if (latestPayment.id) {
             updateData.mp_payment_id = String(latestPayment.id);
         }
 
-        const { error: histErr } = await supabaseAdmin.from('payment_history')
+        const { error: histErr, count } = await supabaseAdmin.from('payment_history')
             .update(updateData)
-            .eq('mp_id', prefId);
+            .eq('mp_id', prefId)
+            .select('*', { count: 'exact' });
+
+        if (!histErr && count && count > 0) {
+            histUpdated = true;
+            console.log(`Histórico atualizado via PrefID: ${count} registros.`);
+        }
 
         if (histErr && histErr.message.includes('column "mp_payment_id" does not exist')) {
-            await supabaseAdmin.from('payment_history')
+            const { count: count2 } = await supabaseAdmin.from('payment_history')
                 .update({ status: latestStatus })
-                .eq('mp_id', prefId);
+                .eq('mp_id', prefId)
+                .select('*', { count: 'exact' });
+            if (count2 && count2 > 0) histUpdated = true;
+        }
+    }
+
+    // Fallback: Se não atualizou via PrefID, tenta via Metadata (User + Plan) + Data/Hora recente
+    if (!histUpdated && (userId || latestPayment.metadata?.user_id)) {
+        const targetUserId = latestPayment.metadata?.user_id || userId;
+        const targetPlanId = latestPayment.metadata?.plan_id || planId;
+
+        console.log(`Tentando fallback de histórico para User: ${targetUserId}, Plan: ${targetPlanId}`);
+
+        const { error: fallbackErr, count } = await supabaseAdmin.from('payment_history')
+            .update({
+                status: latestStatus,
+                mp_id: prefId, // Atualiza o MP_ID caso esteja errado/antigo
+                mp_payment_id: latestPayment.id ? String(latestPayment.id) : undefined
+            })
+            .eq('user_id', targetUserId)
+            .eq('plan_id', targetPlanId)
+            .eq('status', 'pending')
+            .select('*', { count: 'exact' });
+
+        if (!fallbackErr && count && count > 0) {
+            console.log(`Histórico atualizado via Fallback (User+Plan): ${count} registros.`);
+            histUpdated = true;
         }
     }
 
@@ -179,11 +212,11 @@ async function handlePaymentActivation(latestPayment: any, latestStatus: string,
         console.log(`Ativando plano ${finalPlanId} para o usuário ${finalUserId} (Status: ${latestStatus})`);
 
         if (finalUserId && finalPlanId) {
-            // Ativar plano no banco
+            // A. Ativar plano no banco
             const nextMonth = new Date()
             nextMonth.setMonth(nextMonth.getMonth() + 1)
 
-            const { error: profErr } = await supabaseAdmin
+            const { data: updatedProfile, error: profErr } = await supabaseAdmin
                 .from('broker_profiles')
                 .update({
                     subscription_plan_id: finalPlanId,
@@ -191,12 +224,46 @@ async function handlePaymentActivation(latestPayment: any, latestStatus: string,
                     subscription_expires_at: nextMonth.toISOString(),
                     updated_at: new Date().toISOString()
                 })
-                .eq('user_id', finalUserId);
+                .eq('user_id', finalUserId)
+                .select('full_name, email')
+                .single();
 
             if (profErr) {
                 console.error('Erro ao atualizar broker_profiles:', profErr.message);
             } else {
                 console.log('Broker profile updated successfully');
+
+                // B. Notificação por Email (Centralizada)
+                try {
+                    const recipientEmail = updatedProfile?.email || metadata.user_email || latestPayment.payer?.email;
+                    const recipientName = updatedProfile?.full_name || 'Cliente';
+                    const amount = latestPayment.transaction_details?.total_paid_amount || latestPayment.transaction_amount || 0;
+
+                    if (recipientEmail) {
+                        console.log(`Enviando email de sucesso para: ${recipientEmail}`);
+                        const funcUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email`;
+
+                        await fetch(funcUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                to: recipientEmail,
+                                templateId: 'payment_success',
+                                variables: {
+                                    plan_name: latestPayment.description || 'Assinatura VaiVistoriar',
+                                    amount: String(amount.toFixed(2).replace('.', ',')),
+                                    date: new Date().toLocaleDateString('pt-BR'),
+                                    full_name: recipientName
+                                }
+                            })
+                        }).catch(e => console.error('Erro ao invocar send-email:', e.message));
+                    }
+                } catch (emailErr: any) {
+                    console.error('Falha ao processar envio de email:', emailErr.message);
+                }
             }
         } else {
             console.error('MISSING DATA: Cannot activate plan. Missing userId or planId from metadata/history.');

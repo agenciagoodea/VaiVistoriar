@@ -30,19 +30,6 @@ const CheckoutSuccess: React.FC = () => {
 
                         if (result?.success || result?.paymentApproved) {
                             console.log('Plano ativado/verificado com sucesso via API!');
-                            // 2. Notificação por Email (Mover para cá para ter 'user' e 'planId')
-                            await supabase.functions.invoke('send-email', {
-                                body: {
-                                    to: user.email,
-                                    templateId: 'payment_success',
-                                    origin: window.location.origin,
-                                    variables: {
-                                        plan_name: planId || result?.payment?.metadata?.plan_slug || 'Premium',
-                                        amount: 'Ver fatura',
-                                        date: new Date().toLocaleDateString('pt-BR')
-                                    }
-                                }
-                            });
                         } else {
                             console.warn('Pagamento não confirmado pela API ainda.');
                         }
