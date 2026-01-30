@@ -103,7 +103,25 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
 
                 if (signUpError) throw signUpError;
 
-                // O trigger DB handle_new_user_trial_insert cuidará de atribuir o plano trial.
+                // Atribuição manual do plano gratuito baseada no papel
+                if (user) {
+                    const PLAN_ID_PJ = '5c09eeb7-100f-4f84-aaa7-9bcc5df05306'; // IMOBILIÁRIA START
+                    const PLAN_ID_PF = 'fd4c420f-09b2-40a7-b43f-972e21378368'; // CORRETOR START
+
+                    const { error: profileError } = await supabase
+                        .from('broker_profiles')
+                        .update({
+                            subscription_plan_id: role === 'PJ' ? PLAN_ID_PJ : PLAN_ID_PF,
+                            status: 'Ativo',
+                            subscription_expires_at: new Date(new Date().getFullYear() + 10, 0, 1).toISOString()
+                        })
+                        .eq('user_id', user.id);
+
+                    if (profileError) {
+                        console.error('Erro ao atribuir plano inicial:', profileError.message);
+                    }
+                }
+
                 setMessage('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
             }
         } catch (err: any) {
