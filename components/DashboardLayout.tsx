@@ -42,11 +42,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
 
   const pjMenu = [
     { label: 'Dashboard', path: '/pj', icon: 'dashboard' },
-    { label: 'Equipe', path: '/users', icon: 'group' },
+    { label: 'Corretores', path: '/users', icon: 'group' },
     { label: 'Minhas Vistorias', path: '/inspections', icon: 'assignment' },
     { label: 'Meus Imóveis', path: '/properties', icon: 'apartment' },
     { label: 'Clientes', path: '/clients', icon: 'groups' },
-    { label: 'Meu Plano', path: '/broker/plan', icon: 'credit_card' },
+    { label: 'Plano', path: '/broker/plan', icon: 'credit_card' },
     { label: 'Configurações', path: '/settings', icon: 'settings' },
   ];
 
