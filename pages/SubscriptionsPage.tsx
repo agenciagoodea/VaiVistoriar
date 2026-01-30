@@ -211,9 +211,21 @@ const SubscriptionsPage: React.FC = () => {
                            className="w-full h-12 px-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
                         >
                            <option value="" disabled>Selecione um plano...</option>
-                           {allPlans.map(p => (
-                              <option key={p.id} value={p.id}>{p.name} (R$ {parseFloat(p.price).toFixed(0)})</option>
-                           ))}
+                           {allPlans
+                              .filter(p => {
+                                 // Se for PF, mostra planos que contenham 'CORRETOR' ou 'VISTORIA'
+                                 // Se for PJ, mostra planos que contenham 'IMOBILIÁRIA'
+                                 // O nome do plano pode estar em uppercase ou lowercase, então padronizamos
+                                 const planName = p.name.toUpperCase();
+                                 if (selectedUser.type === 'PJ') {
+                                    return planName.includes('IMOBILIÁRIA');
+                                 } else {
+                                    return planName.includes('CORRETOR') || planName.includes('VISTORIA');
+                                 }
+                              })
+                              .map(p => (
+                                 <option key={p.id} value={p.id}>{p.name} (R$ {parseFloat(p.price).toFixed(0)})</option>
+                              ))}
                         </select>
                      </div>
 
