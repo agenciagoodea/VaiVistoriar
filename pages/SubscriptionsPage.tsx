@@ -94,7 +94,7 @@ const SubscriptionsPage: React.FC = () => {
          });
 
          if (error) throw error;
-         if (!response.success) throw new Error(response.error || 'Erro na verificação');
+         if (response && !response.success) throw new Error(response.error || 'Erro na verificação');
 
          alert('✅ Plano atualizado com sucesso!');
          setSelectedUser(null);
@@ -204,33 +204,39 @@ const SubscriptionsPage: React.FC = () => {
 
                   <div className="space-y-4">
                      <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Novo Plano</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Novo Plano</label>
                         <select
                            value={newPlanId}
                            onChange={(e) => setNewPlanId(e.target.value)}
-                           className="w-full h-12 px-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
+                           className="w-full h-12 px-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-600/20 transition-all appearance-none cursor-pointer"
                         >
                            <option value="" disabled>Selecione um plano...</option>
                            {allPlans
                               .filter(p => {
-                                 // Se for PF, mostra planos que contenham 'CORRETOR' ou 'VISTORIA'
-                                 // Se for PJ, mostra planos que contenham 'IMOBILIÁRIA'
-                                 // O nome do plano pode estar em uppercase ou lowercase, então padronizamos
-                                 const planName = p.name.toUpperCase();
-                                 if (selectedUser.type === 'PJ') {
-                                    return planName.includes('IMOBILIÁRIA');
+                                 const name = (p.name || "").toUpperCase();
+                                 const isPJ = selectedUser.type === 'PJ';
+                                 if (isPJ) {
+                                    return name.includes('IMOBILIÁRIA') || name.includes('PLANO');
                                  } else {
-                                    return planName.includes('CORRETOR') || planName.includes('VISTORIA');
+                                    return name.includes('CORRETOR') || name.includes('VISTORIA') || name.includes('PLANO');
                                  }
                               })
                               .map(p => (
-                                 <option key={p.id} value={p.id}>{p.name} (R$ {parseFloat(p.price).toFixed(0)})</option>
+                                 <option key={p.id} value={p.id}>{p.name} (R$ {parseFloat(p.price || 0).toFixed(0)})</option>
                               ))}
                         </select>
+                        {allPlans.filter(p => {
+                           const name = (p.name || "").toUpperCase();
+                           const isPJ = selectedUser.type === 'PJ';
+                           if (isPJ) return name.includes('IMOBILIÁRIA') || name.includes('PLANO');
+                           return name.includes('CORRETOR') || name.includes('VISTORIA') || name.includes('PLANO');
+                        }).length === 0 && (
+                              <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">Nenhum plano disponível para este perfil.</p>
+                           )}
                      </div>
 
                      <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Senha do Administrador</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Senha do Administrador</label>
                         <input
                            type="password"
                            placeholder="Sua senha para confirmar"
