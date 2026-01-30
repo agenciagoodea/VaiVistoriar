@@ -18,14 +18,19 @@ Deno.serve(async (req) => {
         )
 
         // 1. Verify Requestor is Authenticated
+        console.log('🔍 Starting admin-dash function')
         const authHeader = req.headers.get('Authorization')
+        console.log('🔍 Auth header present:', !!authHeader)
+
         if (!authHeader) throw new Error('Missing Authorization Header')
 
         const token = authHeader.replace('Bearer ', '')
         const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
+        console.log('🔍 Auth check - User:', !!user, 'Error:', !!authError)
         if (authError || !user) throw new Error('Unauthorized')
 
+        console.log('🔍 Parsing request body...')
         const { action, payload } = await req.json()
 
         console.log('🔍 Action received:', action)
