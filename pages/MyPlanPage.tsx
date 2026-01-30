@@ -199,7 +199,13 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Sessão expirada');
 
-            const result = await mercadopagoService.checkPaymentStatus(user.id, order.plan_id, undefined, order.mp_id);
+            // Se temos o ID do pagamento real, usamos ele. Senão usamos o ID da preferência.
+            const result = await mercadopagoService.checkPaymentStatus(
+                user.id,
+                order.plan_id,
+                order.mp_payment_id || undefined,
+                order.mp_id
+            );
 
             if (result?.paymentApproved) {
                 alert('✅ Pagamento Confirmado! Seu plano foi ativado.');

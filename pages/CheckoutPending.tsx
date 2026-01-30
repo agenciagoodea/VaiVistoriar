@@ -41,30 +41,53 @@ const CheckoutPending: React.FC = () => {
         // Verifica imediatamente
         checkStatus();
 
-        // Polling a cada 10 segundos
-        interval = setInterval(checkStatus, 10000);
+        // Polling a cada 8 segundos
+        interval = setInterval(checkStatus, 8000);
 
-        // Listener Real-time como backup (se o webhook atualizar o banco antes do polling)
-        const channel = supabase
-            .channel('public:payment_history')
+        // Listener Real-time no histórico de pagamento
+        const historyChannel = supabase
+            .channel('checkout-payment-history')
             .on('postgres_changes', {
                 event: 'UPDATE',
                 schema: 'public',
                 table: 'payment_history',
                 filter: preferenceId ? `mp_id=eq.${preferenceId}` : undefined
             }, (payload) => {
+                console.log('Real-time: Mudança no histórico detectada:', payload.new.status);
                 if (payload.new.status === 'approved') {
                     setStatus('approved');
                     setTimeout(() => {
                         navigate('/checkout/success?' + searchParams.toString());
-                    }, 1500);
+                    }, 1000);
+                } else if (['rejected', 'cancelled'].includes(payload.new.status)) {
+                    setStatus('rejected');
+                }
+            })
+            .subscribe();
+
+        // Listener Real-time no Perfil (Garante ativação mesmo se o histórico falhar)
+        const profileChannel = supabase
+            .channel('checkout-profile')
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'broker_profiles',
+            }, (payload) => {
+                // Se o status mudou para Ativo e o plano é o que esperamos (ou apenas mudou para Ativo)
+                if (payload.new.status === 'Ativo') {
+                    console.log('Real-time: Perfil ativado detectado!');
+                    setStatus('approved');
+                    setTimeout(() => {
+                        navigate('/checkout/success?' + searchParams.toString());
+                    }, 1000);
                 }
             })
             .subscribe();
 
         return () => {
             clearInterval(interval);
-            supabase.removeChannel(channel);
+            supabase.removeChannel(historyChannel);
+            supabase.removeChannel(profileChannel);
         };
     }, [paymentId, preferenceId, navigate, searchParams]);
 

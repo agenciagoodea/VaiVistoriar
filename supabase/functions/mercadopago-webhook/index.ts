@@ -126,11 +126,26 @@ async function processPayment(paymentData: any, supabaseClient: any) {
 
     // 1. Atualizar histórico (sempre que houver mudança de status)
     if (preferenceId) {
+        const updateData: any = { status: status };
+
+        // Se temos o ID real do pagamento, salvamos ele para facilitar buscas futuras
+        if (paymentData.id) {
+            updateData.mp_payment_id = String(paymentData.id);
+        }
+
         const { error: histErr } = await supabaseClient.from('payment_history')
-            .update({ status: status })
+            .update(updateData)
             .eq('mp_id', preferenceId);
 
-        if (histErr) console.error('Erro ao atualizar histórico:', histErr.message);
+        if (histErr) {
+            console.error('Erro ao atualizar histórico:', histErr.message);
+            // Se falhou por falta da coluna, tentamos atualizar apenas o status
+            if (histErr.message.includes('column "mp_payment_id" does not exist')) {
+                await supabaseClient.from('payment_history')
+                    .update({ status: status })
+                    .eq('mp_id', preferenceId);
+            }
+        }
     }
 
     // 2. ATIVAÇÃO OU DESATIVAÇÃO REAL

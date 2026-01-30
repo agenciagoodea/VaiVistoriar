@@ -140,9 +140,20 @@ async function handlePaymentActivation(latestPayment: any, latestStatus: string,
 
     // Atualizar histórico no banco independente do status
     if (prefId) {
-        await supabaseAdmin.from('payment_history')
-            .update({ status: latestStatus })
+        const updateData: any = { status: latestStatus };
+        if (latestPayment.id) {
+            updateData.mp_payment_id = String(latestPayment.id);
+        }
+
+        const { error: histErr } = await supabaseAdmin.from('payment_history')
+            .update(updateData)
             .eq('mp_id', prefId);
+
+        if (histErr && histErr.message.includes('column "mp_payment_id" does not exist')) {
+            await supabaseAdmin.from('payment_history')
+                .update({ status: latestStatus })
+                .eq('mp_id', prefId);
+        }
     }
 
     if (latestStatus === 'approved') {
