@@ -78,8 +78,8 @@ const UsersPage: React.FC = () => {
       });
 
       if (emailError) {
-         console.warn('FunÃ§Ã£o de e-mail nÃ£o disponÃ­vel, usando simulaÃ§Ã£o de sucesso.');
-         alert('Convite registrado com sucesso!\n\n(SimulaÃ§Ã£o: E-mail de convite enviado para ' + email + ')');
+         console.warn('FunÃ§Ã£o de e-mail não disponÃ­vel, usando simulação de sucesso.');
+         alert('Convite registrado com sucesso!\n\n(Simulação: E-mail de convite enviado para ' + email + ')');
       } else {
          alert('Convite enviado com sucesso para ' + email);
       }

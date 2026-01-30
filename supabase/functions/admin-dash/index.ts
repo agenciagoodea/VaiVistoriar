@@ -28,6 +28,9 @@ Deno.serve(async (req) => {
 
         const { action, payload } = await req.json()
 
+        console.log('🔍 Action received:', action)
+        console.log('🔍 Payload received:', payload)
+
         // HELPER: Fetch Profiles Map
         const getProfilesMap = async (userIds: string[]) => {
             if (userIds.length === 0) return {};
