@@ -161,7 +161,7 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                         try {
                             // Consultar API do Mercado Pago diretamente (usando ID da preferência)
                             const { mercadopagoService } = await import('../lib/mercadopago');
-                            const checkResult = await mercadopagoService.checkPaymentStatus(user.id, plan.id, data.id);
+                            const checkResult = await mercadopagoService.checkPaymentStatus(user.id, plan.id, undefined, data.id);
 
                             if (checkResult?.paymentApproved) {
                                 clearInterval(pollInterval);
@@ -407,7 +407,27 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                                         {order.status === 'pending' && order.init_point && (
                                             <div className="flex flex-col items-end gap-1">
                                                 <button
-                                                    onClick={() => window.open(order.init_point, 'MercadoPago', 'width=800,height=800')}
+                                                    onClick={() => {
+                                                        const win = window.open(order.init_point, 'MercadoPago', 'width=800,height=800');
+                                                        if (win) {
+                                                            const itv = setInterval(async () => {
+                                                                if (win.closed) {
+                                                                    clearInterval(itv);
+                                                                    fetchData();
+                                                                    return;
+                                                                }
+                                                                try {
+                                                                    const res = await mercadopagoService.checkPaymentStatus(order.user_id, order.plan_id, order.mp_payment_id || undefined, order.mp_id);
+                                                                    if (res?.paymentApproved) {
+                                                                        clearInterval(itv);
+                                                                        win.close();
+                                                                        alert('🎉 Pagamento Confirmado! Seu plano foi atualizado.');
+                                                                        fetchData();
+                                                                    }
+                                                                } catch (e) { console.error('Poll error:', e); }
+                                                            }, 5000);
+                                                        }
+                                                    }}
                                                     className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 underline tracking-widest"
                                                 >
                                                     Pagar / Pix

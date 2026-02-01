@@ -107,7 +107,7 @@ export const mercadopagoService = {
         return data; // Contém "init_point"
     },
 
-    async checkPaymentStatus(userId: string, planId: string, paymentId?: string, preferenceId?: string) {
+    async checkPaymentStatus(userId: string, planId: string, mpPaymentId?: string, preferenceId?: string) {
         const { accessToken } = await this.getConfigs();
         if (!accessToken) return { paymentApproved: false };
 
@@ -117,7 +117,7 @@ export const mercadopagoService = {
                 accessToken,
                 userId,
                 planId,
-                paymentId,
+                paymentId: mpPaymentId,
                 preferenceId
             }
         });

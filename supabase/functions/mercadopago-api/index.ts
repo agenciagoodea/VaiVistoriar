@@ -61,6 +61,11 @@ Deno.serve(async (req) => {
 
         const data = await response.json().catch(() => ({}));
 
+        if (action === 'check-payment-status') {
+            console.log(`[CHECK] Action: check-payment-status | URL: ${url} | Status: ${response.status}`);
+            console.log(`[CHECK] MP Response:`, JSON.stringify(data).slice(0, 500));
+        }
+
         // Ação especial: Verificar status e ativar plano automaticamente
         if (action === 'check-payment-status') {
             console.log(`Checking status for PrefID: ${preferenceId}, User: ${userId}`);
