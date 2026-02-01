@@ -480,6 +480,133 @@ const HomeConfigPage: React.FC = () => {
                                 </div>
                             ))}
                         </div>
+                        {/* TEXTO HERO */}
+                        <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                    <span className="material-symbols-outlined text-[28px]">title</span>
+                                </div>
+                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Texto de Apresentação</h3>
+                            </div>
+                            <div className="space-y-6">
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Título Principal</label>
+                                        <input type="text" value={heroText.title} onChange={e => setHeroText({ ...heroText, title: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Texto em Destaque (Cor Principal)</label>
+                                        <input type="text" value={heroText.highlight} onChange={e => setHeroText({ ...heroText, highlight: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black" style={{ color: primaryColor }} />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Descrição</label>
+                                    <textarea rows={3} value={heroText.description} onChange={e => setHeroText({ ...heroText, description: e.target.value })} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium leading-relaxed" />
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* PASSO A PASSO (STEPS) */}
+                        <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                        <span className="material-symbols-outlined text-[28px]">timeline</span>
+                                    </div>
+                                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Como Funciona (Passos)</h3>
+                                </div>
+                                <button onClick={() => setSteps([...steps, { id: Date.now().toString(), title: 'Novo Passo', desc: 'Descrição...', icon: 'check_circle' }])} className="px-5 py-2.5 bg-orange-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[16px]">add</span> Adicionar Passo
+                                </button>
+                            </div>
+                            <div className="space-y-6">
+                                {steps.map((step, idx) => (
+                                    <div key={step.id} className="p-6 bg-slate-50/50 rounded-[32px] border border-slate-100 relative group space-y-4">
+                                        <button onClick={() => setSteps(steps.filter(s => s.id !== step.id))} className="absolute top-4 right-4 w-8 h-8 bg-white border border-slate-200 text-slate-400 hover:text-red-500 rounded-full shadow-sm flex items-center justify-center transition-colors">
+                                            <span className="material-symbols-outlined text-[18px]">close</span>
+                                        </button>
+                                        <div className="flex items-center gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ícone</label>
+                                                <div className="w-12 h-12 bg-white rounded-xl border border-slate-200 flex items-center justify-center text-slate-600">
+                                                    <span className="material-symbols-outlined">{step.icon}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 space-y-2">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Título do Passo</label>
+                                                <input type="text" value={step.title} onChange={e => {
+                                                    const s = [...steps];
+                                                    s[idx].title = e.target.value;
+                                                    setSteps(s);
+                                                }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Descrição</label>
+                                            <textarea rows={2} value={step.desc} onChange={e => {
+                                                const s = [...steps];
+                                                s[idx].desc = e.target.value;
+                                                setSteps(s);
+                                            }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-medium" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Selecionar Ícone</label>
+                                            <div className="flex gap-2 overflow-x-auto pb-2">
+                                                {ICON_BASE.map(icon => (
+                                                    <button key={icon} onClick={() => {
+                                                        const s = [...steps];
+                                                        s[idx].icon = icon;
+                                                        setSteps(s);
+                                                    }} className={`p-2 rounded-lg border ${step.icon === icon ? 'bg-orange-100 border-orange-300 text-orange-600' : 'bg-white border-slate-100 text-slate-400'}`}>
+                                                        <span className="material-symbols-outlined text-[20px]">{icon}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* FAQ */}
+                        <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                        <span className="material-symbols-outlined text-[28px]">help</span>
+                                    </div>
+                                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Perguntas Frequentes (FAQ)</h3>
+                                </div>
+                                <button onClick={() => setFaq([...faq, { id: Date.now().toString(), question: 'Nova Pergunta', answer: 'Resposta aqui...' }])} className="px-5 py-2.5 bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[16px]">add</span> Adicionar FAQ
+                                </button>
+                            </div>
+                            <div className="space-y-4">
+                                {faq.map((item, idx) => (
+                                    <div key={item.id} className="p-6 bg-slate-50/50 rounded-[32px] border border-slate-100 relative group space-y-4">
+                                        <button onClick={() => setFaq(faq.filter(f => f.id !== item.id))} className="absolute top-4 right-4 w-8 h-8 bg-white border border-slate-200 text-slate-400 hover:text-red-500 rounded-full shadow-sm flex items-center justify-center transition-colors">
+                                            <span className="material-symbols-outlined text-[18px]">close</span>
+                                        </button>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pergunta</label>
+                                            <input type="text" value={item.question} onChange={e => {
+                                                const f = [...faq];
+                                                f[idx].question = e.target.value;
+                                                setFaq(f);
+                                            }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Resposta</label>
+                                            <textarea rows={3} value={item.answer} onChange={e => {
+                                                const f = [...faq];
+                                                f[idx].answer = e.target.value;
+                                                setFaq(f);
+                                            }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-medium leading-relaxed" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
                     </section>
 
                     {/* FUNCIONALIDADES (ACORDEOM) */}
