@@ -61,6 +61,14 @@ interface HeroTextConfig {
     description: string;
 }
 
+interface Testimonial {
+    id: string;
+    name: string;
+    role: string;
+    content: string;
+    photoUrl: string;
+}
+
 const ICON_BASE = ['phonelink_setup', 'photo_camera', 'cloud_done', 'compare_arrows', 'format_list_bulleted', 'ink_pen', 'verified', 'security', 'rocket_launch'];
 
 const HomeConfigPage: React.FC = () => {
@@ -118,9 +126,11 @@ const HomeConfigPage: React.FC = () => {
 
     const [steps, setSteps] = useState<Step[]>([]);
     const [faq, setFaq] = useState<FAQItem[]>([]);
+    const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
 
     const logoInputRef = useRef<HTMLInputElement>(null);
     const sliderInputRefs = useRef<{ [key: string]: HTMLInputElement }>({});
+    const testimonialInputRefs = useRef<{ [key: string]: HTMLInputElement }>({});
 
     useEffect(() => {
         fetchConfigs();
@@ -157,6 +167,9 @@ const HomeConfigPage: React.FC = () => {
 
                 const savedHeroText = find('home_hero_text_json');
                 if (savedHeroText) setHeroText(JSON.parse(savedHeroText));
+
+                const savedTestimonials = find('home_testimonials_json');
+                if (savedTestimonials) setTestimonials(JSON.parse(savedTestimonials));
             }
         } catch (err) {
             console.error('Erro ao buscar configurações:', err);
@@ -214,12 +227,22 @@ const HomeConfigPage: React.FC = () => {
                 { key: 'home_header_json', value: JSON.stringify(header) },
                 { key: 'home_steps_json', value: JSON.stringify(steps) },
                 { key: 'home_faq_json', value: JSON.stringify(faq) },
-                { key: 'home_hero_text_json', value: JSON.stringify(heroText) }
+                { key: 'home_hero_text_json', value: JSON.stringify(heroText) },
+                { key: 'home_testimonials_json', value: JSON.stringify(testimonials) }
             ];
-            for (const up of updates) await supabase.from('system_configs').upsert({ ...up, updated_at: new Date() });
-            alert('Landing Page Premium publicada!');
+
+            for (const up of updates) {
+                await supabase.from('system_configs').upsert({
+                    key: up.key,
+                    value: up.value,
+                    updated_at: new Date()
+                });
+            }
+
+            alert('Configurações salvas com sucesso!');
         } catch (err: any) {
-            alert(err.message);
+            console.error('Erro ao salvar:', err);
+            alert('Erro ao salvar as configurações.');
         } finally {
             setSaving(false);
         }
@@ -564,49 +587,62 @@ const HomeConfigPage: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        </section>
-
-                        {/* FAQ */}
-                        <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center shadow-inner">
-                                        <span className="material-symbols-outlined text-[28px]">help</span>
+                                    
+                                    <div className="flex items-start gap-4">
+                                        <div className="relative group/photo shrink-0">
+                                            <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-md">
+                                                {t.photoUrl ? (
+                                                    <img src={t.photoUrl} className="w-full h-full object-cover" alt="Foto" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                                        <span className="material-symbols-outlined">person</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <button 
+                                                onClick={() => testimonialInputRefs.current[t.id]?.click()}
+                                                className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity text-white"
+                                            >
+                                                <span className="material-symbols-outlined text-sm">edit</span>
+                                            </button>
+                                            <input 
+                                                type="file" 
+                                                className="hidden" 
+                                                ref={el => { if (el) testimonialInputRefs.current[t.id] = el }} 
+                                                onChange={e => uploadTestimonialPhoto(e, t.id)}
+                                                accept="image/*"
+                                            />
+                                        </div>
+                                        <div className="flex-1 space-y-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nome</label>
+                                                <input type="text" value={t.name} onChange={e => {
+                                                    const list = [...testimonials];
+                                                    list[idx].name = e.target.value;
+                                                    setTestimonials(list);
+                                                }} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Função / Empresa</label>
+                                                <input type="text" value={t.role} onChange={e => {
+                                                    const list = [...testimonials];
+                                                    list[idx].role = e.target.value;
+                                                    setTestimonials(list);
+                                                }} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold" />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Perguntas Frequentes (FAQ)</h3>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Depoimento</label>
+                                        <textarea rows={3} value={t.content} onChange={e => {
+                                            const list = [...testimonials];
+                                            list[idx].content = e.target.value;
+                                            setTestimonials(list);
+                                        }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-medium leading-relaxed italic" />
+                                    </div>
                                 </div>
-                                <button onClick={() => setFaq([...faq, { id: Date.now().toString(), question: 'Nova Pergunta', answer: 'Resposta aqui...' }])} className="px-5 py-2.5 bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-[16px]">add</span> Adicionar FAQ
-                                </button>
-                            </div>
-                            <div className="space-y-4">
-                                {faq.map((item, idx) => (
-                                    <div key={item.id} className="p-6 bg-slate-50/50 rounded-[32px] border border-slate-100 relative group space-y-4">
-                                        <button onClick={() => setFaq(faq.filter(f => f.id !== item.id))} className="absolute top-4 right-4 w-8 h-8 bg-white border border-slate-200 text-slate-400 hover:text-red-500 rounded-full shadow-sm flex items-center justify-center transition-colors">
-                                            <span className="material-symbols-outlined text-[18px]">close</span>
-                                        </button>
-                                        <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pergunta</label>
-                                            <input type="text" value={item.question} onChange={e => {
-                                                const f = [...faq];
-                                                f[idx].question = e.target.value;
-                                                setFaq(f);
-                                            }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Resposta</label>
-                                            <textarea rows={3} value={item.answer} onChange={e => {
-                                                const f = [...faq];
-                                                f[idx].answer = e.target.value;
-                                                setFaq(f);
-                                            }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-medium leading-relaxed" />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
+                            ))}
+                        </div>
                     </section>
 
                     {/* FUNCIONALIDADES (ACORDEOM) */}

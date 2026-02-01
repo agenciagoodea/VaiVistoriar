@@ -63,6 +63,14 @@ interface HeroTextConfig {
   description: string;
 }
 
+interface Testimonial {
+  id: string;
+  name: string;
+  role: string;
+  content: string;
+  photoUrl: string;
+}
+
 const LandingPage: React.FC = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +84,7 @@ const LandingPage: React.FC = () => {
   const [features, setFeatures] = useState<Feature[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [faq, setFaq] = useState<FAQItem[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [heroText, setHeroText] = useState<HeroTextConfig>({
     title: 'Tecnologia que',
     highlight: 'gera valor',
@@ -95,6 +104,8 @@ const LandingPage: React.FC = () => {
     showCTA: true,
     ctaText: 'Começar Agora'
   });
+
+  const [activePlanTab, setActivePlanTab] = useState<'PF' | 'PJ'>('PF');
 
   useEffect(() => {
     fetchData();
@@ -142,6 +153,9 @@ const LandingPage: React.FC = () => {
 
         const ht = find('home_hero_text_json');
         if (ht) setHeroText(JSON.parse(ht));
+
+        const tm = find('home_testimonials_json');
+        if (tm) setTestimonials(JSON.parse(tm));
       }
     } catch (err) {
       console.error(err);
@@ -159,6 +173,15 @@ const LandingPage: React.FC = () => {
   };
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><div className="w-10 h-10 border-4 border-blue-600 border-t-transparent animate-spin rounded-full" /></div>;
+
+  const filteredPlans = plans.filter(p => {
+    // If Plan has type field, use it. Otherwise fall back to name guess
+    if (p.type) return p.type === activePlanTab;
+    // Fallback: Check name for keywords
+    const name = p.name.toUpperCase();
+    if (activePlanTab === 'PJ') return name.includes('IMOBILIÁRIA') || name.includes('PJ');
+    return name.includes('CORRETOR') || name.includes('PF') || !name.includes('IMOBILIÁRIA');
+  });
 
   return (
     <div className="min-h-screen flex flex-col bg-white overflow-x-hidden selection:bg-blue-100 selection:text-blue-900">
@@ -254,7 +277,7 @@ const LandingPage: React.FC = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
             {features.map((f, i) => (
               <div key={i} className="p-12 bg-white rounded-[50px] border border-slate-50 shadow-sm hover:shadow-3xl hover:-translate-y-2 transition-all duration-500 group relative overflow-hidden">
-                <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-10 transition-all group-hover:scale-110 duration-700" style={{ backgroundColor: primaryColor + '08', color: primaryColor }}>
+                <div className="w-20 h-20 rounded-[32px] flex items-center justify-center mb-10 transition-all group-hover:scale-110 duration-700" style={{ backgroundColor: primaryColor + '08', color: primaryColor }}>
                   {renderIcon(f)}
                 </div>
                 <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tighter">{f.title}</h3>
@@ -274,7 +297,7 @@ const LandingPage: React.FC = () => {
               <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter">Como Funciona</h2>
               <p className="text-slate-400 font-medium max-w-xl mx-auto">Em poucos passos você transforma a gestão das suas vistorias.</p>
             </div>
-            <div className="grid md:grid-cols-3 gap-12 relative">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 relative">
               {steps.map((step, idx) => (
                 <div key={idx} className="relative flex flex-col items-center text-center space-y-6 group">
                   <div className="w-24 h-24 rounded-[32px] flex items-center justify-center text-3xl shadow-xl transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3" style={{ backgroundColor: idx % 2 === 0 ? primaryColor : '#1e293b', color: 'white' }}>
@@ -286,7 +309,7 @@ const LandingPage: React.FC = () => {
                     <p className="text-slate-400 leading-relaxed text-sm font-medium">{step.desc}</p>
                   </div>
                   {idx < steps.length - 1 && (
-                    <div className="hidden md:block absolute top-12 left-1/2 w-full h-0.5 border-t-2 border-dashed border-slate-200 -z-10" />
+                    <div className="hidden lg:block absolute top-12 left-[60%] w-[80%] h-0.5 border-t-2 border-dashed border-slate-200 -z-10 opacity-50" />
                   )}
                 </div>
               ))}
@@ -294,6 +317,106 @@ const LandingPage: React.FC = () => {
           </div>
         </section>
       )}
+
+      {/* Testimonials Section */}
+      {testimonials.length > 0 && (
+        <section id="depoimentos" className="py-32 bg-slate-900 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none" style={{ backgroundColor: `${primaryColor}15` }} />
+          <div className="max-w-7xl mx-auto px-6 sm:px-8 relative z-10">
+            <div className="text-center mb-20 space-y-4">
+              <h2 className="text-4xl md:text-5xl font-black tracking-tighter">Quem usa, aprova</h2>
+              <p className="text-slate-400 font-medium max-w-xl mx-auto">Veja o que nossos clientes dizem sobre a plataforma.</p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-8">
+              {testimonials.map((t, idx) => (
+                <div key={idx} className="bg-white/5 border border-white/10 p-8 rounded-[32px] backdrop-blur-sm hover:bg-white/10 transition-colors">
+                  <div className="flex items-center gap-4 mb-6">
+                    {t.photoUrl ? (
+                      <img src={t.photoUrl} alt={t.name} className="w-12 h-12 rounded-full object-cover border-2 border-slate-700" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 font-bold">
+                        {t.name.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="font-bold text-white text-sm">{t.name}</h4>
+                      <p className="text-xs text-slate-400 font-mono">{t.role}</p>
+                    </div>
+                  </div>
+                  <p className="text-slate-300 text-sm leading-relaxed italic">"{t.content}"</p>
+                  <div className="flex gap-1 mt-6 text-amber-400">
+                    {[1, 2, 3, 4, 5].map(s => <span key={s} className="material-symbols-outlined text-[16px] fill-icon">star</span>)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Pricing Section Premium WITH TABS */}
+      <section id="planos" className="py-32 bg-white">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="text-center space-y-6 mb-16">
+            <h2 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter">Nossos Planos</h2>
+            <p className="text-xl text-slate-400 font-medium">Escolha a opção ideal para o seu perfil.</p>
+
+            {/* Tabs */}
+            <div className="inline-flex p-1.5 bg-white rounded-2xl shadow-sm border border-slate-200">
+              <button
+                onClick={() => setActivePlanTab('PF')}
+                className={`px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activePlanTab === 'PF' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
+              >
+                Corretores (PF)
+              </button>
+              <button
+                onClick={() => setActivePlanTab('PJ')}
+                className={`px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activePlanTab === 'PJ' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
+              >
+                Imobiliárias (PJ)
+              </button>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {filteredPlans.map((plan) => (
+              <div key={plan.id} className="relative p-10 bg-white rounded-[40px] shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col hover:-translate-y-2 transition-transform duration-500">
+                {plan.badgeText && (
+                  <span className="absolute top-6 right-6 px-4 py-1.5 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-full">
+                    {plan.badgeText}
+                  </span>
+                )}
+                <div className="mb-8">
+                  <span className="px-4 py-1.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest">{plan.type === 'PJ' ? 'Escritório / Imobiliária' : 'Corretor Independente'}</span>
+                  <h3 className="text-3xl font-black text-slate-900 mt-6 uppercase tracking-tight">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1 mt-4">
+                    <span className="text-5xl font-black text-slate-900 tracking-tighter">R$ {Math.floor(plan.price)}</span>
+                    {plan.price % 1 !== 0 && <span className="text-2xl font-bold text-slate-900">,{plan.price.toFixed(2).split('.')[1]}</span>}
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">/Mês</span>
+                  </div>
+                </div>
+                <ul className="space-y-5 mb-10 flex-1">
+                  {Object.entries(plan.features).map(([key, value]) => (
+                    <li key={key} className="flex items-center gap-4 text-sm font-bold text-slate-600">
+                      <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                        <span className="material-symbols-outlined text-[14px]">check</span>
+                      </span>
+                      {value}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to="/register"
+                  className="w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all hover:scale-105 shadow-lg shadow-blue-500/20 text-center flex items-center justify-center gap-2 text-white"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Assinar Agora
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* FAQ Section */}
       {faq.length > 0 && (
@@ -317,30 +440,6 @@ const LandingPage: React.FC = () => {
           </div>
         </section>
       )}
-
-      {/* Pricing Section Premium */}
-      <section id="planos" className="py-32 bg-white">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8">
-          <div className="grid lg:grid-cols-3 gap-12">
-            {plans.map((plan) => (
-              <div key={plan.id} className={`group relative flex flex-col p-12 bg-white rounded-[60px] border-2 transition-all duration-700 hover:scale-[1.03] ${plan.slug.includes('pro') ? 'shadow-[0_80px_100px_-30px_rgba(0,0,0,0.1)] z-10 scale-105' : 'border-slate-50'}`} style={{ borderColor: plan.slug.includes('pro') ? primaryColor : 'transparent' }}>
-                {plan.slug.includes('pro') && (
-                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.3em] text-white shadow-2xl" style={{ backgroundColor: primaryColor }}>Ouro • Recomendado</div>
-                )}
-                <div className="mb-12">
-                  <span className="inline-block px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest mb-8" style={{ backgroundColor: primaryColor + '10', color: primaryColor }}>{plan.type === 'PF' ? 'Corretor Independente' : 'Escritório / Imobiliária'}</span>
-                  <h3 className="text-4xl font-black text-slate-900 mb-2 tracking-tighter">{plan.name}</h3>
-                  <div className="flex items-baseline gap-2 mt-8">
-                    <span className="text-6xl font-black text-slate-900 tracking-[ -0.05em]">R$ {plan.price.toFixed(0)}</span>
-                    <span className="text-sm font-black text-slate-400 uppercase tracking-widest">/mês</span>
-                  </div>
-                </div>
-                <Link to="/register" className="w-full py-6 rounded-[32px] text-[11px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl text-center text-white mt-auto hover:brightness-110 active:scale-95" style={{ backgroundColor: primaryColor, boxShadow: `0 30px 50px -10px ${primaryColor}40` }}>Assinar Agora</Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Footer Premium Modular */}
       {footer && (

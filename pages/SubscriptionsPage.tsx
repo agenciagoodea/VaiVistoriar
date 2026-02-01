@@ -213,12 +213,18 @@ const SubscriptionsPage: React.FC = () => {
                            <option value="" disabled>Selecione um plano...</option>
                            {allPlans
                               .filter(p => {
+                                 // Prioritize checking the official 'type' field if it exists
+                                 if (p.type) {
+                                    return p.type === selectedUser.type; // Match PF with PF plans, PJ with PJ plans
+                                 }
+
+                                 // Fallback to name-based logic if type is missing
                                  const name = (p.name || "").toUpperCase();
                                  const isPJ = selectedUser.type === 'PJ';
                                  if (isPJ) {
-                                    return name.includes('IMOBILIÁRIA') || name.includes('PLANO');
+                                    return name.includes('IMOBILIÁRIA') || name.includes('PJ') || name.includes('PLANO');
                                  } else {
-                                    return name.includes('CORRETOR') || name.includes('VISTORIA') || name.includes('PLANO');
+                                    return name.includes('CORRETOR') || name.includes('PF') || (!name.includes('IMOBILIÁRIA') && !name.includes('PJ'));
                                  }
                               })
                               .map(p => (
@@ -226,10 +232,11 @@ const SubscriptionsPage: React.FC = () => {
                               ))}
                         </select>
                         {allPlans.filter(p => {
+                           if (p.type) return p.type === selectedUser.type;
                            const name = (p.name || "").toUpperCase();
                            const isPJ = selectedUser.type === 'PJ';
-                           if (isPJ) return name.includes('IMOBILIÁRIA') || name.includes('PLANO');
-                           return name.includes('CORRETOR') || name.includes('VISTORIA') || name.includes('PLANO');
+                           if (isPJ) return name.includes('IMOBILIÁRIA') || name.includes('PJ');
+                           return name.includes('CORRETOR') || (!name.includes('IMOBILIÁRIA') && !name.includes('PJ'));
                         }).length === 0 && (
                               <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">Nenhum plano disponível para este perfil.</p>
                            )}
