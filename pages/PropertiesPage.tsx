@@ -33,10 +33,10 @@ const PropertiesPage: React.FC = () => {
 
          let query = supabase.from('properties').select('*');
 
-         // Se for PJ ou Corretor, filtramos pelo owner_id (quem cadastrou ou é dono)
-         // Para PJ isso garante que ele veja seus imóveis e possivelmente os da equipe se cadastrados sob seu ID
+         // Se for PJ ou Corretor, filtramos pelo user_id (quem cadastrou)
+         // Para PJ, idealmente implementaríamos lógica de ver equipe, mas por enquanto isolamos por usuário
          if (profile?.role === 'PJ' || profile?.role === 'BROKER') {
-            query = query.eq('owner_id', user.id);
+            query = query.eq('user_id', user.id);
          }
 
          const { data: dbData, error } = await query.order('created_at', { ascending: false });

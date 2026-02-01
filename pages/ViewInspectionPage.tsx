@@ -170,6 +170,28 @@ const ViewInspectionPage: React.FC = () => {
                     currentY = margin;
                 }
                 pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
+                currentY += imgHeight + 2;
+            }
+
+            // Site Footer (Legal/Official Info)
+            const siteFooter = container.querySelector('.report-site-footer') as HTMLElement;
+            if (siteFooter) {
+                const canvas = await captureElement(siteFooter);
+                const imgHeight = (canvas.height * contentWidth) / canvas.width;
+                // Always try to put at bottom if space permits, or new page
+                if (currentY + imgHeight > pageHeight - margin) {
+                    pdf.addPage();
+                    currentY = pageHeight - imgHeight - margin; // Bottom of new page
+                } else {
+                    // Start of next block or bottom of page?
+                    // Let's just append it naturally for now, or push to bottom if it's the very last thing?
+                    // "Official" often implies bottom of page.
+                    // Let's place it at currentY for flow, but if we want it at the VERY bottom of the last page:
+                    // currentY = Math.max(currentY, pageHeight - imgHeight - margin); 
+                    // But that might overlap if the previous content was close.
+                    // Let's just append it naturally to respect the flow.
+                }
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
             }
 
             // Restore visibility
@@ -555,7 +577,7 @@ const ViewInspectionPage: React.FC = () => {
                     </div>
 
                     {/* Site Footer */}
-                    <div className="text-center border-t border-slate-100 pt-4 mt-8 pb-2">
+                    <div className="report-site-footer text-center border-t border-slate-100 pt-4 mt-8 pb-2">
                         <p className="text-[8px] text-slate-400 uppercase tracking-widest">
                             Gerado via plataforma <b>VaiVistoriar</b> • www.vaivistoriar.com.br
                         </p>

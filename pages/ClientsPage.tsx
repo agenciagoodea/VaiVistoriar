@@ -14,10 +14,23 @@ const ClientsPage: React.FC = () => {
 
   const fetchClients = async () => {
     try {
-      const { data: dbData, error } = await supabase
-        .from('clients')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Buscar perfil para saber cargo
+      const { data: profile } = await supabase
+        .from('broker_profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      let query = supabase.from('clients').select('*');
+
+      if (profile?.role === 'PJ' || profile?.role === 'BROKER') {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data: dbData, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setClients(dbData || []);
@@ -94,8 +107,8 @@ const ClientsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${client.profile_type === 'Proprietário' ? 'bg-purple-50 text-purple-600' :
-                        client.profile_type === 'Locatário' ? 'bg-blue-50 text-blue-600' :
-                          'bg-slate-50 text-slate-500'
+                      client.profile_type === 'Locatário' ? 'bg-blue-50 text-blue-600' :
+                        'bg-slate-50 text-slate-500'
                       }`}>
                       {client.profile_type}
                     </span>
