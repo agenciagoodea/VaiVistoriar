@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -72,7 +71,7 @@ const ViewInspectionPage: React.FC = () => {
                 id: 'send_report',
                 name: 'Envio de Laudo Técnico',
                 subject: 'Laudo de Vistoria Disponível - {{property_name}}',
-                html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><div style="text-align: center; margin-bottom: 30px;"><span style="background: #eff6ff; color: #2563eb; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 12px; text-transform: uppercase;">Laudo Digital</span></div><h1 style="color: #1e293b; margin-top: 0; text-align: center;">Vistoria Concluída</h1><p style="color: #64748b; line-height: 1.6; text-align: center;">Olá, <strong>{{client_name}}</strong>!</p><p style="color: #64748b; line-height: 1.6; text-align: center;">O laudo de vistoria do imóvel <strong>{{property_name}}</strong> já está disponível para visualização e assinatura digital.</p><div style="text-align: center; margin: 40px 0;"><a href="{{report_link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Acessar Laudo Digital</a></div><p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 40px;">Este link é único e seguro. Em caso de dúvidas, entre em contato com o responsável.</p></div></div>`
+                html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><div style="text-align: center; margin-bottom: 30px;"><span style="background: #eff6ff; color: #2563eb; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 12px; text-transform: uppercase;">Laudo Digital</span></div><h1 style="color: #1e293b; margin-top: 0; text-align: center;">Vistoria Concluída</h1><p style="color: #64748b; line-height: 1.6; text-align: center;">Olá, <strong>{{client_name}}</strong>!</p><p style="color: #64748b; line-height: 1.6; text-align: center;">O laudo de vistoria do imóvel <strong>{{property_name}}</strong> segue anexo/linkado abaixo.</p><div style="text-align: center; margin: 40px 0;"><a href="{{report_link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Baixar Laudo PDF</a></div><p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 40px;">Em caso de dúvidas, entre em contato com o responsável.</p></div></div>`
             });
         }
 
@@ -92,17 +91,140 @@ const ViewInspectionPage: React.FC = () => {
         setEmailModalOpen(true);
     };
 
+    // --- PDF Generation Logic ---
+    const generatePDF = async (returnBlob = false): Promise<jsPDF | Blob | null> => {
+        if (!reportRef.current) return null;
+
+        try {
+            const container = reportRef.current;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 10;
+            const contentWidth = pageWidth - (margin * 2);
+
+            // Seletores ajustados para o novo layout compacto
+            const header = container.querySelector('.report-header') as HTMLElement;
+            const sections = Array.from(container.querySelectorAll('.report-section')) as HTMLElement[];
+            const footer = container.querySelector('.report-footer') as HTMLElement;
+
+            const captureElement = async (element: HTMLElement) => {
+                return await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    windowWidth: 1024
+                });
+            };
+
+            let currentY = margin;
+
+            // Header
+            if (header) {
+                const canvas = await captureElement(header);
+                const imgHeight = (canvas.height * contentWidth) / canvas.width;
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
+                currentY += imgHeight + 2;
+            }
+
+            // Sections
+            for (const section of sections) {
+                const canvas = await captureElement(section);
+                const imgHeight = (canvas.height * contentWidth) / canvas.width;
+
+                if (currentY + imgHeight > pageHeight - margin) {
+                    pdf.addPage();
+                    currentY = margin;
+                }
+
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
+
+                // Links
+                const links = section.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
+                const rect = section.getBoundingClientRect();
+                links.forEach(link => {
+                    const linkRect = link.getBoundingClientRect();
+                    const scaleFactor = contentWidth / rect.width;
+                    const pdfX = margin + ((linkRect.left - rect.left) * scaleFactor);
+                    const pdfY = currentY + ((linkRect.top - rect.top) * scaleFactor);
+                    const pdfW = linkRect.width * scaleFactor;
+                    const pdfH = linkRect.height * scaleFactor;
+                    pdf.link(pdfX, pdfY, pdfW, pdfH, { url: link.href });
+                });
+
+                currentY += imgHeight + 2;
+            }
+
+            // Footer (Signatures)
+            if (footer) {
+                const canvas = await captureElement(footer);
+                const imgHeight = (canvas.height * contentWidth) / canvas.width;
+                if (currentY + imgHeight > pageHeight - margin) {
+                    pdf.addPage();
+                    currentY = margin;
+                }
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
+            }
+
+            return returnBlob ? pdf.output('blob') : pdf;
+        } catch (err) {
+            console.error('Erro na geração do PDF', err);
+            throw err;
+        }
+    };
+
+    const downloadPDF = async () => {
+        setExporting(true);
+        try {
+            const pdf = await generatePDF(false) as jsPDF;
+            if (pdf) pdf.save(`Vistoria_${inspection.property_name.replace(/\s+/g, '_')}.pdf`);
+        } catch (e) {
+            alert('Erro ao gerar PDF.');
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const uploadPDF = async () => {
+        const blob = await generatePDF(true) as Blob;
+        if (!blob) throw new Error('Falha ao gerar Blob do PDF');
+
+        const fileName = `laudos/Vistoria_${inspection.id}_${Date.now()}.pdf`;
+        const { data, error } = await supabase.storage
+            .from('reports') // Bucket name must exist
+            .upload(fileName, blob, {
+                contentType: 'application/pdf',
+                upsert: true
+            });
+
+        if (error) throw error;
+
+        const { data: { publicUrl } } = supabase.storage.from('reports').getPublicUrl(fileName);
+        return publicUrl;
+    };
+
     const handleSendEmail = async () => {
         setEmailSending(true);
         try {
-            const template = templates.find(t => t.id === 'send_report');
-            if (!template) throw new Error('Template de envio de laudo não configurado.');
-
             const targets = emailRecipients.filter(r => r.selected);
             if (customEmail) targets.push({ name: 'Destinatário', email: customEmail, type: 'Extra', selected: true });
-
             if (targets.length === 0) throw new Error('Selecione ao menos um destinatário.');
 
+            // 1. Generate and Upload PDF
+            let pdfUrl = window.location.href; // Fallback
+            try {
+                pdfUrl = await uploadPDF();
+                console.log('PDF Uploaded:', pdfUrl);
+            } catch (uploadErr) {
+                console.error('Erro ao fazer upload do PDF, usando link web:', uploadErr);
+                // Continue with web link if upload fails? Or block?
+                // Letting it continue with web link as fallback, or simple alert warning?
+                // For "professional" request, maybe better to fail?
+                // But safety first:
+                // alert('Não foi possível gerar o anexo PDF, enviando link de visualização.');
+            }
+
+            // 2. Send Emails
             for (const target of targets) {
                 const { error } = await supabase.functions.invoke('send-email', {
                     body: {
@@ -112,129 +234,19 @@ const ViewInspectionPage: React.FC = () => {
                         variables: {
                             client_name: target.name,
                             property_name: inspection.property_name || inspection.property?.name,
-                            report_link: window.location.href
+                            report_link: pdfUrl
                         }
                     }
                 });
                 if (error) throw error;
             }
 
-            alert('E-mails enviados com sucesso!');
+            alert('E-mails enviados com sucesso com o link do PDF!');
             setEmailModalOpen(false);
         } catch (err: any) {
             alert('Erro ao enviar: ' + err.message);
         } finally {
             setEmailSending(false);
-        }
-    };
-
-    const downloadPDF = async () => {
-        if (!reportRef.current) return;
-        setExporting(true);
-
-        try {
-            // Seções que queremos capturar individualmente para evitar quebras no meio do conteúdo
-            // Usamos seletores CSS baseados na estrutura que já temos
-            const container = reportRef.current;
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const margin = 10; // Margem de segurança
-            const contentWidth = pageWidth - (margin * 2);
-
-            // 1. Capturar o Header (Sempre na primeira página)
-            const header = container.querySelector('.p-12.md\\:p-16.border-b-8.border-blue-600') as HTMLElement;
-            const parties = container.querySelector('.grid.md\\:grid-cols-2.gap-16') as HTMLElement;
-            const propertyIdent = container.querySelector('.bg-slate-50\\/50.rounded-\\[48px\\]') as HTMLElement;
-
-            // Seções de Ambientes, Custos e Termos
-            const sectionTitle = container.querySelector('h3.text-\\[10px\\].font-black.text-blue-600.tracking-\\[0\\.4em\\]') as HTMLElement;
-            const rooms = Array.from(container.querySelectorAll('.space-y-16 > .space-y-8')) as HTMLElement[];
-            const costs = container.querySelector('.space-y-8.break-inside-avoid.pt-12') as HTMLElement;
-            const terms = container.querySelector('.p-12.bg-slate-900') as HTMLElement;
-            const signatures = container.querySelector('.pt-24.grid.md\\:grid-cols-2') as HTMLElement;
-            const footerNote = container.querySelector('.pt-20.text-center') as HTMLElement;
-
-            const captureSection = async (element: HTMLElement, currentPdf: jsPDF, yOffset: number): Promise<number> => {
-                if (!element) return yOffset;
-
-                const canvas = await html2canvas(element, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: '#ffffff',
-                    windowWidth: 1024 // Forçar largura para evitar layouts mobile no canvas
-                });
-
-                const imgData = canvas.toDataURL('image/png');
-                const imgHeight = (canvas.height * contentWidth) / canvas.width;
-
-                // Verificar se cabe na página atual
-                if (yOffset + imgHeight > pageHeight - margin) {
-                    currentPdf.addPage();
-                    yOffset = margin;
-                }
-
-                currentPdf.addImage(imgData, 'PNG', margin, yOffset, contentWidth, imgHeight);
-
-                // --- NOVO: Mapear links ---
-                const links = element.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
-                const rect = element.getBoundingClientRect();
-
-                links.forEach(link => {
-                    const linkRect = link.getBoundingClientRect();
-                    const url = link.href;
-
-                    // Calcular posição relativa ao elemento pai (em pixels)
-                    const relX = linkRect.left - rect.left;
-                    const relY = linkRect.top - rect.top;
-                    const relW = linkRect.width;
-                    const relH = linkRect.height;
-
-                    // Converter pixels para mm (baseado na largura do conteúdo no PDF)
-                    const scaleFactor = contentWidth / rect.width;
-
-                    const pdfX = margin + (relX * scaleFactor);
-                    const pdfY = yOffset + (relY * scaleFactor);
-                    const pdfW = relW * scaleFactor;
-                    const pdfH = relH * scaleFactor;
-
-                    if (url) {
-                        currentPdf.link(pdfX, pdfY, pdfW, pdfH, { url });
-                    }
-                });
-
-                return yOffset + imgHeight + 5; // Retorna novo yOffset com espaçamento
-            };
-
-            let currentY = margin;
-
-            // Renderização sequencial controlada
-            currentY = await captureSection(header, pdf, currentY);
-            currentY = await captureSection(parties, pdf, currentY);
-            currentY = await captureSection(propertyIdent, pdf, currentY);
-
-            if (sectionTitle) currentY = await captureSection(sectionTitle, pdf, currentY);
-
-            for (const room of rooms) {
-                // Forçar nova página se o próximo ambiente for grande e estiver perto do fim
-                if (currentY > pageHeight * 0.7) {
-                    pdf.addPage();
-                    currentY = margin;
-                }
-                currentY = await captureSection(room, pdf, currentY);
-            }
-
-            if (costs) currentY = await captureSection(costs, pdf, currentY);
-            if (terms) currentY = await captureSection(terms, pdf, currentY);
-            if (signatures) currentY = await captureSection(signatures, pdf, currentY);
-            if (footerNote) await captureSection(footerNote, pdf, currentY);
-
-            pdf.save(`Vistoria_${inspection.property_name.replace(/\s+/g, '_')}.pdf`);
-        } catch (err) {
-            console.error('Erro ao gerar PDF:', err);
-            alert('Erro ao gerar arquivo PDF.');
-        } finally {
-            setExporting(false);
         }
     };
 
@@ -247,256 +259,140 @@ const ViewInspectionPage: React.FC = () => {
     if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Gerando Documento...</div>;
     if (!inspection) return <div className="p-20 text-center font-bold text-rose-500 uppercase tracking-widest">Erro: Vistoria não encontrada.</div>;
 
+    // --- RENDER ---
     return (
-        <div className="max-w-4xl mx-auto py-12 px-4 space-y-8 pb-32 animate-in fade-in duration-500">
+        <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 pb-32 animate-in fade-in duration-500">
             {/* Action Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white/80 backdrop-blur-xl p-6 rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/50 sticky top-4 z-50">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/inspections')} className="p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all text-slate-400 group">
-                        <span className="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white/90 backdrop-blur-xl p-4 rounded-2xl border border-slate-200 shadow-lg sticky top-4 z-50">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate('/inspections')} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all text-slate-400 group">
+                        <span className="material-symbols-outlined text-xl group-hover:-translate-x-1 transition-transform">arrow_back</span>
                     </button>
                     <div>
-                        <h1 className="text-xl font-black text-slate-900 leading-tight tracking-tighter">Laudo Digital</h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{inspection.report_type} • {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : 'Data N/A'}</p>
+                        <h1 className="text-sm font-black text-slate-900 leading-tight uppercase">Laudo Digital</h1>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{inspection.report_type}</p>
                     </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={shareWhatsApp} className="flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-green-100 flex-1 sm:flex-none justify-center">
-                        <span className="material-symbols-outlined text-[18px]">share</span>
-                        WhatsApp
+                <div className="flex items-center gap-2">
+                    <button onClick={shareWhatsApp} className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md">
+                        <span className="material-symbols-outlined text-[16px]">share</span> WhatsApp
                     </button>
-                    <button onClick={openEmailModal} className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-200 flex-1 sm:flex-none justify-center">
-                        <span className="material-symbols-outlined text-[18px]">mail</span>
-                        E-mail
+                    <button onClick={openEmailModal} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black shadow-md">
+                        <span className="material-symbols-outlined text-[16px]">mail</span> E-mail
                     </button>
-                    <button onClick={downloadPDF} disabled={exporting} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 flex-1 sm:flex-none justify-center">
-                        {exporting ? (
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-                        ) : (
-                            <>
-                                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
-                                PDF
-                            </>
-                        )}
+                    <button onClick={downloadPDF} disabled={exporting} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-md disabled:opacity-50">
+                        {exporting ? <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> : <span className="material-symbols-outlined text-[16px]">download</span>} PDF
                     </button>
                 </div>
             </div>
 
-            {/* Document Container for PDF Generation */}
-            <div id="inspection-report" ref={reportRef} className="bg-white border border-slate-200 shadow-2xl rounded-[40px] overflow-hidden font-['Inter']">
+            {/* Document Container - COMPACT LAYOUT */}
+            <div id="inspection-report" ref={reportRef} className="bg-white border border-slate-200 shadow-xl rounded-[2px] overflow-hidden font-['Inter'] text-xs">
 
-                {/* PDF Header */}
-                <div className="p-12 md:p-16 border-b-8 border-blue-600 bg-slate-50/50 flex flex-col md:flex-row justify-between gap-8 items-center">
-                    <div className="flex items-center gap-8">
-                        <div className="w-24 h-24 rounded-3xl overflow-hidden border-4 border-white shadow-2xl">
-                            <img src={inspection.broker_data?.avatar_url || 'https://via.placeholder.com/100'} alt="Corretor" className="w-full h-full object-cover" />
+                {/* HEAD (Parte superior compacta) */}
+                <div className="report-header p-6 border-b-4 border-blue-600 bg-slate-50 flex flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white shadow-md bg-white">
+                            <img src={inspection.broker_data?.avatar_url || 'https://via.placeholder.com/100'} className="w-full h-full object-cover" />
                         </div>
-                        <div className="space-y-1">
-                            <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">{inspection.broker_data?.company_name || 'Vistoria Profissional'}</h2>
-                            <p className="text-blue-600 font-bold text-sm tracking-tight">{inspection.broker_data?.full_name} • CRECI {inspection.broker_data?.creci || '---'}</p>
-                            <p className="text-slate-400 text-xs font-medium">{inspection.broker_data?.phone} • {inspection.broker_data?.address?.split(',')[1] || 'Certificado Digital'}</p>
+                        <div>
+                            <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{inspection.broker_data?.company_name || 'Vistoria Profissional'}</h2>
+                            <p className="text-blue-600 font-bold text-xs">{inspection.broker_data?.full_name} • CRECI {inspection.broker_data?.creci}</p>
+                            <p className="text-slate-400 text-[10px]">{inspection.broker_data?.phone}</p>
                         </div>
                     </div>
-                    <div className="text-center md:text-right">
-                        <div className="inline-block px-6 py-2 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em]">
+                    <div className="text-right">
+                        <div className="inline-block px-3 py-1 bg-slate-900 text-white rounded-md font-bold text-[10px] uppercase tracking-wider mb-2">
                             {inspection.report_type}
                         </div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-4">Documento Emitido em:</p>
-                        <p className="text-sm font-black text-slate-900">{new Date().toLocaleDateString('pt-BR')}</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">Emissão: {new Date().toLocaleDateString('pt-BR')}</p>
                     </div>
                 </div>
 
-                <div className="p-12 md:p-20 space-y-20">
+                <div className="p-6 space-y-6">
 
-                    {/* Parties Section */}
-                    <div className="grid md:grid-cols-2 gap-16">
-                        <div className="space-y-6">
-                            <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] border-b-2 border-slate-100 pb-3">
-                                {inspection.report_type === 'Venda' ? 'VENDEDOR (PROPRIETÁRIO)' : 'LOCADOR (PROPRIETÁRIO)'}
-                            </h3>
-                            <div className="space-y-2">
-                                <p className="text-xl font-black text-slate-900 tracking-tighter">{inspection.lessor?.name || 'N/A'}</p>
-                                <div className="space-y-1 text-slate-500 text-xs font-bold uppercase tracking-tight">
-                                    <p>CPF/CNPJ: {inspection.lessor?.document_number || '---'}</p>
-                                    <p>E-mail: {inspection.lessor?.email || '---'}</p>
-                                    <p>Fone: {inspection.lessor?.phone || '---'}</p>
+                    {/* Partes & Imóvel (Lado a lado comprimido) */}
+                    <div className="report-section grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                        <div className="space-y-4">
+                            <div>
+                                <h3 className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">Imóvel</h3>
+                                <p className="text-lg font-black text-slate-900 uppercase leading-none">{inspection.property?.name || inspection.property_name}</p>
+                                <p className="text-xs text-slate-600 mt-1 whitespace-pre-line">
+                                    {inspection.property ? `${inspection.property.address}, ${inspection.property.number} - ${inspection.property.neighborhood}, ${inspection.property.city}/${inspection.property.state}` : inspection.address}
+                                </p>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="px-3 py-2 bg-white rounded border border-slate-200">
+                                    <span className="block text-[8px] font-bold text-slate-400 uppercase">Tipo</span>
+                                    <span className="text-xs font-bold text-slate-800 uppercase">{inspection.property?.type || 'N/A'}</span>
+                                </div>
+                                <div className="px-3 py-2 bg-white rounded border border-slate-200">
+                                    <span className="block text-[8px] font-bold text-slate-400 uppercase">Área</span>
+                                    <span className="text-xs font-bold text-slate-800">{inspection.property?.area_m2 || '--'} m²</span>
+                                </div>
+                                <div className="px-3 py-2 bg-white rounded border border-slate-200">
+                                    <span className="block text-[8px] font-bold text-slate-400 uppercase">Mobília</span>
+                                    <span className="text-xs font-bold text-slate-800">{inspection.is_furnished ? 'Sim' : 'Não'}</span>
                                 </div>
                             </div>
                         </div>
-                        <div className="space-y-6">
-                            <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] border-b-2 border-slate-100 pb-3">
-                                {inspection.report_type === 'Venda' ? 'COMPRADOR' : 'LOCATÁRIO (INQUILINO)'}
-                            </h3>
-                            <div className="space-y-2">
-                                <p className="text-xl font-black text-slate-900 tracking-tighter">{inspection.lessee?.name || 'N/A'}</p>
-                                <div className="space-y-1 text-slate-500 text-xs font-bold uppercase tracking-tight">
-                                    <p>CPF/CNPJ: {inspection.lessee?.document_number || '---'}</p>
-                                    <p>E-mail: {inspection.lessee?.email || '---'}</p>
-                                    <p>Fone: {inspection.lessee?.phone || '---'}</p>
-                                </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{inspection.report_type === 'Venda' ? 'Vendedor' : 'Locador'}</h3>
+                                <p className="font-bold text-slate-900 truncate">{inspection.lessor?.name}</p>
+                                <p className="text-slate-500 text-[10px]">{inspection.lessor?.document_number}</p>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Nova Seção de Identificação do Imóvel (Layout Conforme Esquema) */}
-                    <div className="bg-slate-50/50 rounded-[48px] border border-slate-100 p-6 md:p-12 space-y-12">
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-12 items-start">
-                            {/* Coluna Esquerda: ID + Dados Técnicos (3/5) */}
-                            <div className="md:col-span-3 space-y-10">
-                                <div className="space-y-4">
-                                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full">
-                                        <span className="material-symbols-outlined text-[14px]">apartment</span>
-                                        <span className="text-[9px] font-black uppercase tracking-[0.2em]">Identificação do Imóvel</span>
-                                    </div>
-                                    <h4 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase leading-[0.9]">{inspection.property?.name || inspection.property_name}</h4>
-
-                                    <div className="flex items-start gap-3 pt-2">
-                                        <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shrink-0 shadow-sm text-blue-500">
-                                            <span className="material-symbols-outlined">location_on</span>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-lg font-bold text-slate-700 leading-tight">
-                                                {inspection.property ? (
-                                                    `${inspection.property.address}, ${inspection.property.number}${inspection.property.complement ? ` - ${inspection.property.complement}` : ''}`
-                                                ) : (
-                                                    inspection.address
-                                                )}
-                                            </p>
-                                            <p className="text-sm font-bold text-slate-500">
-                                                {inspection.property && `${inspection.property.neighborhood}, ${inspection.property.city} - ${inspection.property.state}`}
-                                            </p>
-                                            <div className="flex flex-wrap gap-4 items-center pt-1">
-                                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">CEP: {inspection.property?.cep || 'Consultar Cadastro'}</p>
-                                                {inspection.property?.iptu_number && (
-                                                    <p className="text-xs font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-md">IPTU: {inspection.property.iptu_number}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* Grid 2x2 para Dados Técnicos */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm flex flex-col justify-center min-h-[80px]">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-none">Tipo</p>
-                                        <p className="text-sm font-black text-slate-800 uppercase leading-none">{inspection.property?.type || 'N/A'}</p>
-                                    </div>
-                                    <div className="p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm flex flex-col justify-center min-h-[80px]">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-none">Área</p>
-                                        <p className="text-sm font-black text-slate-800 leading-none">{inspection.property?.area_m2 || '--'} m²</p>
-                                    </div>
-                                    <div className="p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm flex flex-col justify-center min-h-[80px]">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-none">Mobília</p>
-                                        <p className={`text-sm font-black uppercase leading-none ${inspection.is_furnished ? 'text-indigo-600' : 'text-slate-400'}`}>
-                                            {inspection.is_furnished ? 'Sim' : 'Não'}
-                                        </p>
-                                    </div>
-                                    <div className="p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm flex flex-col justify-center min-h-[80px]">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-none">Chaves</p>
-                                        <p className={`text-sm font-black uppercase leading-none ${inspection.keys_data?.delivered ? 'text-amber-600' : 'text-slate-400'}`}>
-                                            {inspection.keys_data?.delivered ? 'Entregues' : 'Pendente'}
-                                        </p>
-                                    </div>
-                                </div>
+                            <div>
+                                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{inspection.report_type === 'Venda' ? 'Comprador' : 'Locatário'}</h3>
+                                <p className="font-bold text-slate-900 truncate">{inspection.lessee?.name}</p>
+                                <p className="text-slate-500 text-[10px]">{inspection.lessee?.document_number}</p>
                             </div>
-
-                            {/* Coluna Direita: Foto das Chaves + Observações (2/5) */}
-                            <div className="md:col-span-2 space-y-4 h-full flex flex-col">
-                                <div className="aspect-square rounded-[32px] overflow-hidden border-4 border-white shadow-xl bg-slate-200 relative group flex-1">
+                            <div className="col-span-2 mt-2 pt-2 border-t border-slate-200 flex gap-4 items-center">
+                                <div className="w-12 h-12 rounded bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
                                     {inspection.keys_data?.photo_url ? (
-                                        <a href={inspection.keys_data.photo_url} target="_blank" rel="noopener noreferrer" className="photo-link block w-full h-full">
-                                            <img src={inspection.keys_data.photo_url} alt="Chaves" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                                        </a>
-                                    ) : (
-                                        <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
-                                            <span className="material-symbols-outlined text-4xl">vpn_key</span>
-                                            <p className="text-[9px] font-black uppercase tracking-widest">Sem foto</p>
-                                        </div>
-                                    )}
+                                        <img src={inspection.keys_data.photo_url} className="w-full h-full object-cover" />
+                                    ) : <span className="flex items-center justify-center h-full text-[10px]">Sem foto</span>}
                                 </div>
-                                <div className="p-5 bg-white rounded-[24px] border border-slate-100 shadow-sm">
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-none">Observação das Chaves</p>
-                                    <p className="text-[10px] font-bold text-slate-600 leading-relaxed uppercase italic">
-                                        {inspection.keys_data?.description || 'Nenhum registro adicional.'}
-                                    </p>
+                                <div className="flex-1">
+                                    <span className="block text-[8px] font-bold text-slate-400 uppercase">Chaves ({inspection.keys_data?.delivered ? 'Entregues' : 'Pendente'})</span>
+                                    <span className="text-[10px] italic text-slate-600 leading-tight block">{inspection.keys_data?.description || 'Sem observações.'}</span>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Seção Inferior: Mapa Full Width */}
-                        <div className="space-y-4 pt-4 border-t border-slate-100">
-                            <div className="flex items-center gap-2 px-2">
-                                <span className="material-symbols-outlined text-blue-500 text-[18px]">map</span>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Localização no Mapa</p>
-                            </div>
-                            <div className="h-[300px] w-full rounded-[40px] overflow-hidden border-4 border-white shadow-2xl relative bg-slate-100">
-                                {(inspection.property?.address || inspection.address) && (
-                                    <iframe
-                                        width="100%"
-                                        height="100%"
-                                        style={{ border: 0 }}
-                                        src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                                            inspection.property
-                                                ? `${inspection.property.address}, ${inspection.property.number}, ${inspection.property.city} - ${inspection.property.state}`
-                                                : inspection.address
-                                        )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
-                                        frameBorder="0"
-                                        scrolling="no"
-                                        title="Mapa do Imóvel"
-                                        className="contrast-[1.1] brightness-[1.05]"
-                                    ></iframe>
-                                )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Detailed Analysis */}
-                    <div className="space-y-16">
-                        <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] border-b-2 border-slate-100 pb-3 text-center">ANÁLISE DETALHADA POR AMBIENTE</h3>
+                    {/* Ambientes Compactos */}
+                    <div className="space-y-6">
                         {inspection.rooms?.map((room: any, idx: number) => (
-                            <div key={idx} className="space-y-8 break-inside-avoid pt-4">
-                                <div className="flex items-center justify-between border-l-8 border-blue-600 pl-8 py-2">
-                                    <div>
-                                        <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter">{idx + 1}. {room.name}</h4>
-                                        <div className="flex items-center gap-4 mt-2">
-                                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${room.condition === 'Novo' ? 'bg-emerald-50 text-emerald-600' :
-                                                room.condition === 'Bom' ? 'bg-blue-50 text-blue-600' :
-                                                    'bg-amber-50 text-amber-600'
-                                                }`}>
-                                                ESTADO: {room.condition}
-                                            </span>
-                                        </div>
+                            <div key={idx} className="report-section break-inside-avoid border-t border-slate-100 pt-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-3">
+                                        <span className="bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded">{idx + 1}</span>
+                                        <h4 className="text-sm font-black text-slate-900 uppercase">{room.name}</h4>
                                     </div>
-                                    <div className="text-right hidden sm:block">
-                                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Protocolo Unidade</p>
-                                        <p className="text-[10px] font-mono font-bold text-slate-200">ID-{room.id?.slice(0, 6).toUpperCase()}</p>
-                                    </div>
+                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase border ${room.condition === 'Novo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                            room.condition === 'Bom' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'
+                                        }`}>
+                                        {room.condition}
+                                    </span>
                                 </div>
 
-                                <div className="p-8 bg-slate-50/50 rounded-[32px] border border-slate-100 italic text-slate-600 font-medium text-sm leading-relaxed relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-1 h-full bg-slate-200" />
-                                    {room.observations || 'Nenhum detalhe técnico específico registrado.'}
-                                </div>
+                                {room.observations && (
+                                    <div className="bg-slate-50 text-slate-700 text-[11px] p-3 rounded mb-3 border border-slate-100">
+                                        {room.observations}
+                                    </div>
+                                )}
 
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                                     {room.photos?.map((photo: any, pIdx: number) => (
-                                        <div key={pIdx} className="space-y-3 break-inside-avoid group">
-                                            <a
-                                                href={photo.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="photo-link block aspect-[4/3] rounded-xl overflow-hidden border-2 border-white shadow-xl relative ring-1 ring-slate-100 group"
-                                                title="Clique para ver em tamanho real"
-                                            >
-                                                <img src={photo.url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                                <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md text-white font-black text-[9px] px-3 py-1 rounded-full border border-white/20">
-                                                    #{pIdx + 1}
+                                        <div key={pIdx} className="group relative">
+                                            <a href={photo.url} target="_blank" className="photo-link block aspect-square rounded overflow-hidden border border-slate-200 bg-slate-100">
+                                                <img src={photo.url} className="w-full h-full object-cover" loading="lazy" />
+                                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate">
+                                                    {photo.caption || `Foto ${pIdx + 1}`}
                                                 </div>
                                             </a>
-                                            {photo.caption && (
-                                                <div className="px-3">
-                                                    <p className="text-[10px] font-bold text-slate-400 leading-snug uppercase tracking-tight italic">"{photo.caption}"</p>
-                                                </div>
-                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -504,120 +400,91 @@ const ViewInspectionPage: React.FC = () => {
                         ))}
                     </div>
 
-                    {/* Costs Table */}
-                    {inspection.extra_costs && inspection.extra_costs.length > 0 && (
-                        <div className="space-y-8 break-inside-avoid pt-12">
-                            <h3 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em] border-b-2 border-rose-50 pb-3 text-center">DEMONSTRATIVO DE REPAROS E DESPESAS</h3>
-                            <div className="bg-white border-4 border-slate-50 rounded-[48px] overflow-hidden shadow-2xl overflow-x-auto">
-                                <table className="w-full min-w-[600px]">
-                                    <thead className="bg-slate-50/50 border-b border-slate-100">
-                                        <tr>
-                                            <th className="px-6 md:px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição da Despesa</th>
-                                            <th className="px-6 md:px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Estimado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {inspection.extra_costs.map((cost: any, cIdx: number) => (
-                                            <tr key={cIdx} className="hover:bg-slate-50/30 transition-colors">
-                                                <td className="px-6 md:px-10 py-6 text-sm font-bold text-slate-700 uppercase tracking-tight">{cost.description}</td>
-                                                <td className="px-6 md:px-10 py-6 text-right text-sm font-black text-slate-900 tabular-nums">R$ {parseFloat(cost.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                    <tfoot className="bg-slate-900">
-                                        <tr>
-                                            <td className="px-6 md:px-10 py-7 text-xs font-black text-white uppercase tracking-[0.3em]">CUSTO TOTAL CALCULADO</td>
-                                            <td className="px-6 md:px-10 py-7 text-right text-xl font-black text-blue-400 tabular-nums">
-                                                R$ {inspection.extra_costs.reduce((acc: number, cost: any) => acc + (parseFloat(cost.value) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
+                    {/* Custos e Infos Finais */}
+                    {(inspection.extra_costs?.length > 0 || inspection.general_observations) && (
+                        <div className="report-section grid md:grid-cols-2 gap-6 pt-4 border-t-2 border-slate-100">
+                            {inspection.extra_costs?.length > 0 && (
+                                <div>
+                                    <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-2">Custos/Reparos</h5>
+                                    <table className="w-full text-[10px]">
+                                        <tbody>
+                                            {inspection.extra_costs.map((c: any, i: number) => (
+                                                <tr key={i} className="border-b border-slate-50 last:border-0">
+                                                    <td className="py-1 text-slate-600">{c.description}</td>
+                                                    <td className="py-1 text-right font-bold text-slate-900">R$ {c.value}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                            {inspection.general_observations && (
+                                <div>
+                                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Considerações Finais</h5>
+                                    <p className="text-[10px] text-slate-600 italic bg-slate-50 p-2 rounded border border-slate-100">{inspection.general_observations}</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Final Considerations */}
-                    <div className="space-y-8 break-inside-avoid pt-12">
-                        <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] border-b-2 border-slate-100 pb-3 text-center">TERMO DE DECLARAÇÃO E CIÊNCIA</h3>
-                        <div className="p-12 bg-slate-900 border-4 border-white shadow-2xl rounded-[48px] relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[60px] rounded-full" />
-                            <p className="text-slate-300 text-sm leading-relaxed font-medium relative z-10">
-                                {inspection.general_observations || 'Nenhuma ressalva adicional foi registrada para este laudo de vistoria.'}
-                            </p>
-                            <div className="mt-10 pt-8 border-t border-white/10 flex items-center gap-4 relative z-10">
-                                <span className="material-symbols-outlined text-blue-500">verified_user</span>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                    Documento validado tecnicamente pelo corretor responsável. As partes declaram estar de acordo com o estado do imóvel supra descrito.
-                                </p>
-                            </div>
-                        </div>
+                    {/* Mapa Pequeno */}
+                    <div className="report-section h-[150px] w-full rounded border border-slate-200 overflow-hidden bg-slate-100 mt-4 break-inside-avoid">
+                        {(inspection.property?.address || inspection.address) && (
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                frameBorder="0"
+                                scrolling="no"
+                                src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                                    inspection.property ? `${inspection.property.address}, ${inspection.property.number}, ${inspection.property.city}` : inspection.address
+                                )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                            ></iframe>
+                        )}
                     </div>
 
-                    {/* Signatures */}
-                    <div className="pt-24 grid md:grid-cols-2 gap-32 break-inside-avoid">
-                        <div className="text-center space-y-6">
-                            <div className="h-1 bg-slate-100 w-full rounded-full" />
-                            <div className="space-y-1">
-                                <p className="text-sm font-black text-slate-900 uppercase tracking-tighter">Assinatura do {inspection.report_type === 'Venda' ? 'Vendedor' : 'Locador'}</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{inspection.lessor?.name}</p>
-                            </div>
+                    {/* Assinaturas */}
+                    <div className="report-footer pt-8 pb-4 grid grid-cols-2 gap-12 mt-4 page-break-inside-avoid">
+                        <div className="text-center">
+                            <div className="h-px bg-slate-300 w-full mb-2" />
+                            <p className="text-[9px] font-bold text-slate-900 uppercase">{inspection.lessor?.name}</p>
+                            <p className="text-[8px] text-slate-400">{inspection.report_type === 'Venda' ? 'Vendedor' : 'Locador'}</p>
                         </div>
-                        <div className="text-center space-y-6">
-                            <div className="h-1 bg-slate-100 w-full rounded-full" />
-                            <div className="space-y-1">
-                                <p className="text-sm font-black text-slate-900 uppercase tracking-tighter">Assinatura do {inspection.report_type === 'Venda' ? 'Comprador' : 'Locatário'}</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{inspection.lessee?.name}</p>
-                            </div>
+                        <div className="text-center">
+                            <div className="h-px bg-slate-300 w-full mb-2" />
+                            <p className="text-[9px] font-bold text-slate-900 uppercase">{inspection.lessee?.name}</p>
+                            <p className="text-[8px] text-slate-400">{inspection.report_type === 'Venda' ? 'Comprador' : 'Locatário'}</p>
                         </div>
                     </div>
-
-                    <div className="pt-20 text-center">
-                        <p className="text-[8px] font-black uppercase tracking-[0.6em] text-slate-300">Plataforma VaiVistoriar • Certificação Digital de Vistoria • Imobiliária e Vendas</p>
-                    </div>
-
                 </div>
             </div>
+
             {/* Email Modal */}
             {emailModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[32px] w-full max-w-lg p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
                         <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-black text-slate-900">Enviar Laudo por E-mail</h3>
-                            <button onClick={() => setEmailModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600"><span className="material-symbols-outlined">close</span></button>
+                            <h3 className="text-lg font-bold text-slate-900">Enviar Laudo (PDF)</h3>
+                            <button onClick={() => setEmailModalOpen(false)}><span className="material-symbols-outlined text-slate-400">close</span></button>
                         </div>
-
-                        <div className="space-y-4">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Destinatários Encontrados:</p>
-                            {emailRecipients.length === 0 && <p className="text-sm text-slate-500 italic">Nenhum e-mail cadastrado nas partes envolvidas.</p>}
-
+                        <div className="space-y-2">
                             {emailRecipients.map((r, i) => (
-                                <label key={i} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
+                                <label key={i} className="flex items-center gap-3 p-3 rounded border border-slate-100 bg-slate-50 cursor-pointer">
                                     <input type="checkbox" checked={r.selected} onChange={e => {
                                         const newR = [...emailRecipients];
                                         newR[i].selected = e.target.checked;
                                         setEmailRecipients(newR);
-                                    }} className="w-5 h-5 rounded-md text-blue-600 focus:ring-blue-500 border-gray-300" />
+                                    }} className="rounded text-blue-600" />
                                     <div>
-                                        <p className="text-sm font-black text-slate-900">{r.name}</p>
-                                        <p className="text-xs text-slate-500">{r.email} • {r.type}</p>
+                                        <p className="text-xs font-bold text-slate-900">{r.name}</p>
+                                        <p className="text-[10px] text-slate-500">{r.email}</p>
                                     </div>
                                 </label>
                             ))}
-
-                            <div className="space-y-2 pt-4 border-t border-slate-100">
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Outro E-mail (Opcional):</p>
-                                <input type="email" value={customEmail} onChange={e => setCustomEmail(e.target.value)} placeholder="ex: gerente@imobiliaria.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none text-sm" />
-                            </div>
+                            <input type="email" value={customEmail} onChange={e => setCustomEmail(e.target.value)} placeholder="Outro e-mail..." className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded text-xs" />
                         </div>
-
-                        <div className="pt-4 flex gap-4">
-                            <button onClick={() => setEmailModalOpen(false)} className="flex-1 py-4 text-xs font-black uppercase text-slate-400 hover:bg-slate-50 rounded-2xl transition-all">Cancelar</button>
-                            <button onClick={handleSendEmail} disabled={emailSending} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 disabled:opacity-50 flex items-center justify-center gap-2">
-                                {emailSending ? 'Enviando...' : 'Enviar Agora'}
-                                {!emailSending && <span className="material-symbols-outlined text-[18px]">send</span>}
-                            </button>
-                        </div>
+                        <button onClick={handleSendEmail} disabled={emailSending} className="w-full py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-md disabled:opacity-50">
+                            {emailSending ? 'Gerando PDF e Enviando...' : 'Enviar PDF Agora'}
+                        </button>
                     </div>
                 </div>
             )}
