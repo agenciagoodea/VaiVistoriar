@@ -103,7 +103,13 @@ const ViewInspectionPage: React.FC = () => {
             const margin = 10;
             const contentWidth = pageWidth - (margin * 2);
 
-            // Seletores ajustados para o novo layout compacto
+            // Hide iframe elements (maps) during capture and show placeholders
+            const iframes = container.querySelectorAll('iframe');
+            iframes.forEach(el => el.style.opacity = '0');
+            const mapPlaceholders = container.querySelectorAll('.map-placeholder-pdf');
+            mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'block');
+
+            // Selectors
             const header = container.querySelector('.report-header') as HTMLElement;
             const sections = Array.from(container.querySelectorAll('.report-section')) as HTMLElement[];
             const footer = container.querySelector('.report-footer') as HTMLElement;
@@ -166,9 +172,19 @@ const ViewInspectionPage: React.FC = () => {
                 pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
             }
 
+            // Restore visibility
+            iframes.forEach(el => el.style.opacity = '1');
+            mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'none');
+
             return returnBlob ? pdf.output('blob') : pdf;
         } catch (err) {
             console.error('Erro na geração do PDF', err);
+            // Restore visibility on error
+            const container = reportRef.current;
+            if (container) {
+                container.querySelectorAll('iframe').forEach(el => el.style.opacity = '1');
+                container.querySelectorAll('.map-placeholder-pdf').forEach(el => (el as HTMLElement).style.display = 'none');
+            }
             throw err;
         }
     };
@@ -259,6 +275,11 @@ const ViewInspectionPage: React.FC = () => {
     if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Gerando Documento...</div>;
     if (!inspection) return <div className="p-20 text-center font-bold text-rose-500 uppercase tracking-widest">Erro: Vistoria não encontrada.</div>;
 
+    const mapSearchQuery = encodeURIComponent(
+        inspection.property ? `${inspection.property.address}, ${inspection.property.number}, ${inspection.property.city}` : inspection.address
+    );
+    const mapLink = `https://www.google.com/maps/search/?api=1&query=${mapSearchQuery}`;
+
     // --- RENDER ---
     return (
         <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 pb-32 animate-in fade-in duration-500">
@@ -289,7 +310,7 @@ const ViewInspectionPage: React.FC = () => {
             {/* Document Container - COMPACT LAYOUT */}
             <div id="inspection-report" ref={reportRef} className="bg-white border border-slate-200 shadow-xl rounded-[2px] overflow-hidden font-['Inter'] text-xs">
 
-                {/* HEAD (Parte superior compacta) */}
+                {/* HEAD */}
                 <div className="report-header p-6 border-b-4 border-blue-600 bg-slate-50 flex flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white shadow-md bg-white">
@@ -311,9 +332,11 @@ const ViewInspectionPage: React.FC = () => {
 
                 <div className="p-6 space-y-6">
 
-                    {/* Partes & Imóvel (Lado a lado comprimido) */}
-                    <div className="report-section grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                        <div className="space-y-4">
+                    {/* BLOCO 1: Imóvel (Esq) e Partes (Dir) */}
+                    <div className="report-section grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+
+                        {/* Imóvel (2/3) */}
+                        <div className="md:col-span-2 space-y-4">
                             <div>
                                 <h3 className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">Imóvel</h3>
                                 <p className="text-lg font-black text-slate-900 uppercase leading-none">{inspection.property?.name || inspection.property_name}</p>
@@ -337,32 +360,81 @@ const ViewInspectionPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-xs">
+                        {/* Partes (1/3) - Locador e Locatário Empilhados */}
+                        <div className="space-y-4">
                             <div>
-                                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{inspection.report_type === 'Venda' ? 'Vendedor' : 'Locador'}</h3>
-                                <p className="font-bold text-slate-900 truncate">{inspection.lessor?.name}</p>
-                                <p className="text-slate-500 text-[10px]">{inspection.lessor?.document_number}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{inspection.report_type === 'Venda' ? 'Comprador' : 'Locatário'}</h3>
-                                <p className="font-bold text-slate-900 truncate">{inspection.lessee?.name}</p>
-                                <p className="text-slate-500 text-[10px]">{inspection.lessee?.document_number}</p>
-                            </div>
-                            <div className="col-span-2 mt-2 pt-2 border-t border-slate-200 flex gap-4 items-center">
-                                <div className="w-12 h-12 rounded bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
-                                    {inspection.keys_data?.photo_url ? (
-                                        <img src={inspection.keys_data.photo_url} className="w-full h-full object-cover" />
-                                    ) : <span className="flex items-center justify-center h-full text-[10px]">Sem foto</span>}
+                                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 border-b border-slate-200 pb-1">{inspection.report_type === 'Venda' ? 'Vendedor' : 'Locador'}</h3>
+                                <div className="space-y-0.5 mt-1">
+                                    <p className="font-bold text-slate-900 truncate">{inspection.lessor?.name}</p>
+                                    <p className="text-slate-500 text-[9px]">CPF/CNPJ: {inspection.lessor?.document_number || '---'}</p>
+                                    <p className="text-slate-500 text-[9px]">E-mail: {inspection.lessor?.email || '---'}</p>
+                                    <p className="text-slate-500 text-[9px]">Tel: {inspection.lessor?.phone || '---'}</p>
                                 </div>
-                                <div className="flex-1">
-                                    <span className="block text-[8px] font-bold text-slate-400 uppercase">Chaves ({inspection.keys_data?.delivered ? 'Entregues' : 'Pendente'})</span>
-                                    <span className="text-[10px] italic text-slate-600 leading-tight block">{inspection.keys_data?.description || 'Sem observações.'}</span>
+                            </div>
+                            <div>
+                                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 border-b border-slate-200 pb-1">{inspection.report_type === 'Venda' ? 'Comprador' : 'Locatário'}</h3>
+                                <div className="space-y-0.5 mt-1">
+                                    <p className="font-bold text-slate-900 truncate">{inspection.lessee?.name}</p>
+                                    <p className="text-slate-500 text-[9px]">CPF/CNPJ: {inspection.lessee?.document_number || '---'}</p>
+                                    <p className="text-slate-500 text-[9px]">E-mail: {inspection.lessee?.email || '---'}</p>
+                                    <p className="text-slate-500 text-[9px]">Tel: {inspection.lessee?.phone || '---'}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Ambientes Compactos */}
+                    {/* BLOCO 2: Chaves (Esq) e Mapa (Dir) */}
+                    <div className="report-section grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+
+                        {/* Chaves */}
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex gap-4">
+                            <div className="w-24 h-24 rounded bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
+                                {inspection.keys_data?.photo_url ? (
+                                    <img src={inspection.keys_data.photo_url} className="w-full h-full object-cover" />
+                                ) : <span className="flex items-center justify-center h-full text-[10px]">Sem foto</span>}
+                            </div>
+                            <div className="flex-1 space-y-2">
+                                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Chaves ({inspection.keys_data?.delivered ? 'Entregues' : 'Pendente'})</h3>
+                                <p className="text-[10px] italic text-slate-600 leading-tight bg-white p-2 rounded border border-slate-200 min-h-[60px]">
+                                    {inspection.keys_data?.description || 'Nenhuma observação registrada para as chaves.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Mapa */}
+                        <div className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 min-h-[120px]">
+                            {(inspection.property?.address || inspection.address) && (
+                                <>
+                                    <iframe
+                                        width="100%"
+                                        height="100%"
+                                        frameBorder="0"
+                                        scrolling="no"
+                                        style={{ minHeight: '120px' }}
+                                        src={`https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                                    ></iframe>
+                                    {/* Placeholder para PDF - Mostrado apenas quando gerando PDF */}
+                                    <a
+                                        href={mapLink}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="photo-link map-placeholder-pdf absolute inset-0 bg-slate-100 hidden p-0"
+                                    >
+                                        <div className="w-full h-full bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=0,0&zoom=1&size=600x300&maptype=roadmap')] bg-cover bg-center opacity-50 flex items-center justify-center">
+                                            {/* Fallback visual fake map pattern if simple bg is dull, but here using a simple generic message or pattern */}
+                                            <div className="bg-white/90 p-3 rounded-lg shadow-sm border border-slate-200 text-center">
+                                                <span className="material-symbols-outlined text-blue-600 block mb-1">map</span>
+                                                <span className="text-[10px] font-bold text-blue-700 uppercase">Ver Localização no Mapa</span>
+                                                <p className="text-[8px] text-slate-500 mt-0.5">{inspection.property?.address}</p>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Ambientes */}
                     <div className="space-y-6">
                         {inspection.rooms?.map((room: any, idx: number) => (
                             <div key={idx} className="report-section break-inside-avoid border-t border-slate-100 pt-4">
@@ -426,21 +498,6 @@ const ViewInspectionPage: React.FC = () => {
                             )}
                         </div>
                     )}
-
-                    {/* Mapa Pequeno */}
-                    <div className="report-section h-[150px] w-full rounded border border-slate-200 overflow-hidden bg-slate-100 mt-4 break-inside-avoid">
-                        {(inspection.property?.address || inspection.address) && (
-                            <iframe
-                                width="100%"
-                                height="100%"
-                                frameBorder="0"
-                                scrolling="no"
-                                src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                                    inspection.property ? `${inspection.property.address}, ${inspection.property.number}, ${inspection.property.city}` : inspection.address
-                                )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
-                            ></iframe>
-                        )}
-                    </div>
 
                     {/* Assinaturas */}
                     <div className="report-footer pt-8 pb-4 grid grid-cols-2 gap-12 mt-4 page-break-inside-avoid">
