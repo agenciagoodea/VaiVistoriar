@@ -338,13 +338,23 @@ const ViewInspectionPage: React.FC = () => {
                         {/* Coluna 1: Foto e Dados do Imóvel (Empilhados, ocupando 2 colunas) */}
                         <div className="md:col-span-2 space-y-4">
                             {/* Foto */}
-                            <div className="aspect-[21/9] w-full rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white">
-                                <img
-                                    src={inspection.property?.image_url || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=400'}
-                                    className="w-full h-full object-cover"
-                                    alt="Foto do Imóvel"
-                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=400'; }}
-                                />
+                            <div className="aspect-[21/9] w-full rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white group relative">
+                                <a
+                                    href={inspection.property?.image_url || '#'}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="photo-link block w-full h-full"
+                                >
+                                    <img
+                                        src={inspection.property?.image_url || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=400'}
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        alt="Foto do Imóvel"
+                                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=400'; }}
+                                    />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                        <span className="material-symbols-outlined text-white drop-shadow-lg text-4xl">open_in_new</span>
+                                    </div>
+                                </a>
                             </div>
 
                             {/* Dados do Imóvel */}
@@ -352,8 +362,8 @@ const ViewInspectionPage: React.FC = () => {
                                 <div>
                                     <h3 className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">Imóvel</h3>
                                     <p className="text-lg font-black text-slate-900 uppercase leading-tight">{inspection.property?.name || inspection.property_name}</p>
-                                    <p className="text-xs text-slate-600 mt-1 whitespace-pre-line leading-normal">
-                                        {inspection.property ? `${inspection.property.address}, ${inspection.property.number}\n${inspection.property.neighborhood}, ${inspection.property.city}/${inspection.property.state}` : inspection.address}
+                                    <p className="text-xs text-slate-600 mt-1 leading-normal">
+                                        {inspection.property ? `${inspection.property.address}, ${inspection.property.number} - ${inspection.property.neighborhood}, ${inspection.property.city}/${inspection.property.state}` : inspection.address}
                                     </p>
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-3">
@@ -378,18 +388,18 @@ const ViewInspectionPage: React.FC = () => {
                             <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm">
                                 <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-1">{inspection.report_type === 'Venda' ? 'Vendedor' : 'Locador'}</h3>
                                 <div className="space-y-1">
-                                    <p className="font-bold text-slate-900 truncate text-xs">{inspection.lessor?.name}</p>
+                                    <p className="font-bold text-slate-900 text-xs break-words">{inspection.lessor?.name}</p>
                                     <p className="text-slate-500 text-[10px]">CPF: {inspection.lessor?.document_number || '---'}</p>
-                                    <p className="text-slate-500 text-[10px] truncate">Email: {inspection.lessor?.email || '---'}</p>
+                                    <p className="text-slate-500 text-[10px] break-all">Email: {inspection.lessor?.email || '---'}</p>
                                     <p className="text-slate-500 text-[10px]">Tel: {inspection.lessor?.phone || '---'}</p>
                                 </div>
                             </div>
                             <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm">
                                 <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-1">{inspection.report_type === 'Venda' ? 'Comprador' : 'Locatário'}</h3>
                                 <div className="space-y-1">
-                                    <p className="font-bold text-slate-900 truncate text-xs">{inspection.lessee?.name}</p>
+                                    <p className="font-bold text-slate-900 text-xs break-words">{inspection.lessee?.name}</p>
                                     <p className="text-slate-500 text-[10px]">CPF: {inspection.lessee?.document_number || '---'}</p>
-                                    <p className="text-slate-500 text-[10px] truncate">Email: {inspection.lessee?.email || '---'}</p>
+                                    <p className="text-slate-500 text-[10px] break-all">Email: {inspection.lessee?.email || '---'}</p>
                                     <p className="text-slate-500 text-[10px]">Tel: {inspection.lessee?.phone || '---'}</p>
                                 </div>
                             </div>
@@ -397,25 +407,37 @@ const ViewInspectionPage: React.FC = () => {
                     </div>
 
                     {/* BLOCO 2: Chaves (Esq) e Mapa (Dir) */}
-                    <div className="report-section grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                    <div className="report-section grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-6 items-stretch">
 
                         {/* Chaves */}
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex gap-4">
-                            <div className="w-24 h-24 rounded bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
-                                {inspection.keys_data?.photo_url ? (
-                                    <img src={inspection.keys_data.photo_url} className="w-full h-full object-cover" />
-                                ) : <span className="flex items-center justify-center h-full text-[10px]">Sem foto</span>}
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex gap-6 items-start">
+                            <div className="w-32 h-32 rounded-lg bg-slate-200 overflow-hidden shrink-0 border border-slate-300 group relative shadow-sm">
+                                <a
+                                    href={inspection.keys_data?.photo_url || '#'}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="photo-link block w-full h-full"
+                                >
+                                    {inspection.keys_data?.photo_url ? (
+                                        <>
+                                            <img src={inspection.keys_data.photo_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                <span className="material-symbols-outlined text-white drop-shadow-lg">open_in_new</span>
+                                            </div>
+                                        </>
+                                    ) : <span className="flex items-center justify-center h-full text-[10px] text-slate-500">Sem foto</span>}
+                                </a>
                             </div>
-                            <div className="flex-1 space-y-2">
-                                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Chaves ({inspection.keys_data?.delivered ? 'Entregues' : 'Pendente'})</h3>
-                                <p className="text-[10px] italic text-slate-600 leading-tight bg-white p-2 rounded border border-slate-200 min-h-[60px]">
+                            <div className="flex-1 space-y-3">
+                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chaves ({inspection.keys_data?.delivered ? 'Entregues' : 'Pendente'})</h3>
+                                <div className="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-slate-200 min-h-[90px] shadow-sm">
                                     {inspection.keys_data?.description || 'Nenhuma observação registrada para as chaves.'}
-                                </p>
+                                </div>
                             </div>
                         </div>
 
                         {/* Mapa */}
-                        <div className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 min-h-[120px]">
+                        <div className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 aspect-square md:aspect-auto md:h-full min-h-[160px]">
                             {(inspection.property?.address || inspection.address) && (
                                 <>
                                     <iframe
@@ -423,7 +445,7 @@ const ViewInspectionPage: React.FC = () => {
                                         height="100%"
                                         frameBorder="0"
                                         scrolling="no"
-                                        style={{ minHeight: '120px' }}
+                                        className="h-full w-full absolute inset-0"
                                         src={`https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                                     ></iframe>
                                     {/* Placeholder para PDF - Mostrado apenas quando gerando PDF */}
@@ -433,12 +455,11 @@ const ViewInspectionPage: React.FC = () => {
                                         rel="noreferrer"
                                         className="photo-link map-placeholder-pdf absolute inset-0 bg-slate-100 hidden p-0"
                                     >
-                                        <div className="w-full h-full bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=0,0&zoom=1&size=600x300&maptype=roadmap')] bg-cover bg-center opacity-50 flex items-center justify-center">
-                                            {/* Fallback visual fake map pattern if simple bg is dull, but here using a simple generic message or pattern */}
-                                            <div className="bg-white/90 p-3 rounded-lg shadow-sm border border-slate-200 text-center">
-                                                <span className="material-symbols-outlined text-blue-600 block mb-1">map</span>
-                                                <span className="text-[10px] font-bold text-blue-700 uppercase">Ver Localização no Mapa</span>
-                                                <p className="text-[8px] text-slate-500 mt-0.5">{inspection.property?.address}</p>
+                                        <div className="w-full h-full bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=0,0&zoom=1&size=600x600&maptype=roadmap')] bg-cover bg-center opacity-50 flex items-center justify-center">
+                                            <div className="bg-white/90 p-4 rounded-xl shadow-sm border border-slate-200 text-center mx-4">
+                                                <span className="material-symbols-outlined text-blue-600 block mb-1 text-2xl">map</span>
+                                                <span className="text-[10px] font-bold text-blue-700 uppercase block">Ver Localização</span>
+                                                <p className="text-[8px] text-slate-500 mt-1 line-clamp-2">{inspection.property?.address}</p>
                                             </div>
                                         </div>
                                     </a>
