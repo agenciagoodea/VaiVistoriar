@@ -8,8 +8,11 @@ export interface Inspection {
   client: string;
   type: 'Entrada' | 'Saída';
   date: string;
-  status: 'Concluída' | 'Pendente' | 'Em andamento' | 'Rascunho' | 'Agendada';
+  status: 'Concluída' | 'Pendente' | 'Em andamento' | 'Rascunho' | 'Agendada' | 'Finalizada' | 'Cancelada' | 'Enviada';
   image: string;
+  pdf_url?: string;
+  email_sent_at?: string;
+  whatsapp_sent_at?: string;
 }
 
 export interface Property {

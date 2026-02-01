@@ -291,9 +291,12 @@ const ViewInspectionPage: React.FC = () => {
                 .update({ email_sent_at: new Date().toISOString() })
                 .eq('id', inspection.id);
 
-            if (updateStatusErr) console.error('Erro ao atualizar status de email', updateStatusErr);
-
-            alert('E-mails enviados com sucesso com o link do PDF!');
+            if (updateStatusErr) {
+                console.error('Erro ao atualizar status de email', updateStatusErr);
+                alert('Atenção: O status de envio não foi salvo. Verifique se você rodou o script SQL para criar a coluna "email_sent_at".');
+            } else {
+                alert('E-mails enviados com sucesso com o link do PDF!');
+            }
             setEmailModalOpen(false);
             // Atualizar estado local para refletir na UI se tivéssemos listener, mas reload resolve ou mudança de página.
         } catch (err: any) {
@@ -318,10 +321,14 @@ const ViewInspectionPage: React.FC = () => {
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
 
         // Atualizar status de envio whats
-        await supabase
+        const { error } = await supabase
             .from('inspections')
             .update({ whatsapp_sent_at: new Date().toISOString() })
             .eq('id', inspection.id);
+
+        if (error) {
+            alert('Atenção: O status de envio não foi salvo. Verifique se você rodou o script SQL para criar a coluna "whatsapp_sent_at".');
+        }
     };
 
     if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Gerando Documento...</div>;
