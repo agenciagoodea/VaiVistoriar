@@ -18,6 +18,12 @@ const SubscriptionsPage: React.FC = () => {
       try {
          setLoading(true);
 
+         // Fetch plans directly to ensure we have all fields including 'type'
+         const { data: plansData } = await supabase.from('plans').select('*').eq('status', 'Ativo');
+         if (plansData) {
+            setAllPlans(plansData);
+         }
+
          // Call Edge Function to get profiles AND payments securely (Bypassing RLS)
          const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
             body: { action: 'get_subscriptions' }
@@ -31,9 +37,7 @@ const SubscriptionsPage: React.FC = () => {
 
          const profiles = responseData.profiles || [];
          const allPayments = responseData.payments || [];
-         const plans = responseData.allPlans || [];
-
-         setAllPlans(plans);
+         // const plans = responseData.allPlans || []; // Using direct fetch instead
 
          if (profiles) {
             setSubs(profiles.map((profile: any) => {
