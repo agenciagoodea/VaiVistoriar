@@ -9,6 +9,7 @@ const InspectionsPage: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [inspectionToDelete, setInspectionToDelete] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('Todos');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,31 +28,46 @@ const InspectionsPage: React.FC = () => {
         .eq('user_id', user.id)
         .single();
 
-      setMyRole(profile?.role || 'BROKER');
+      const role = profile?.role || 'BROKER';
+      setMyRole(role);
 
-      let query = supabase
-        .from('inspections')
-        .select(`
-          *,
-          broker_profiles:user_id (
-            full_name,
-            company_name
-          )
-        `);
+      // 2. Buscar vistorias (sem Join direto para evitar erro de FK inexistente no cache)
+      let query = supabase.from('inspections').select('*');
 
-      // 2. Aplicar filtros baseados no cargo
-      if (profile?.role === 'PJ') {
-        // Se for PJ, vê todas as vistorias da empresa (onde o inspetor pertence à empresa)
-        query = query.eq('broker_profiles.company_name', profile.company_name);
-      } else if (profile?.role === 'BROKER') {
+      if (role === 'PJ') {
+        // Se for PJ, primeiro buscamos todos os IDs de usuários da mesma empresa
+        const { data: companyBrokers } = await supabase
+          .from('broker_profiles')
+          .select('user_id')
+          .eq('company_name', profile?.company_name);
+
+        const brokerIds = companyBrokers?.map(b => b.user_id) || [];
+        query = query.in('user_id', brokerIds);
+      } else if (role === 'BROKER') {
         // Se for Corretor, vê apenas as suas vistorias
         query = query.eq('user_id', user.id);
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-
+      const { data: inspectionsData, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
-      setInspections(data || []);
+
+      // 3. Enriquecer com nomes dos corretores (Manual Join)
+      // Buscamos os perfis de todos os envolvidos nessas vistorias
+      const distinctUserIds = [...new Set((inspectionsData || []).map(i => i.user_id))];
+      const { data: profiles } = await supabase
+        .from('broker_profiles')
+        .select('user_id, full_name, company_name')
+        .in('user_id', distinctUserIds);
+
+      const profileMap: Record<string, any> = {};
+      profiles?.forEach(p => { profileMap[p.user_id] = p });
+
+      const enrichedData = (inspectionsData || []).map(i => ({
+        ...i,
+        broker_profiles: profileMap[i.user_id] || null
+      }));
+
+      setInspections(enrichedData);
     } catch (err) {
       console.error('Erro ao buscar vistorias:', err);
     } finally {
@@ -140,7 +156,8 @@ const InspectionsPage: React.FC = () => {
         {['Todos', 'Pendentes', 'Finalizadas', 'Canceladas'].map((status) => (
           <button
             key={status}
-            className={`px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all ${status === 'Todos' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+            onClick={() => setActiveFilter(status)}
+            className={`px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all ${activeFilter === status ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
               }`}
           >
             {status}
@@ -181,69 +198,77 @@ const InspectionsPage: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ) : inspections.map((inspection) => (
-                <tr key={inspection.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                        <span className="material-symbols-outlined">home</span>
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900 uppercase text-[11px] leading-tight">{inspection.property_name}</p>
-                        <p className="text-[10px] text-slate-400 font-medium">{inspection.address}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-slate-700 text-[11px] uppercase">{inspection.client_name}</p>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-600">
-                      {inspection.type}
-                    </span>
-                  </td>
-                  {myRole === 'PJ' && (
+              ) : inspections
+                .filter(i => {
+                  if (activeFilter === 'Todos') return true;
+                  if (activeFilter === 'Pendentes') return i.status === 'Agendada' || i.status === 'Pendente';
+                  if (activeFilter === 'Finalizadas') return i.status === 'Finalizada' || i.status === 'Concluída';
+                  if (activeFilter === 'Canceladas') return i.status === 'Cancelada';
+                  return true;
+                })
+                .map((inspection) => (
+                  <tr key={inspection.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
-                      <p className="font-bold text-slate-700 text-[11px] uppercase truncate max-w-[120px]">
-                        {inspection.broker_profiles?.full_name || 'Desconhecido'}
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                          <span className="material-symbols-outlined">home</span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 uppercase text-[11px] leading-tight">{inspection.property_name}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{inspection.address}</p>
+                        </div>
+                      </div>
                     </td>
-                  )}
-                  <td className="px-6 py-4 text-center text-[11px] font-bold text-slate-500">
-                    {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : '--'}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Finalizada' ? 'bg-emerald-50 text-emerald-600' :
-                      inspection.status === 'Agendada' ? 'bg-blue-50 text-blue-600' :
-                        'bg-slate-100 text-slate-500'
-                      }`}>
-                      {inspection.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => navigate(`/inspections/view/${inspection.id}`)}
-                        className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">visibility</span>
-                      </button>
-                      <button
-                        onClick={() => navigate(`/inspections/edit/${inspection.id}`)}
-                        className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">edit_note</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(inspection)}
-                        className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">delete</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-700 text-[11px] uppercase">{inspection.client_name}</p>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-600">
+                        {inspection.type}
+                      </span>
+                    </td>
+                    {myRole === 'PJ' && (
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-slate-700 text-[11px] uppercase truncate max-w-[120px]">
+                          {inspection.broker_profiles?.full_name || 'Desconhecido'}
+                        </p>
+                      </td>
+                    )}
+                    <td className="px-6 py-4 text-center text-[11px] font-bold text-slate-500">
+                      {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : '--'}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Finalizada' ? 'bg-emerald-50 text-emerald-600' :
+                        inspection.status === 'Agendada' ? 'bg-blue-50 text-blue-600' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>
+                        {inspection.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => navigate(`/inspections/view/${inspection.id}`)}
+                          className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">visibility</span>
+                        </button>
+                        <button
+                          onClick={() => navigate(`/inspections/edit/${inspection.id}`)}
+                          className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">edit_note</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(inspection)}
+                          className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">delete</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
