@@ -201,6 +201,29 @@ const HomeConfigPage: React.FC = () => {
         }
     };
 
+    const uploadTestimonialPhoto = async (e: React.ChangeEvent<HTMLInputElement>, testimonialId: string) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(testimonialId);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `testimonial-${testimonialId}-${Date.now()}.${fileExt}`;
+            const filePath = `landing/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+            setTestimonials(prev => prev.map(t => t.id === testimonialId ? { ...t, photoUrl: publicUrl } : t));
+        } catch (err: any) {
+            alert(`Erro ao fazer upload: ${err.message}`);
+        } finally {
+            setUploading(null);
+        }
+    };
+
     const updateFeature = (idx: number, key: string, value: any) => {
         const newF = [...features];
         (newF[idx] as any)[key] = value;
@@ -503,91 +526,119 @@ const HomeConfigPage: React.FC = () => {
                                 </div>
                             ))}
                         </div>
-                        {/* TEXTO HERO */}
-                        <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
-                                    <span className="material-symbols-outlined text-[28px]">title</span>
-                                </div>
-                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Texto de Apresentação</h3>
+                    </section>
+
+                    {/* TEXTO HERO */}
+                    <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                <span className="material-symbols-outlined text-[28px]">title</span>
                             </div>
-                            <div className="space-y-6">
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Título Principal</label>
-                                        <input type="text" value={heroText.title} onChange={e => setHeroText({ ...heroText, title: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Texto em Destaque (Cor Principal)</label>
-                                        <input type="text" value={heroText.highlight} onChange={e => setHeroText({ ...heroText, highlight: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black" style={{ color: primaryColor }} />
-                                    </div>
+                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Texto de Apresentação</h3>
+                        </div>
+                        <div className="space-y-6">
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Título Principal</label>
+                                    <input type="text" value={heroText.title} onChange={e => setHeroText({ ...heroText, title: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Descrição</label>
-                                    <textarea rows={3} value={heroText.description} onChange={e => setHeroText({ ...heroText, description: e.target.value })} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium leading-relaxed" />
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Texto em Destaque (Cor Principal)</label>
+                                    <input type="text" value={heroText.highlight} onChange={e => setHeroText({ ...heroText, highlight: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black" style={{ color: primaryColor }} />
                                 </div>
                             </div>
-                        </section>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Descrição</label>
+                                <textarea rows={3} value={heroText.description} onChange={e => setHeroText({ ...heroText, description: e.target.value })} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium leading-relaxed" />
+                            </div>
+                        </div>
+                    </section>
 
-                        {/* PASSO A PASSO (STEPS) */}
-                        <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center shadow-inner">
-                                        <span className="material-symbols-outlined text-[28px]">timeline</span>
-                                    </div>
-                                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Como Funciona (Passos)</h3>
+                    {/* PASSO A PASSO (STEPS) */}
+                    <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                    <span className="material-symbols-outlined text-[28px]">timeline</span>
                                 </div>
-                                <button onClick={() => setSteps([...steps, { id: Date.now().toString(), title: 'Novo Passo', desc: 'Descrição...', icon: 'check_circle' }])} className="px-5 py-2.5 bg-orange-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-[16px]">add</span> Adicionar Passo
-                                </button>
+                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Como Funciona (Passos)</h3>
                             </div>
-                            <div className="space-y-6">
-                                {steps.map((step, idx) => (
-                                    <div key={step.id} className="p-6 bg-slate-50/50 rounded-[32px] border border-slate-100 relative group space-y-4">
-                                        <button onClick={() => setSteps(steps.filter(s => s.id !== step.id))} className="absolute top-4 right-4 w-8 h-8 bg-white border border-slate-200 text-slate-400 hover:text-red-500 rounded-full shadow-sm flex items-center justify-center transition-colors">
-                                            <span className="material-symbols-outlined text-[18px]">close</span>
-                                        </button>
-                                        <div className="flex items-center gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ícone</label>
-                                                <div className="w-12 h-12 bg-white rounded-xl border border-slate-200 flex items-center justify-center text-slate-600">
-                                                    <span className="material-symbols-outlined">{step.icon}</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex-1 space-y-2">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Título do Passo</label>
-                                                <input type="text" value={step.title} onChange={e => {
-                                                    const s = [...steps];
-                                                    s[idx].title = e.target.value;
-                                                    setSteps(s);
-                                                }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold" />
+                            <button onClick={() => setSteps([...steps, { id: Date.now().toString(), title: 'Novo Passo', desc: 'Descrição...', icon: 'check_circle' }])} className="px-5 py-2.5 bg-orange-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px]">add</span> Adicionar Passo
+                            </button>
+                        </div>
+                        <div className="space-y-6">
+                            {steps.map((step, idx) => (
+                                <div key={step.id} className="p-6 bg-slate-50/50 rounded-[32px] border border-slate-100 relative group space-y-4">
+                                    <button onClick={() => setSteps(steps.filter(s => s.id !== step.id))} className="absolute top-4 right-4 w-8 h-8 bg-white border border-slate-200 text-slate-400 hover:text-red-500 rounded-full shadow-sm flex items-center justify-center transition-colors">
+                                        <span className="material-symbols-outlined text-[18px]">close</span>
+                                    </button>
+                                    <div className="flex items-center gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ícone</label>
+                                            <div className="w-12 h-12 bg-white rounded-xl border border-slate-200 flex items-center justify-center text-slate-600">
+                                                <span className="material-symbols-outlined">{step.icon}</span>
                                             </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Descrição</label>
-                                            <textarea rows={2} value={step.desc} onChange={e => {
+                                        <div className="flex-1 space-y-2">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Título do Passo</label>
+                                            <input type="text" value={step.title} onChange={e => {
                                                 const s = [...steps];
-                                                s[idx].desc = e.target.value;
+                                                s[idx].title = e.target.value;
                                                 setSteps(s);
-                                            }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-medium" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Selecionar Ícone</label>
-                                            <div className="flex gap-2 overflow-x-auto pb-2">
-                                                {ICON_BASE.map(icon => (
-                                                    <button key={icon} onClick={() => {
-                                                        const s = [...steps];
-                                                        s[idx].icon = icon;
-                                                        setSteps(s);
-                                                    }} className={`p-2 rounded-lg border ${step.icon === icon ? 'bg-orange-100 border-orange-300 text-orange-600' : 'bg-white border-slate-100 text-slate-400'}`}>
-                                                        <span className="material-symbols-outlined text-[20px]">{icon}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
+                                            }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold" />
                                         </div>
                                     </div>
-                                    
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Descrição</label>
+                                        <textarea rows={2} value={step.desc} onChange={e => {
+                                            const s = [...steps];
+                                            s[idx].desc = e.target.value;
+                                            setSteps(s);
+                                        }} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-medium" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Selecionar Ícone</label>
+                                        <div className="flex gap-2 overflow-x-auto pb-2">
+                                            {ICON_BASE.map(icon => (
+                                                <button key={icon} onClick={() => {
+                                                    const s = [...steps];
+                                                    s[idx].icon = icon;
+                                                    setSteps(s);
+                                                }} className={`p-2 rounded-lg border ${step.icon === icon ? 'bg-orange-100 border-orange-300 text-orange-600' : 'bg-white border-slate-100 text-slate-400'}`}>
+                                                    <span className="material-symbols-outlined text-[20px]">{icon}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* DEPOIMENTOS */}
+                    <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                    <span className="material-symbols-outlined text-[28px]">reviews</span>
+                                </div>
+                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Depoimentos</h3>
+                            </div>
+                            <button onClick={() => {
+                                const newT = { id: Date.now().toString(), name: 'Nome', role: 'Cliente', content: 'Depoimento...', photoUrl: null, rating: 5 };
+                                setTestimonials([...testimonials, newT]);
+                            }} className="px-5 py-2.5 bg-pink-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px]">add_comment</span> Novo Depoimento
+                            </button>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {testimonials.map((t, idx) => (
+                                <div key={t.id} className="p-6 bg-slate-50/50 rounded-[32px] border border-slate-100 relative group space-y-4">
+                                    <button onClick={() => setTestimonials(testimonials.filter(item => item.id !== t.id))} className="absolute top-4 right-4 w-8 h-8 bg-white border border-slate-200 text-slate-400 hover:text-red-500 rounded-full shadow-sm flex items-center justify-center transition-colors z-10">
+                                        <span className="material-symbols-outlined text-[18px]">close</span>
+                                    </button>
+
                                     <div className="flex items-start gap-4">
                                         <div className="relative group/photo shrink-0">
                                             <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-md">
@@ -599,16 +650,16 @@ const HomeConfigPage: React.FC = () => {
                                                     </div>
                                                 )}
                                             </div>
-                                            <button 
+                                            <button
                                                 onClick={() => testimonialInputRefs.current[t.id]?.click()}
                                                 className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity text-white"
                                             >
                                                 <span className="material-symbols-outlined text-sm">edit</span>
                                             </button>
-                                            <input 
-                                                type="file" 
-                                                className="hidden" 
-                                                ref={el => { if (el) testimonialInputRefs.current[t.id] = el }} 
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                ref={el => { if (el) testimonialInputRefs.current[t.id] = el }}
                                                 onChange={e => uploadTestimonialPhoto(e, t.id)}
                                                 accept="image/*"
                                             />
@@ -644,6 +695,7 @@ const HomeConfigPage: React.FC = () => {
                             ))}
                         </div>
                     </section>
+
 
                     {/* FUNCIONALIDADES (ACORDEOM) */}
                     <section className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10">

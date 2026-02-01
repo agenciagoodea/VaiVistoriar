@@ -18,22 +18,11 @@ const SubscriptionsPage: React.FC = () => {
 
    const fetchData = async () => {
       try {
-         // Fetch plans directly
-         // Removing .eq('status', 'Ativo') to ensure we get everything for now
-         const { data: plansData, error: plansError } = await supabase
-            .from('plans')
-            .select('*')
-            .order('price', { ascending: true });
+         // 1. Fetch plans directly (as fallback)
+         const { data: directPlans } = await supabase.from('plans').select('*').order('price', { ascending: true });
+         if (directPlans) setAllPlans(directPlans);
 
-         if (plansError) {
-            console.error('❌ Erro ao buscar planos:', plansError);
-            setFetchError(plansError.message);
-         } else {
-            console.log('📦 Planos carregados:', plansData);
-            if (plansData) setAllPlans(plansData);
-         }
-
-         // Call Edge Function to get profiles AND payments securely (Bypassing RLS)
+         // 2. Call Edge Function to get profiles AND payments (And verified plans)
          const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
             body: { action: 'get_subscriptions' }
          });
@@ -42,6 +31,12 @@ const SubscriptionsPage: React.FC = () => {
 
          if (responseData && !responseData.success) {
             throw new Error(responseData.error || 'Erro ao buscar assinaturas');
+         }
+
+         // Update plans from edge function if available (Service Role fetch is more reliable)
+         if (responseData.allPlans && responseData.allPlans.length > 0) {
+            console.log('📦 Planos da Edge Function:', responseData.allPlans.length);
+            setAllPlans(responseData.allPlans);
          }
 
          const profiles = responseData.profiles || [];
