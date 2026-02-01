@@ -25,10 +25,27 @@ Deno.serve(async (req) => {
         if (!authHeader) throw new Error('Missing Authorization Header')
 
         const token = authHeader.replace('Bearer ', '')
-        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
-        console.log('🔍 Auth check - User:', !!user, 'Error:', !!authError)
-        if (authError || !user) throw new Error('Unauthorized')
+        // Check if token is the Service Role Key itself (sometimes used in dev/internal calls)
+        const isServiceRole = token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+        let user = null;
+        let authError = null;
+
+        if (!isServiceRole) {
+            const { data, error } = await supabaseAdmin.auth.getUser(token)
+            user = data?.user;
+            authError = error;
+            console.log('🔍 Auth check - User:', !!user, 'Error:', authError?.message)
+        } else {
+            console.log('🔍 Auth check - Service Role detected. Initializing user proxy.')
+            user = { id: 'service-role', email: 'admin@system.local' };
+        }
+
+        if (!isServiceRole && (authError || !user)) {
+            console.warn('⚠️ Auth failed. Token starts with:', token.substring(0, 10));
+            throw new Error(`Unauthorized: ${authError?.message || 'Invalid Session'}`)
+        }
 
         console.log('🔍 Parsing request body...')
         const { action, payload } = await req.json()
