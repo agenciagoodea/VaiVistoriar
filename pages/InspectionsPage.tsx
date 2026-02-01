@@ -168,21 +168,23 @@ const InspectionsPage: React.FC = () => {
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 border-bottom border-slate-100">
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Imóvel</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
+            <thead className="bg-slate-50/50">
+              <tr className="border-b border-slate-100">
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-[35%]">Imóvel</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:table-cell">Cliente</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tipo</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center hidden lg:table-cell">Resumo</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center hidden xl:table-cell">Envio</th>
                 {myRole === 'PJ' && <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Corretor</th>}
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Data</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
+                  <td colSpan={9} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <div className="w-10 h-10 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
                       <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Buscando vistorias...</p>
@@ -191,7 +193,7 @@ const InspectionsPage: React.FC = () => {
                 </tr>
               ) : inspections.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
+                  <td colSpan={9} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center gap-2 text-slate-400">
                       <span className="material-symbols-outlined text-4xl">inventory_2</span>
                       <p className="text-sm font-bold uppercase tracking-widest">Nenhuma vistoria encontrada</p>
@@ -206,69 +208,115 @@ const InspectionsPage: React.FC = () => {
                   if (activeFilter === 'Canceladas') return i.status === 'Cancelada';
                   return true;
                 })
-                .map((inspection) => (
-                  <tr key={inspection.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                          <span className="material-symbols-outlined">home</span>
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-900 uppercase text-[11px] leading-tight">{inspection.property_name}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">{inspection.address}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="font-bold text-slate-700 text-[11px] uppercase">{inspection.client_name}</p>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-600">
-                        {inspection.type}
-                      </span>
-                    </td>
-                    {myRole === 'PJ' && (
+                .map((inspection) => {
+                  const roomCount = Array.isArray(inspection.rooms) ? inspection.rooms.length : 0;
+                  const photoCount = Array.isArray(inspection.rooms) ? inspection.rooms.reduce((acc: number, room: any) => acc + (room.photos?.length || 0), 0) : 0;
+                  const isRent = inspection.report_type !== 'Venda';
+
+                  return (
+                    <tr key={inspection.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
-                        <p className="font-bold text-slate-700 text-[11px] uppercase truncate max-w-[120px]">
-                          {inspection.broker_profiles?.full_name || 'Desconhecido'}
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                            <span className="material-symbols-outlined">home</span>
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 uppercase text-[11px] leading-tight max-w-[180px] truncate" title={inspection.property_name}>{inspection.property_name || 'Sem nome'}</p>
+                            <p className="text-[10px] text-slate-400 font-medium truncate max-w-[180px]" title={inspection.address}>{inspection.address}</p>
+                          </div>
+                        </div>
                       </td>
-                    )}
-                    <td className="px-6 py-4 text-center text-[11px] font-bold text-slate-500">
-                      {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : '--'}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Finalizada' ? 'bg-emerald-50 text-emerald-600' :
-                        inspection.status === 'Agendada' ? 'bg-blue-50 text-blue-600' :
-                          'bg-slate-100 text-slate-500'
-                        }`}>
-                        {inspection.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => navigate(`/inspections/view/${inspection.id}`)}
-                          className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">visibility</span>
-                        </button>
-                        <button
-                          onClick={() => navigate(`/inspections/edit/${inspection.id}`)}
-                          className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">edit_note</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(inspection)}
-                          className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">delete</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-6 py-4 hidden md:table-cell">
+                        <p className="font-bold text-slate-700 text-[11px] uppercase truncate max-w-[150px]" title={inspection.client_name}>{inspection.client_name}</p>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${isRent ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {inspection.report_type || (isRent ? 'Locação' : 'Venda')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center hidden lg:table-cell">
+                        <div className="flex items-center justify-center gap-4">
+                          <div className="text-center" title={`${roomCount} Ambientes`}>
+                            <div className="flex items-center gap-1 text-slate-400 justify-center">
+                              <span className="material-symbols-outlined text-[14px]">meeting_room</span>
+                              <span className="text-[10px] font-bold text-slate-600">{roomCount}</span>
+                            </div>
+                          </div>
+                          <div className="text-center" title={`${photoCount} Fotos`}>
+                            <div className="flex items-center gap-1 text-slate-400 justify-center">
+                              <span className="material-symbols-outlined text-[14px]">photo_camera</span>
+                              <span className="text-[10px] font-bold text-slate-600">{photoCount}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center hidden xl:table-cell">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center border ${inspection.email_sent_at ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-slate-50 border-slate-100 text-slate-300'}`} title={inspection.email_sent_at ? `Enviado por Email em ${new Date(inspection.email_sent_at).toLocaleDateString()}` : 'Não enviado por email'}>
+                            <span className="material-symbols-outlined text-[14px]">mail</span>
+                          </div>
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center border ${inspection.whatsapp_sent_at ? 'bg-green-50 border-green-100 text-green-600' : 'bg-slate-50 border-slate-100 text-slate-300'}`} title={inspection.whatsapp_sent_at ? `Enviado por WhatsApp em ${new Date(inspection.whatsapp_sent_at).toLocaleDateString()}` : 'Não enviado por WhatsApp'}>
+                            <span className="material-symbols-outlined text-[14px]">chat</span>
+                          </div>
+                        </div>
+                      </td>
+                      {myRole === 'PJ' && (
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-slate-700 text-[11px] uppercase truncate max-w-[120px]">
+                            {inspection.broker_profiles?.full_name || 'Desconhecido'}
+                          </p>
+                        </td>
+                      )}
+                      <td className="px-6 py-4 text-center text-[11px] font-bold text-slate-500">
+                        {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : '--'}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Finalizada' ? 'bg-emerald-50 text-emerald-600' :
+                          inspection.status === 'Agendada' ? 'bg-blue-50 text-blue-600' :
+                            'bg-slate-100 text-slate-500'
+                          }`}>
+                          {inspection.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {inspection.pdf_url && (
+                            <a
+                              href={inspection.pdf_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Ver PDF Salvo"
+                            >
+                              <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+                            </a>
+                          )}
+                          <button
+                            onClick={() => navigate(`/inspections/view/${inspection.id}`)}
+                            className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                            title="Visualizar Vistoria"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">visibility</span>
+                          </button>
+                          <button
+                            onClick={() => navigate(`/inspections/edit/${inspection.id}`)}
+                            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                            title="Editar"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">edit_note</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(inspection)}
+                            className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                            title="Excluir"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

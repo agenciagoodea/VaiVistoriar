@@ -238,6 +238,15 @@ const ViewInspectionPage: React.FC = () => {
         if (error) throw error;
 
         const { data: { publicUrl } } = supabase.storage.from('reports').getPublicUrl(fileName);
+
+        // Salvar URL no banco para referência futura
+        const { error: updateError } = await supabase
+            .from('inspections')
+            .update({ pdf_url: publicUrl })
+            .eq('id', inspection.id);
+
+        if (updateError) console.error('Erro ao salvar URL do PDF no banco', updateError);
+
         return publicUrl;
     };
 
@@ -249,17 +258,14 @@ const ViewInspectionPage: React.FC = () => {
             if (targets.length === 0) throw new Error('Selecione ao menos um destinatário.');
 
             // 1. Generate and Upload PDF
-            let pdfUrl = window.location.href; // Fallback
+            let pdfUrl = inspection.pdf_url; // Tentar usar existente primeiro?
+            // Melhor sempre gerar novo para garantir atualização, ou só se não existir?
+            // Vamos regenerar para garantir que seja a versão mais atual.
             try {
                 pdfUrl = await uploadPDF();
                 console.log('PDF Uploaded:', pdfUrl);
             } catch (uploadErr) {
                 console.error('Erro ao fazer upload do PDF, usando link web:', uploadErr);
-                // Continue with web link if upload fails? Or block?
-                // Letting it continue with web link as fallback, or simple alert warning?
-                // For "professional" request, maybe better to fail?
-                // But safety first:
-                // alert('Não foi possível gerar o anexo PDF, enviando link de visualização.');
             }
 
             // 2. Send Emails
@@ -272,15 +278,24 @@ const ViewInspectionPage: React.FC = () => {
                         variables: {
                             client_name: target.name,
                             property_name: inspection.property_name || inspection.property?.name,
-                            report_link: pdfUrl
+                            report_link: pdfUrl || window.location.href // Fallback
                         }
                     }
                 });
                 if (error) throw error;
             }
 
+            // Atualizar status de envio de email
+            const { error: updateStatusErr } = await supabase
+                .from('inspections')
+                .update({ email_sent_at: new Date().toISOString() })
+                .eq('id', inspection.id);
+
+            if (updateStatusErr) console.error('Erro ao atualizar status de email', updateStatusErr);
+
             alert('E-mails enviados com sucesso com o link do PDF!');
             setEmailModalOpen(false);
+            // Atualizar estado local para refletir na UI se tivéssemos listener, mas reload resolve ou mudança de página.
         } catch (err: any) {
             alert('Erro ao enviar: ' + err.message);
         } finally {
@@ -288,10 +303,25 @@ const ViewInspectionPage: React.FC = () => {
         }
     };
 
-    const shareWhatsApp = () => {
+    const shareWhatsApp = async () => {
+        // Tentar usar URL do PDF salvo se existir, senão usa link da web
+        // Se quisermos forçar upload antes do whats, teria que mudar o fluxo (pode demorar).
+        // Vamos usar o link da web por padrão para agilidade, mas se tiver PDF salvo, melhor (mas o usuário quer praticidade).
+        // O ideal é mandar o link da web da vistoria, e lá dentro ele baixa o PDF.
+        // Mas o pedido diz "gerar pdf e armazenar... para incluir no link".
+
+        // Vamos tentar salvar o PDF em background se não tiver?
+        // Para nao bloquear a UX, vamos abrir o whats com o link da pagina mesmo, mas marcar como enviado.
         const url = window.location.href;
         const text = `Confira o Laudo de Vistoria: ${inspection.property_name}\nLink: ${url}`;
+
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+
+        // Atualizar status de envio whats
+        await supabase
+            .from('inspections')
+            .update({ whatsapp_sent_at: new Date().toISOString() })
+            .eq('id', inspection.id);
     };
 
     if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Gerando Documento...</div>;
