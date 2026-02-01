@@ -133,35 +133,101 @@ const ViewInspectionPage: React.FC = () => {
         setExporting(true);
 
         try {
-            const canvas = await html2canvas(reportRef.current, {
-                scale: 1.5, // Slightly reduced scale for performance
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff'
-            });
-
-            const imgData = canvas.toDataURL('image/png');
+            // Seções que queremos capturar individualmente para evitar quebras no meio do conteúdo
+            // Usamos seletores CSS baseados na estrutura que já temos
+            const container = reportRef.current;
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 10; // Margem de segurança
+            const contentWidth = pageWidth - (margin * 2);
 
-            const imgProps = pdf.getImageProperties(imgData);
-            const imgHeight = (imgProps.height * pageWidth) / imgProps.width;
+            // 1. Capturar o Header (Sempre na primeira página)
+            const header = container.querySelector('.p-12.md\\:p-16.border-b-8.border-blue-600') as HTMLElement;
+            const parties = container.querySelector('.grid.md\\:grid-cols-2.gap-16') as HTMLElement;
+            const propertyIdent = container.querySelector('.bg-slate-50\\/50.rounded-\\[48px\\]') as HTMLElement;
 
-            let heightLeft = imgHeight;
-            let position = 0;
+            // Seções de Ambientes, Custos e Termos
+            const sectionTitle = container.querySelector('h3.text-\\[10px\\].font-black.text-blue-600.tracking-\\[0\\.4em\\]') as HTMLElement;
+            const rooms = Array.from(container.querySelectorAll('.space-y-16 > .space-y-8')) as HTMLElement[];
+            const costs = container.querySelector('.space-y-8.break-inside-avoid.pt-12') as HTMLElement;
+            const terms = container.querySelector('.p-12.bg-slate-900') as HTMLElement;
+            const signatures = container.querySelector('.pt-24.grid.md\\:grid-cols-2') as HTMLElement;
+            const footerNote = container.querySelector('.pt-20.text-center') as HTMLElement;
 
-            // First Page
-            pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight);
-            heightLeft -= pageHeight;
+            const captureSection = async (element: HTMLElement, currentPdf: jsPDF, yOffset: number): Promise<number> => {
+                if (!element) return yOffset;
 
-            // Subsequent Pages
-            while (heightLeft > 0) {
-                position -= pageHeight; // Move image up
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight);
-                heightLeft -= pageHeight;
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    windowWidth: 1024 // Forçar largura para evitar layouts mobile no canvas
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const imgHeight = (canvas.height * contentWidth) / canvas.width;
+
+                // Verificar se cabe na página atual
+                if (yOffset + imgHeight > pageHeight - margin) {
+                    currentPdf.addPage();
+                    yOffset = margin;
+                }
+
+                currentPdf.addImage(imgData, 'PNG', margin, yOffset, contentWidth, imgHeight);
+
+                // --- NOVO: Mapear links ---
+                const links = element.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
+                const rect = element.getBoundingClientRect();
+
+                links.forEach(link => {
+                    const linkRect = link.getBoundingClientRect();
+                    const url = link.href;
+
+                    // Calcular posição relativa ao elemento pai (em pixels)
+                    const relX = linkRect.left - rect.left;
+                    const relY = linkRect.top - rect.top;
+                    const relW = linkRect.width;
+                    const relH = linkRect.height;
+
+                    // Converter pixels para mm (baseado na largura do conteúdo no PDF)
+                    const scaleFactor = contentWidth / rect.width;
+
+                    const pdfX = margin + (relX * scaleFactor);
+                    const pdfY = yOffset + (relY * scaleFactor);
+                    const pdfW = relW * scaleFactor;
+                    const pdfH = relH * scaleFactor;
+
+                    if (url) {
+                        currentPdf.link(pdfX, pdfY, pdfW, pdfH, { url });
+                    }
+                });
+
+                return yOffset + imgHeight + 5; // Retorna novo yOffset com espaçamento
+            };
+
+            let currentY = margin;
+
+            // Renderização sequencial controlada
+            currentY = await captureSection(header, pdf, currentY);
+            currentY = await captureSection(parties, pdf, currentY);
+            currentY = await captureSection(propertyIdent, pdf, currentY);
+
+            if (sectionTitle) currentY = await captureSection(sectionTitle, pdf, currentY);
+
+            for (const room of rooms) {
+                // Forçar nova página se o próximo ambiente for grande e estiver perto do fim
+                if (currentY > pageHeight * 0.7) {
+                    pdf.addPage();
+                    currentY = margin;
+                }
+                currentY = await captureSection(room, pdf, currentY);
             }
+
+            if (costs) currentY = await captureSection(costs, pdf, currentY);
+            if (terms) currentY = await captureSection(terms, pdf, currentY);
+            if (signatures) currentY = await captureSection(signatures, pdf, currentY);
+            if (footerNote) await captureSection(footerNote, pdf, currentY);
 
             pdf.save(`Vistoria_${inspection.property_name.replace(/\s+/g, '_')}.pdf`);
         } catch (err) {
