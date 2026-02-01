@@ -14,19 +14,23 @@ const SubscriptionsPage: React.FC = () => {
    const [adminPassword, setAdminPassword] = useState("");
    const [modalLoading, setModalLoading] = useState(false);
 
+   const [fetchError, setFetchError] = useState<string | null>(null);
+
    const fetchData = async () => {
       try {
-         // Fetch plans directly to ensure we have all fields including 'type'
-         // Removing .eq('status', 'Ativo') as it might be filtering out valid plans
-         const { data: plansData } = await supabase
+         // Fetch plans directly
+         // Removing .eq('status', 'Ativo') to ensure we get everything for now
+         const { data: plansData, error: plansError } = await supabase
             .from('plans')
             .select('*')
             .order('price', { ascending: true });
 
-         console.log('📦 Planos carregados (Direct Fetch):', plansData);
-
-         if (plansData) {
-            setAllPlans(plansData);
+         if (plansError) {
+            console.error('❌ Erro ao buscar planos:', plansError);
+            setFetchError(plansError.message);
+         } else {
+            console.log('📦 Planos carregados:', plansData);
+            if (plansData) setAllPlans(plansData);
          }
 
          // Call Edge Function to get profiles AND payments securely (Bypassing RLS)
@@ -250,7 +254,12 @@ const SubscriptionsPage: React.FC = () => {
                               ));
                            })()}
                         </select>
-
+                        <div className="mt-2 p-2 bg-slate-100 rounded text-[10px] text-slate-500 font-mono">
+                           <p>DEBUG INFO:</p>
+                           <p>Planos Carregados: {allPlans.length}</p>
+                           <p>Tipo do Usuário: {selectedUser.type}</p>
+                           {fetchError && <p className="text-red-500">Erro Busca: {fetchError}</p>}
+                        </div>
                      </div>
 
                      <div>
