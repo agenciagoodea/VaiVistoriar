@@ -322,8 +322,8 @@ const ViewInspectionPage: React.FC = () => {
                             <p className="text-slate-400 text-[10px]">{inspection.broker_data?.phone}</p>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <div className="inline-block px-3 py-1 bg-slate-900 text-white rounded-md font-bold text-[10px] uppercase tracking-wider mb-2">
+                    <div className="text-right flex flex-col items-end">
+                        <div className="inline-block px-6 py-1.5 bg-blue-600 text-white rounded-md font-black text-xs uppercase tracking-widest mb-2 shadow-sm shadow-blue-200">
                             {inspection.report_type}
                         </div>
                         <p className="text-[9px] font-bold text-slate-500 uppercase">Emissão: {new Date().toLocaleDateString('pt-BR')}</p>
@@ -541,7 +541,6 @@ const ViewInspectionPage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Assinaturas */}
                     <div className="report-footer pt-8 pb-4 grid grid-cols-2 gap-12 mt-4 page-break-inside-avoid">
                         <div className="text-center">
                             <div className="h-px bg-slate-300 w-full mb-2" />
@@ -553,6 +552,16 @@ const ViewInspectionPage: React.FC = () => {
                             <p className="text-[9px] font-bold text-slate-900 uppercase">{inspection.lessee?.name}</p>
                             <p className="text-[8px] text-slate-400">{inspection.report_type === 'Venda' ? 'Comprador' : 'Locatário'}</p>
                         </div>
+                    </div>
+
+                    {/* Site Footer */}
+                    <div className="text-center border-t border-slate-100 pt-4 mt-8 pb-2">
+                        <p className="text-[8px] text-slate-400 uppercase tracking-widest">
+                            Gerado via plataforma <b>VaiVistoriar</b> • www.vaivistoriar.com.br
+                        </p>
+                        <p className="text-[7px] text-slate-300 mt-0.5">
+                            {new Date().toLocaleString('pt-BR')} • {inspection.id.split('-')[0]}
+                        </p>
                     </div>
                 </div>
             </div>

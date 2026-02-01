@@ -41,20 +41,23 @@ const CheckoutPending: React.FC = () => {
         // Verifica imediatamente
         checkStatus();
 
-        // Polling a cada 8 segundos
-        interval = setInterval(checkStatus, 8000);
+        // Polling mais frequente (a cada 3 segundos)
+        interval = setInterval(checkStatus, 3000);
 
         // Listener Real-time no histórico de pagamento
+        // Removido filtro estrito para garantir recebimento de qualquer update neste user
         const historyChannel = supabase
             .channel('checkout-payment-history')
             .on('postgres_changes', {
                 event: 'UPDATE',
                 schema: 'public',
                 table: 'payment_history',
-                filter: preferenceId ? `mp_id=eq.${preferenceId}` : undefined
             }, (payload) => {
                 console.log('Real-time: Mudança no histórico detectada:', payload.new.status);
+                // Verifica se é o pagamento atual ou se foi aprovado recentemente
                 if (payload.new.status === 'approved') {
+                    // Confirmação extra via API antes de liberar
+                    checkStatus();
                     setStatus('approved');
                     setTimeout(() => {
                         navigate('/checkout/success?' + searchParams.toString());

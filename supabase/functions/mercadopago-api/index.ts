@@ -94,7 +94,27 @@ Deno.serve(async (req) => {
                 return await handlePaymentActivation(latestPayment, latestStatus, prefId, userId, planId, supabaseAdmin);
             }
 
-            // Caso não tenha resultados
+            // Caso não tenha resultados na busca por PreferenceID, tentar fallback por UserID
+            if ((!data.results || data.results.length === 0) && preferenceId && userId) {
+                console.log(`[RETRY] Nenhuma pagamento achado por PrefID ${preferenceId}. Tentando por UserID ${userId}...`);
+                const fallbackUrl = `https://api.mercadopago.com/v1/payments/search?external_reference=${userId}&sort=date_created&criteria=desc`;
+                const fallbackResp = await fetch(fallbackUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${cleanToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const fallbackData = await fallbackResp.json().catch(() => ({}));
+
+                if (fallbackData.results?.length > 0) {
+                    const splitPayment = fallbackData.results[0];
+                    console.log(`[RECOVERY] Pagamento encontrado via UserID: ${splitPayment.id} (Status: ${splitPayment.status})`);
+                    return await handlePaymentActivation(splitPayment, splitPayment.status, preferenceId, userId, planId, supabaseAdmin);
+                }
+            }
+
+            // Caso realmente não tenha resultados
             return new Response(JSON.stringify({
                 success: true,
                 paymentApproved: false,
