@@ -102,15 +102,33 @@ const SubscriptionsPage: React.FC = () => {
          });
 
          if (error) throw error;
-         if (response && !response.success) throw new Error(response.error || 'Erro na verificação');
+         if (response && !response.success) {
+            throw new Error(response.error || 'Erro na verificação');
+         }
 
          alert('✅ Plano atualizado com sucesso!');
          setSelectedUser(null);
          setAdminPassword("");
          await fetchData();
       } catch (err: any) {
-         console.error('Erro ao atualizar plano:', err);
-         alert('❌ ' + (err.message || 'Erro ao atualizar plano'));
+         console.error('Erro detalhado ao atualizar plano:', err);
+         let msg = 'Erro ao atualizar plano';
+
+         // Tentar extrair mensagem do corpo do erro (Supabase Function)
+         if (err.context && typeof err.context.json === 'function') {
+            try {
+               const body = await err.context.json();
+               if (body && (body.error || body.message)) {
+                  msg = body.error || body.message;
+               }
+            } catch (e) {
+               console.error('Falha ao parsear corpo do erro:', e);
+            }
+         } else if (err.message) {
+            msg = err.message;
+         }
+
+         alert('❌ ' + msg);
       } finally {
          setModalLoading(false);
       }

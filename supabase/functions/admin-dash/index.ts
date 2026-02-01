@@ -280,7 +280,7 @@ Deno.serve(async (req) => {
 
             if (signInError) {
                 console.error('❌ Admin verification failed:', signInError.message);
-                throw new Error('Senha do administrador incorreta.');
+                return new Response(JSON.stringify({ success: false, error: 'Senha do administrador incorreta.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
 
             console.log(`🛠️ Manually updating plan for user ${user_id} to ${plan_id}`);
@@ -299,6 +299,7 @@ Deno.serve(async (req) => {
 
             if (error) throw error;
 
+            console.log('✅ Plan updated successfully for user', user_id);
             return new Response(JSON.stringify({ success: true, profile: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
