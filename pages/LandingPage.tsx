@@ -44,6 +44,25 @@ interface HeaderConfig {
   ctaText: string;
 }
 
+interface Step {
+  id: string;
+  title: string;
+  desc: string;
+  icon: string;
+}
+
+interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+interface HeroTextConfig {
+  title: string;
+  highlight: string;
+  description: string;
+}
+
 const LandingPage: React.FC = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +74,13 @@ const LandingPage: React.FC = () => {
   const [sliders, setSliders] = useState<HeroSlider[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [features, setFeatures] = useState<Feature[]>([]);
+  const [steps, setSteps] = useState<Step[]>([]);
+  const [faq, setFaq] = useState<FAQItem[]>([]);
+  const [heroText, setHeroText] = useState<HeroTextConfig>({
+    title: 'Tecnologia que',
+    highlight: 'gera valor',
+    description: 'Desenvolvemos as ferramentas ideias para escalar sua imobiliária com segurança jurídica e agilidade.'
+  });
   const [footer, setFooter] = useState<FooterConfig | null>(null);
   const [headerConfig, setHeaderConfig] = useState<HeaderConfig>({
     logoHeight: 40,
@@ -107,6 +133,15 @@ const LandingPage: React.FC = () => {
 
         const h = find('home_header_json');
         if (h) setHeaderConfig(JSON.parse(h));
+
+        const st = find('home_steps_json');
+        if (st) setSteps(JSON.parse(st));
+
+        const fa = find('home_faq_json');
+        if (fa) setFaq(JSON.parse(fa));
+
+        const ht = find('home_hero_text_json');
+        if (ht) setHeroText(JSON.parse(ht));
       }
     } catch (err) {
       console.error(err);
@@ -160,7 +195,7 @@ const LandingPage: React.FC = () => {
           <div className={`flex items-center gap-6 ${headerConfig.logoPosition === 'center' ? 'w-full justify-center pb-2' : ''}`}>
             {headerConfig.showLogin && <Link to="/login" className="text-[11px] font-black uppercase tracking-[0.2em] hover:brightness-75 transition-all" style={{ color: headerConfig.textColor }}>Entrar</Link>}
             {headerConfig.showCTA && (
-              <Link to="/login" className="px-8 py-3.5 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all active:scale-95" style={{ backgroundColor: primaryColor, boxShadow: `0 20px 30px -10px ${primaryColor}50` }}>
+              <Link to="/register" className="px-8 py-3.5 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all active:scale-95" style={{ backgroundColor: primaryColor, boxShadow: `0 20px 30px -10px ${primaryColor}50` }}>
                 {headerConfig.ctaText}
               </Link>
             )}
@@ -188,7 +223,7 @@ const LandingPage: React.FC = () => {
                   {slide.subtitle}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-5 pt-8">
-                  <Link to="/login" className="px-12 py-5 text-white rounded-[24px] text-xs font-black uppercase tracking-[0.2em] shadow-2xl transition-all flex items-center justify-center gap-4 group" style={{ backgroundColor: primaryColor, boxShadow: `0 25px 40px -10px ${primaryColor}70` }}>
+                  <Link to="/register" className="px-12 py-5 text-white rounded-[24px] text-xs font-black uppercase tracking-[0.2em] shadow-2xl transition-all flex items-center justify-center gap-4 group" style={{ backgroundColor: primaryColor, boxShadow: `0 25px 40px -10px ${primaryColor}70` }}>
                     Começar Teste Grátis
                     <span className="material-symbols-outlined group-hover:translate-x-2 transition-transform">arrow_forward</span>
                   </Link>
@@ -213,8 +248,8 @@ const LandingPage: React.FC = () => {
         <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-white to-transparent" />
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
           <div className="text-center space-y-4 mb-24 animate-in slide-in-from-bottom-8 duration-700">
-            <h2 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-tight">Tecnologia que <span style={{ color: primaryColor }}>gera valor</span></h2>
-            <p className="text-xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">Desenvolvemos as ferramentas ideias para escalar sua imobiliária com segurança jurídica e agilidade.</p>
+            <h2 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-tight">{heroText.title} <span style={{ color: primaryColor }}>{heroText.highlight}</span></h2>
+            <p className="text-xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">{heroText.description}</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
             {features.map((f, i) => (
@@ -230,6 +265,58 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Steps Section "Como Funciona" */}
+      {steps.length > 0 && (
+        <section className="py-32 bg-white relative overflow-hidden">
+          <div className="max-w-7xl mx-auto px-6 sm:px-8 relative z-10">
+            <div className="text-center mb-24 space-y-4">
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter">Como Funciona</h2>
+              <p className="text-slate-400 font-medium max-w-xl mx-auto">Em poucos passos você transforma a gestão das suas vistorias.</p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-12 relative">
+              {steps.map((step, idx) => (
+                <div key={idx} className="relative flex flex-col items-center text-center space-y-6 group">
+                  <div className="w-24 h-24 rounded-[32px] flex items-center justify-center text-3xl shadow-xl transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3" style={{ backgroundColor: idx % 2 === 0 ? primaryColor : '#1e293b', color: 'white' }}>
+                    <span className="material-symbols-outlined text-4xl">{step.icon}</span>
+                  </div>
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Passo 0{idx + 1}</span>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">{step.title}</h3>
+                    <p className="text-slate-400 leading-relaxed text-sm font-medium">{step.desc}</p>
+                  </div>
+                  {idx < steps.length - 1 && (
+                    <div className="hidden md:block absolute top-12 left-1/2 w-full h-0.5 border-t-2 border-dashed border-slate-200 -z-10" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* FAQ Section */}
+      {faq.length > 0 && (
+        <section className="py-32 bg-slate-50 relative">
+          <div className="max-w-4xl mx-auto px-6 sm:px-8">
+            <div className="text-center mb-20 space-y-4">
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter">Perguntas Frequentes</h2>
+              <p className="text-slate-400 font-medium">Tire suas dúvidas e comece a usar agora mesmo.</p>
+            </div>
+            <div className="space-y-6">
+              {faq.map((item, idx) => (
+                <div key={idx} className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                  <h3 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-black" style={{ backgroundColor: primaryColor }}>?</span>
+                    {item.question}
+                  </h3>
+                  <p className="text-slate-500 font-medium leading-relaxed pl-11">{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Pricing Section Premium */}
       <section id="planos" className="py-32 bg-white">
@@ -248,7 +335,7 @@ const LandingPage: React.FC = () => {
                     <span className="text-sm font-black text-slate-400 uppercase tracking-widest">/mês</span>
                   </div>
                 </div>
-                <Link to="/login" className="w-full py-6 rounded-[32px] text-[11px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl text-center text-white mt-auto hover:brightness-110 active:scale-95" style={{ backgroundColor: primaryColor, boxShadow: `0 30px 50px -10px ${primaryColor}40` }}>Assinar Agora</Link>
+                <Link to="/register" className="w-full py-6 rounded-[32px] text-[11px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl text-center text-white mt-auto hover:brightness-110 active:scale-95" style={{ backgroundColor: primaryColor, boxShadow: `0 30px 50px -10px ${primaryColor}40` }}>Assinar Agora</Link>
               </div>
             ))}
           </div>

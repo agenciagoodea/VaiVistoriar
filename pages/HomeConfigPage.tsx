@@ -42,6 +42,25 @@ interface HeaderConfig {
     ctaText: string;
 }
 
+interface Step {
+    id: string;
+    title: string;
+    desc: string;
+    icon: string;
+}
+
+interface FAQItem {
+    id: string;
+    question: string;
+    answer: string;
+}
+
+interface HeroTextConfig {
+    title: string;
+    highlight: string;
+    description: string;
+}
+
 const ICON_BASE = ['phonelink_setup', 'photo_camera', 'cloud_done', 'compare_arrows', 'format_list_bulleted', 'ink_pen', 'verified', 'security', 'rocket_launch'];
 
 const HomeConfigPage: React.FC = () => {
@@ -90,6 +109,16 @@ const HomeConfigPage: React.FC = () => {
         ctaText: 'Começar Agora'
     });
 
+    // Novos Módulos
+    const [heroText, setHeroText] = useState<HeroTextConfig>({
+        title: 'Tecnologia que',
+        highlight: 'gera valor',
+        description: 'Desenvolvemos as ferramentas ideias para escalar sua imobiliária com segurança jurídica e agilidade.'
+    });
+
+    const [steps, setSteps] = useState<Step[]>([]);
+    const [faq, setFaq] = useState<FAQItem[]>([]);
+
     const logoInputRef = useRef<HTMLInputElement>(null);
     const sliderInputRefs = useRef<{ [key: string]: HTMLInputElement }>({});
 
@@ -119,6 +148,15 @@ const HomeConfigPage: React.FC = () => {
 
                 const savedHeader = find('home_header_json');
                 if (savedHeader) setHeader(JSON.parse(savedHeader));
+
+                const savedSteps = find('home_steps_json');
+                if (savedSteps) setSteps(JSON.parse(savedSteps));
+
+                const savedFaq = find('home_faq_json');
+                if (savedFaq) setFaq(JSON.parse(savedFaq));
+
+                const savedHeroText = find('home_hero_text_json');
+                if (savedHeroText) setHeroText(JSON.parse(savedHeroText));
             }
         } catch (err) {
             console.error('Erro ao buscar configurações:', err);
@@ -173,7 +211,10 @@ const HomeConfigPage: React.FC = () => {
                 { key: 'home_sliders_json', value: JSON.stringify(sliders) },
                 { key: 'home_features_json', value: JSON.stringify(features) },
                 { key: 'home_footer_json', value: JSON.stringify(footer) },
-                { key: 'home_header_json', value: JSON.stringify(header) }
+                { key: 'home_header_json', value: JSON.stringify(header) },
+                { key: 'home_steps_json', value: JSON.stringify(steps) },
+                { key: 'home_faq_json', value: JSON.stringify(faq) },
+                { key: 'home_hero_text_json', value: JSON.stringify(heroText) }
             ];
             for (const up of updates) await supabase.from('system_configs').upsert({ ...up, updated_at: new Date() });
             alert('Landing Page Premium publicada!');

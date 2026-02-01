@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { UserRole } from '../types';
 import { supabase } from '../lib/supabase';
+import { Session } from '@supabase/supabase-js';
+import ReviewModal from './ReviewModal';
 
 interface DashboardLayoutProps {
   role: UserRole;
@@ -55,6 +57,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
 
   const [brand, setBrand] = useState<{ primaryColor: string; logoUrl: string | null }>({ primaryColor: '#2563eb', logoUrl: null });
   const [userProfile, setUserProfile] = React.useState<{ full_name: string; avatar_url: string; email: string } | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
 
   React.useEffect(() => {
     const fetchConfigs = async () => {
@@ -72,9 +75,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
 
   React.useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase.from('broker_profiles').select('*').eq('user_id', user.id).single();
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+
+      if (session?.user) {
+        const { data: profile } = await supabase.from('broker_profiles').select('*').eq('user_id', session.user.id).single();
 
         // Controle de Sessão Única
         const localSessionId = localStorage.getItem('vpro_session_token');
@@ -94,9 +99,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
         }
 
         setUserProfile({
-          full_name: profile?.full_name || user.email?.split('@')[0] || 'Usuário',
-          avatar_url: profile?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}&background=0D8ABC&color=fff`,
-          email: user.email || ''
+          full_name: profile?.full_name || session.user.email?.split('@')[0] || 'Usuário',
+          avatar_url: profile?.avatar_url || `https://ui-avatars.com/api/?name=${session.user.email}&background=0D8ABC&color=fff`,
+          email: session.user.email || ''
         });
       }
     };
@@ -275,6 +280,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
           <Outlet />
         </div>
       </main>
+      <ReviewModal session={session} />
     </div>
   );
 };
