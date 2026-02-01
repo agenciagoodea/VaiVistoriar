@@ -33,7 +33,7 @@ const InspectionsPage: React.FC = () => {
         .from('inspections')
         .select(`
           *,
-          broker_profiles:inspector_id (
+          broker_profiles:user_id (
             full_name,
             company_name
           )
@@ -45,7 +45,7 @@ const InspectionsPage: React.FC = () => {
         query = query.eq('broker_profiles.company_name', profile.company_name);
       } else if (profile?.role === 'BROKER') {
         // Se for Corretor, vê apenas as suas vistorias
-        query = query.eq('inspector_id', user.id);
+        query = query.eq('user_id', user.id);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
