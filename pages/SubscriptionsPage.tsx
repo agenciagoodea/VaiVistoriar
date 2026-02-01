@@ -215,35 +215,37 @@ const SubscriptionsPage: React.FC = () => {
                            className="w-full h-12 px-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-600/20 transition-all appearance-none cursor-pointer"
                         >
                            <option value="" disabled>Selecione um plano...</option>
-                           {allPlans
-                              .filter(p => {
-                                 // Prioritize checking the official 'type' field if it exists
+                           {(() => {
+                              const filteredPlans = allPlans.filter(p => {
+                                 // Se o plano tiver tipo definido, respeitar rigorosamente (case insensitive)
                                  if (p.type) {
-                                    return p.type === selectedUser.type; // Match PF with PF plans, PJ with PJ plans
+                                    return p.type.toUpperCase() === selectedUser.type;
                                  }
 
-                                 // Fallback to name-based logic if type is missing
+                                 // Fallback por nome se não tiver tipo
                                  const name = (p.name || "").toUpperCase();
                                  const isPJ = selectedUser.type === 'PJ';
+
                                  if (isPJ) {
                                     return name.includes('IMOBILIÁRIA') || name.includes('PJ') || name.includes('PLANO');
                                  } else {
+                                    // Para PF, mostrar corretor ou planos genéricos (sem imobiliária no nome)
                                     return name.includes('CORRETOR') || name.includes('PF') || (!name.includes('IMOBILIÁRIA') && !name.includes('PJ'));
                                  }
-                              })
-                              .map(p => (
-                                 <option key={p.id} value={p.id}>{p.name} (R$ {parseFloat(p.price || 0).toFixed(0)})</option>
-                              ))}
+                              });
+
+                              // FALLBACK DE SEGURANÇA: Se o filtro não retornar nada, mostrar TODOS os planos para não bloquear o admin
+                              const plansToShow = filteredPlans.length > 0 ? filteredPlans : allPlans;
+
+                              return plansToShow.map(plan => (
+                                 <option key={plan.id} value={plan.id}>
+                                    {plan.name} - R$ {parseFloat(plan.price || 0).toFixed(2).replace('.', ',')}
+                                    {filteredPlans.length === 0 ? ' (Exibido por fallback)' : ''}
+                                 </option>
+                              ));
+                           })()}
                         </select>
-                        {allPlans.filter(p => {
-                           if (p.type) return p.type === selectedUser.type;
-                           const name = (p.name || "").toUpperCase();
-                           const isPJ = selectedUser.type === 'PJ';
-                           if (isPJ) return name.includes('IMOBILIÁRIA') || name.includes('PJ');
-                           return name.includes('CORRETOR') || (!name.includes('IMOBILIÁRIA') && !name.includes('PJ'));
-                        }).length === 0 && (
-                              <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">Nenhum plano disponível para este perfil.</p>
-                           )}
+
                      </div>
 
                      <div>
