@@ -16,10 +16,15 @@ const SubscriptionsPage: React.FC = () => {
 
    const fetchData = async () => {
       try {
-         setLoading(true);
-
          // Fetch plans directly to ensure we have all fields including 'type'
-         const { data: plansData } = await supabase.from('plans').select('*').eq('status', 'Ativo');
+         // Removing .eq('status', 'Ativo') as it might be filtering out valid plans
+         const { data: plansData } = await supabase
+            .from('plans')
+            .select('*')
+            .order('price', { ascending: true });
+
+         console.log('📦 Planos carregados (Direct Fetch):', plansData);
+
          if (plansData) {
             setAllPlans(plansData);
          }

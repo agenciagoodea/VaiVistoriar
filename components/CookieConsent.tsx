@@ -27,18 +27,29 @@ const CookieConsent: React.FC = () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
 
-            // Log do aceite no banco
-            await supabase.from('cookie_consents').insert({
+            const consentData = {
                 user_id: user?.id || null,
                 session_id: localStorage.getItem('vpro_session_id') || 'anon_session',
                 user_agent: navigator.userAgent,
-                ip_address: null // IP será capturado via edge function ou backend se necessário
-            });
+                ip_address: null
+            };
+
+            console.log('🍪 Tentando salvar consentimento de cookies:', consentData);
+
+            // Log do aceite no banco
+            const { error } = await supabase.from('cookie_consents').insert(consentData);
+
+            if (error) {
+                console.error('❌ Erro no INSERT de cookie_consents:', error);
+                throw error;
+            }
+
+            console.log('✅ Consentimento salvo com sucesso!');
 
             localStorage.setItem('vpro_cookie_consent', 'true');
             setIsVisible(false);
         } catch (err) {
-            console.error('Erro ao salvar consentimento:', err);
+            console.error('❌ Falha ao processar consentimento:', err);
             // Salva no local storage mesmo se o banco falhar para não travar o usuário
             localStorage.setItem('vpro_cookie_consent', 'true');
             setIsVisible(false);
