@@ -43,13 +43,33 @@ const PropertiesPage: React.FC = () => {
 
          if (error) throw error;
 
+         // Buscar datas das últimas vistorias
+         const propertyIds = (dbData || []).map((p: any) => p.id);
+         let latestInspectionsMap: Record<string, string> = {};
+
+         if (propertyIds.length > 0) {
+            const { data: inspections } = await supabase
+               .from('inspections')
+               .select('property_id, created_at, scheduled_date')
+               .in('property_id', propertyIds)
+               .order('created_at', { ascending: false });
+
+            (inspections || []).forEach((insp: any) => {
+               // Como está ordenado por created_at desc, o primeiro que aparecer para cada propriedade é o mais recente
+               if (!latestInspectionsMap[insp.property_id]) {
+                  const date = insp.created_at || insp.scheduled_date;
+                  latestInspectionsMap[insp.property_id] = date ? new Date(date).toLocaleDateString('pt-BR') : 'Sem data';
+               }
+            });
+         }
+
          const formattedData: Property[] = (dbData || []).map((item: any) => ({
             id: item.id,
             name: item.name,
             address: `${item.address || ''}, ${item.number || ''} - ${item.neighborhood || ''}`,
             owner: item.owner,
             type: item.type as any,
-            lastInspection: 'Nenhuma',
+            lastInspection: latestInspectionsMap[item.id] || 'Nenhuma',
             image: item.image_url || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=400'
          }));
 
