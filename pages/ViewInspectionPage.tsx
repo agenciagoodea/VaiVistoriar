@@ -348,7 +348,7 @@ const ViewInspectionPage: React.FC = () => {
                                         <span className="material-symbols-outlined text-[14px]">apartment</span>
                                         <span className="text-[9px] font-black uppercase tracking-[0.2em]">Identificação do Imóvel</span>
                                     </div>
-                                    <h4 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase leading-[0.9]">{inspection.property?.name || inspection.property_name}</h4>
+                                    <h4 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase leading-[0.9]">{inspection.property?.name || inspection.property_name}</h4>
 
                                     <div className="flex items-start gap-3 pt-2">
                                         <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shrink-0 shadow-sm text-blue-500">
@@ -456,7 +456,7 @@ const ViewInspectionPage: React.FC = () => {
                             <div key={idx} className="space-y-8 break-inside-avoid pt-4">
                                 <div className="flex items-center justify-between border-l-8 border-blue-600 pl-8 py-2">
                                     <div>
-                                        <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{idx + 1}. {room.name}</h4>
+                                        <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter">{idx + 1}. {room.name}</h4>
                                         <div className="flex items-center gap-4 mt-2">
                                             <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${room.condition === 'Novo' ? 'bg-emerald-50 text-emerald-600' :
                                                 room.condition === 'Bom' ? 'bg-blue-50 text-blue-600' :
@@ -477,14 +477,14 @@ const ViewInspectionPage: React.FC = () => {
                                     {room.observations || 'Nenhum detalhe técnico específico registrado.'}
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                     {room.photos?.map((photo: any, pIdx: number) => (
                                         <div key={pIdx} className="space-y-3 break-inside-avoid group">
                                             <a
                                                 href={photo.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="photo-link block aspect-[4/3] rounded-[28px] overflow-hidden border-4 border-white shadow-xl relative ring-1 ring-slate-100 group"
+                                                className="photo-link block aspect-[4/3] rounded-xl overflow-hidden border-2 border-white shadow-xl relative ring-1 ring-slate-100 group"
                                                 title="Clique para ver em tamanho real"
                                             >
                                                 <img src={photo.url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
