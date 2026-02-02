@@ -398,39 +398,44 @@ const ViewInspectionPage: React.FC = () => {
                 <div className="report-header p-6 md:p-8 border-b-2 border-blue-600 bg-white">
                     {/* Row 1: Top section with Company (Left) and Broker (Right) */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
-                        {/* Company Identity (Left) */}
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 flex items-center justify-center p-1.5 shrink-0">
-                                {inspection.company_data?.avatar_url || inspection.broker_data?.avatar_url ? (
-                                    <img
-                                        src={inspection.company_data?.avatar_url || inspection.broker_data?.avatar_url}
-                                        className="max-w-full max-h-full object-contain"
-                                        alt="Logo da Empresa"
-                                    />
-                                ) : (
-                                    <span className="material-symbols-outlined text-slate-300 text-3xl">business</span>
-                                )}
-                            </div>
-                            <div className="space-y-0.5">
-                                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-none">
-                                    {inspection.company_data?.company_name || inspection.broker_data?.company_name || 'Vistoria Profissional'}
-                                </h2>
-                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">
-                                    CNPJ: {formatCpfCnpj(inspection.company_data?.cpf_cnpj || inspection.broker_data?.cpf_cnpj || '')}
-                                </p>
-                                <div className="text-slate-400 text-[9px] font-semibold flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-0.5 mt-1">
-                                    <span className="flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[10px] text-blue-500">phone</span>
-                                        {inspection.company_data?.phone || inspection.broker_data?.phone || '---'}
-                                    </span>
-                                    <span className="hidden sm:inline border-l border-slate-200 h-2" />
-                                    <span className="flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[12px] text-slate-300">location_on</span>
-                                        {inspection.company_data?.street}, {inspection.company_data?.number} {inspection.company_data?.city}/{inspection.company_data?.state}
-                                    </span>
+                        {/* Company Identity (Left) - Only show if has company data */}
+                        {(inspection.company_data || inspection.broker_data?.company_name) ? (
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 flex items-center justify-center p-1.5 shrink-0">
+                                    {inspection.company_data?.avatar_url || inspection.broker_data?.avatar_url ? (
+                                        <img
+                                            src={inspection.company_data?.avatar_url || inspection.broker_data?.avatar_url}
+                                            className="max-w-full max-h-full object-contain"
+                                            alt="Logo da Empresa"
+                                        />
+                                    ) : (
+                                        <span className="material-symbols-outlined text-slate-300 text-3xl">business</span>
+                                    )}
+                                </div>
+                                <div className="space-y-0.5">
+                                    <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-none">
+                                        {inspection.company_data?.company_name || inspection.broker_data?.company_name}
+                                    </h2>
+                                    <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">
+                                        CNPJ: {formatCpfCnpj(inspection.company_data?.cpf_cnpj || inspection.broker_data?.cpf_cnpj || '')}
+                                    </p>
+                                    <div className="text-slate-400 text-[9px] font-semibold flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-0.5 mt-1">
+                                        <span className="flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[10px] text-blue-500">phone</span>
+                                            {inspection.company_data?.phone || inspection.broker_data?.phone || '---'}
+                                        </span>
+                                        <span className="hidden sm:inline border-l border-slate-200 h-2" />
+                                        <span className="flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[12px] text-slate-300">location_on</span>
+                                            {inspection.company_data?.street}, {inspection.company_data?.number} {inspection.company_data?.city}/{inspection.company_data?.state}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        ) : (
+                            /* Spacer if no company hidden, to keep alignment if needed, or just nothing */
+                            <div />
+                        )}
 
                         {/* Broker Details (Right) */}
                         <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 self-end md:self-auto ml-auto md:ml-0">
