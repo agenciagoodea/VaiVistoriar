@@ -277,16 +277,9 @@ Deno.serve(async (req) => {
             let query = supabaseAdmin.from('broker_profiles').select('*').order('full_name', { ascending: true });
 
             if (isPJ) {
-                // PJ só vê membros da própria empresa
-                const { data: myProfile } = await supabaseAdmin.from('broker_profiles').select('company_name').eq('user_id', user.id).single();
-                if (myProfile?.company_name) {
-                    console.log(`🏢 [get_users] Filtrando por empresa: ${myProfile.company_name}`);
-                    query = query.eq('company_name', myProfile.company_name);
-                } else {
-                    console.warn(`⚠️ [get_users] PJ sem empresa definida: ${user.id}`);
-                    // Se o PJ não tem empresa, não vê ninguém (ou só ele mesmo?)
-                    query = query.eq('user_id', user.id);
-                }
+                // PJ vê sua equipe (onde ele é o Pai/Manager) ou ele mesmo
+                console.log(`🏢 [get_users] Filtrando por parent_pj_id: ${user.id}`);
+                query = query.or(`parent_pj_id.eq.${user.id},user_id.eq.${user.id}`);
             }
 
             const { data: profiles, error } = await query;
@@ -374,6 +367,7 @@ Deno.serve(async (req) => {
                 .from('broker_profiles')
                 .update({
                     company_name,
+                    parent_pj_id: user.id, // LINK: Vincula explicitamente ao PJ atual
                     status: status || 'Ativo',
                     subscription_plan_id: plan_id || null, // Se PJ tiver plano, o corretor herda (ou vincula)
                     updated_at: new Date().toISOString()
@@ -495,6 +489,7 @@ Deno.serve(async (req) => {
                 email,
                 role: role || 'BROKER',
                 company_name,
+                parent_pj_id: user.id, // LINK: Define o usuário criador como "Pai" (Manager)
                 status: 'Ativo',
                 subscription_plan_id: role === 'PJ' ? PLAN_ID_PJ : PLAN_ID_PF,
                 subscription_expires_at: new Date(new Date().getFullYear() + 10, 0, 1).toISOString()

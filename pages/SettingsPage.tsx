@@ -121,7 +121,7 @@ const SettingsPage: React.FC = () => {
 
          if (profileError) {
             console.error('Settings: Error fetching profile:', profileError);
-            setError('Não foi possível carregar os dados do perfil. Verifique as permissões do banco de dados (RLS).');
+            setError(`Erro ao carregar perfil: ${profileError.message} (Código: ${profileError.code}) | UserID: ${user.id}`);
             return;
          }
 
