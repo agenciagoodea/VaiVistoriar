@@ -137,18 +137,54 @@ const PlanConfigPage: React.FC = () => {
    };
 
    const handleDeletePlan = async () => {
-      if (!selectedPlanId || !window.confirm('Excluir este plano permanentemente?')) return;
+      if (!selectedPlanId) return;
+
       setSaving(true);
       try {
-         const { error } = await supabase.from('plans').delete().eq('id', selectedPlanId);
-         if (error) throw error;
+         // First, check how many subscriptions are linked to this plan
+         const { data: linkedSubs, error: checkError } = await supabase
+            .from('user_subscriptions')
+            .select('id')
+            .eq('plan_id', selectedPlanId);
 
-         alert('Plano excluído.');
+         if (checkError) throw checkError;
+
+         const count = linkedSubs?.length || 0;
+         let confirmMessage = 'Excluir este plano permanentemente?';
+
+         if (count > 0) {
+            confirmMessage = `ATENÇÃO: Este plano possui ${count} assinatura(s) vinculada(s).\n\nAo excluir este plano, todas as assinaturas vinculadas serão DESVINCULADAS (plan_id será definido como NULL).\n\nDeseja continuar?`;
+         }
+
+         if (!window.confirm(confirmMessage)) {
+            setSaving(false);
+            return;
+         }
+
+         // If there are linked subscriptions, unlink them first
+         if (count > 0) {
+            const { error: unlinkError } = await supabase
+               .from('user_subscriptions')
+               .update({ plan_id: null })
+               .eq('plan_id', selectedPlanId);
+
+            if (unlinkError) throw unlinkError;
+         }
+
+         // Now delete the plan
+         const { error: deleteError } = await supabase
+            .from('subscription_plans')
+            .delete()
+            .eq('id', selectedPlanId);
+
+         if (deleteError) throw deleteError;
+
+         alert(`Plano excluído com sucesso!${count > 0 ? ` ${count} assinatura(s) foram desvinculadas.` : ''}`);
          setSelectedPlanId(null);
          fetchPlans();
       } catch (err: any) {
          console.error('Erro ao excluir plano:', err);
-         alert(`Erro ao excluir plano: ${err.message || 'Erro desconhecido'}. Verifique se existem usuários ativos vinculados.`);
+         alert(`Erro ao excluir plano: ${err.message || 'Erro desconhecido'}`);
       } finally {
          setSaving(false);
       }

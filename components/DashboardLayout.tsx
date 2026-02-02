@@ -25,12 +25,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   ];
 
   const configSubMenu = [
-    { label: 'Home', path: '/admin/home', icon: 'home' },
-    { label: 'Políticas e Termos', path: '/admin/policies', icon: 'gavel' },
-    { label: 'Checkout Pagamento', path: '/admin/checkout', icon: 'shopping_cart_checkout' },
-    { label: 'Planos', path: '/admin/plans', icon: 'format_list_bulleted' },
-    { label: 'Configuração de E-mail', path: '/admin/email', icon: 'mail' },
-    { label: 'SEO e Indexação', path: '/admin/seo', icon: 'search' },
+    { label: '1. Configurações Globais', path: '/admin/global', icon: 'settings' },
+    { label: '2. Recursos do Sistema', path: '/admin/resources', icon: 'rocket_launch' },
+    { label: '3. Slides', path: '/admin/slides', icon: 'view_carousel' },
+    { label: '4. Passo a Passo', path: '/admin/steps', icon: 'timeline' },
+    { label: '5. Dicas', path: '/admin/tips', icon: 'lightbulb' },
+    { label: '6. Avaliações', path: '/admin/reviews', icon: 'stars' },
+    { label: '7. Políticas e Termos', path: '/admin/legal', icon: 'gavel' },
+    { label: '8. Checkout', path: '/admin/checkout', icon: 'shopping_cart' },
+    { label: '9. Planos', path: '/admin/plans', icon: 'style' },
+    { label: '10. Configuração de Email', path: '/admin/email', icon: 'email' },
+    { label: '11. SEO e Indexação', path: '/admin/seo', icon: 'search' },
   ];
 
   const brokerMenu = [
@@ -165,7 +170,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
                 <div className="pl-9 space-y-1 mt-1 animate-in slide-in-from-top-2 duration-300">
                   {configSubMenu.map((sub) => (
                     <Link
-                      key={sub.path}
+                      key={sub.label}
                       to={sub.path}
                       onClick={() => setMobileMenuOpen(false)}
                       className={`block py-2 text-xs font-bold transition-all ${isActive(sub.path) ? '' : 'text-slate-400 hover:text-slate-900'}`}

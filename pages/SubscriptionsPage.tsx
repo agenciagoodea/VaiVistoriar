@@ -267,12 +267,11 @@ const SubscriptionsPage: React.FC = () => {
                               ));
                            })()}
                         </select>
-                        <div className="mt-2 p-2 bg-slate-100 rounded text-[10px] text-slate-500 font-mono">
-                           <p>DEBUG INFO:</p>
-                           <p>Planos Carregados: {allPlans.length}</p>
-                           <p>Tipo do Usuário: {selectedUser.type}</p>
-                           {fetchError && <p className="text-red-500">Erro Busca: {fetchError}</p>}
-                        </div>
+                        {fetchError && (
+                           <div className="mt-2 p-2 bg-red-50 rounded text-[10px] text-red-500 font-bold">
+                              Erro ao carregar planos: {fetchError}
+                           </div>
+                        )}
                      </div>
 
                      <div>

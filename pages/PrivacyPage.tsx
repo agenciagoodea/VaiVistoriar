@@ -13,7 +13,7 @@ const PrivacyPage: React.FC = () => {
                 const { data } = await supabase
                     .from('system_configs')
                     .select('value')
-                    .eq('key', 'privacy_content')
+                    .eq('key', 'legal_privacy')
                     .single();
 
                 if (data?.value) {

@@ -31,18 +31,30 @@ const PJDashboard: React.FC = () => {
 
          const company = profile?.company_name || '';
 
-         // 2. Fetch Team Inspections for Metrics
-         // We'll need to join with profiles to filter by company or use a better schema
-         // For now, let's assume filtering by company_name in profiles
+         // 2. Fetch Team Members first
+         const { data: teamMembers } = await supabase
+            .from('broker_profiles')
+            .select('user_id, full_name')
+            .eq('company_name', company);
+
+         const userIds = teamMembers?.map(m => m.user_id) || [];
+
+         if (userIds.length === 0) {
+            setLoading(false);
+            return;
+         }
+
+         // 3. Fetch Team Inspections for Metrics using the userIds list
          const { data: teamInspections, error: insError } = await supabase
             .from('inspections')
-            .select(`
-          id, status, created_at,
-          broker_profiles!inner(company_name, full_name)
-        `)
-            .eq('broker_profiles.company_name', company);
+            .select(`id, status, created_at, user_id`)
+            .in('user_id', userIds);
 
          if (insError) throw insError;
+
+         // Manual Join for the chart (associate full_name from teamMembers)
+         const memberMap: Record<string, string> = {};
+         teamMembers?.forEach(m => { memberMap[m.user_id] = m.full_name });
 
          const now = new Date();
          const thisMonth = teamInspections?.filter(i => {
@@ -56,7 +68,7 @@ const PJDashboard: React.FC = () => {
          // 3. Performance Chart Data (Group by Broker)
          const performance: Record<string, number> = {};
          teamInspections?.forEach(i => {
-            const name = (i.broker_profiles as any)?.full_name || 'Desconhecido';
+            const name = memberMap[i.user_id] || 'Desconhecido';
             performance[name] = (performance[name] || 0) + 1;
          });
 
@@ -132,10 +144,6 @@ const PJDashboard: React.FC = () => {
                   </div>
                   <div className="flex items-end gap-3">
                      <p className="text-3xl font-black text-slate-900 leading-none">{s.value}</p>
-                     <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center">
-                        <span className="material-symbols-outlined text-[14px]">trending_up</span>
-                        {s.trend}
-                     </span>
                   </div>
                </div>
             ))}

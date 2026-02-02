@@ -13,7 +13,7 @@ const TermsPage: React.FC = () => {
                 const { data } = await supabase
                     .from('system_configs')
                     .select('value')
-                    .eq('key', 'terms_content')
+                    .eq('key', 'legal_terms')
                     .single();
 
                 if (data?.value) {

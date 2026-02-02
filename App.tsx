@@ -16,6 +16,13 @@ import PropertiesPage from './pages/PropertiesPage';
 import InspectionsPage from './pages/InspectionsPage';
 import ClientsPage from './pages/ClientsPage';
 import SettingsPage from './pages/SettingsPage';
+import GlobalSettingsPage from './pages/GlobalSettingsPage';
+import SystemResourcesPage from './pages/SystemResourcesPage';
+import SlidesConfigPage from './pages/SlidesConfigPage';
+import StepsConfigPage from './pages/StepsConfigPage';
+import TipsConfigPage from './pages/TipsConfigPage';
+import ReviewsConfigPage from './pages/ReviewsConfigPage';
+import LegalSettingsPage from './pages/LegalSettingsPage';
 import HomeConfigPage from './pages/HomeConfigPage';
 import PoliciesConfigPage from './pages/PoliciesConfigPage';
 import CheckoutConfigPage from './pages/CheckoutConfigPage';
@@ -115,6 +122,15 @@ const App: React.FC = () => {
             <Route path="/admin/plans" element={<PlanConfigPage />} />
             <Route path="/admin/email" element={<EmailConfigPage />} />
             <Route path="/admin/seo" element={<SEOConfigPage />} />
+
+            {/* Novas Rotas de Configuração Descentralizadas */}
+            <Route path="/admin/global" element={<GlobalSettingsPage />} />
+            <Route path="/admin/resources" element={<SystemResourcesPage />} />
+            <Route path="/admin/slides" element={<SlidesConfigPage />} />
+            <Route path="/admin/steps" element={<StepsConfigPage />} />
+            <Route path="/admin/tips" element={<TipsConfigPage />} />
+            <Route path="/admin/reviews" element={<ReviewsConfigPage />} />
+            <Route path="/admin/legal" element={<LegalSettingsPage />} />
           </Route>
 
           {/* Shared Admin and PJ Routes */}
