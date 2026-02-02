@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { validateCPF, validateCNPJ, formatCpfCnpj } from '../lib/utils';
 
 const SettingsPage: React.FC = () => {
    const [tips, setTips] = useState<string[]>([]);
@@ -123,12 +124,21 @@ const SettingsPage: React.FC = () => {
 
       // 2. Salvar Perfil do Usuário
       try {
+         const cleanDoc = profile.cpf_cnpj.replace(/\D/g, '');
+         if (cleanDoc) {
+            if (cleanDoc.length <= 11) {
+               if (!validateCPF(cleanDoc)) throw new Error('CPF informado no perfil é inválido.');
+            } else {
+               if (!validateCNPJ(cleanDoc)) throw new Error('CNPJ informado no perfil é inválido.');
+            }
+         }
+
          const { error: profileError } = await supabase
             .from('broker_profiles')
             .upsert({
                user_id: user.id,
                full_name: profile.full_name,
-               cpf_cnpj: profile.cpf_cnpj,
+               cpf_cnpj: cleanDoc,
                creci: profile.creci,
                phone: profile.phone,
                cep: profile.cep,
@@ -244,7 +254,13 @@ const SettingsPage: React.FC = () => {
                      </div>
                      <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 ml-1">CPF ou CNPJ</label>
-                        <input type="text" value={profile.cpf_cnpj} onChange={e => setProfile({ ...profile, cpf_cnpj: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold" />
+                        <input
+                           type="text"
+                           value={profile.cpf_cnpj}
+                           onChange={e => setProfile({ ...profile, cpf_cnpj: formatCpfCnpj(e.target.value) })}
+                           placeholder="000.000.000-00"
+                           className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 text-sm font-bold"
+                        />
                      </div>
                      <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Registro CRECI</label>

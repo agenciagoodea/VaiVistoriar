@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { validateCPF, validateCNPJ, formatCpfCnpj } from '../lib/utils';
 
 interface LoginPageProps {
     isRegisterMode?: boolean;
@@ -57,6 +58,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                     throw new Error('Por favor, informe o CPF ou CNPJ.');
                 }
 
+                // Validação de formato para Login
+                if (cleanId.length === 11 && !validateCPF(cleanId)) {
+                    throw new Error('CPF inválido.');
+                } else if (cleanId.length === 14 && !validateCNPJ(cleanId)) {
+                    throw new Error('CNPJ inválido.');
+                }
+
                 // Busca o e-mail associado ao CPF/CNPJ no banco usando RPC
                 const { data: fetchedEmail, error: rpcError } = await supabase
                     .rpc('get_email_by_cpf', { p_cpf_cnpj: cleanId });
@@ -89,6 +97,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                 const targetPath = userRole === 'ADMIN' ? '/admin' : userRole === 'BROKER' ? '/broker' : '/pj';
                 navigate(targetPath);
             } else {
+                const cleanDoc = cpfCnpj.replace(/\D/g, '');
+
+                // Validação obrigatória no cadastro
+                if (role === 'BROKER') {
+                    if (!validateCPF(cleanDoc)) throw new Error('CPF inválido. Verifique os números informados.');
+                } else {
+                    if (!validateCNPJ(cleanDoc)) throw new Error('CNPJ inválido. Verifique os números informados.');
+                }
+
                 const { data: { user }, error: signUpError } = await supabase.auth.signUp({
                     email: identifier,
                     password,
@@ -96,7 +113,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                         data: {
                             full_name: fullName,
                             role: role,
-                            cpf_cnpj: cpfCnpj.replace(/\D/g, '')
+                            cpf_cnpj: cleanDoc
                         },
                     },
                 });
@@ -320,7 +337,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                                         type="text"
                                         required
                                         value={isLogin ? identifier : cpfCnpj}
-                                        onChange={(e) => isLogin ? setIdentifier(e.target.value) : setCpfCnpj(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            const formatted = formatCpfCnpj(val);
+                                            if (isLogin) setIdentifier(formatted);
+                                            else setCpfCnpj(formatted);
+                                        }}
                                         placeholder={role === 'BROKER' ? "000.000.000-00" : "00.000.000/0000-00"}
                                         className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-300 font-medium"
                                     />

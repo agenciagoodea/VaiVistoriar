@@ -26,8 +26,21 @@ Deno.serve(async (req) => {
 
         const token = authHeader.replace('Bearer ', '')
 
-        // Check if token is the Service Role Key itself (sometimes used in dev/internal calls)
+        // Debug: Log token format and decode if possible
         const isServiceRole = token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        console.log('🔍 isServiceRole:', isServiceRole);
+
+        if (!isServiceRole) {
+            const tokenParts = token.split('.');
+            if (tokenParts.length === 3) {
+                try {
+                    const payload = JSON.parse(atob(tokenParts[1]));
+                    console.log(`🔍 Token JWT - sub: ${payload.sub}, role: ${payload.role}, email: ${payload.email}`);
+                } catch (e) {
+                    console.warn('⚠️ Could not decode token manually:', e.message);
+                }
+            }
+        }
 
         let user = null;
         let authError = null;
@@ -36,15 +49,23 @@ Deno.serve(async (req) => {
             const { data, error } = await supabaseAdmin.auth.getUser(token)
             user = data?.user;
             authError = error;
-            console.log('🔍 Auth check - User:', !!user, 'Error:', authError?.message)
+            console.log('🔍 auth.getUser result - UserID:', user?.id, 'Error:', authError?.message)
         } else {
-            console.log('🔍 Auth check - Service Role detected. Initializing user proxy.')
+            console.log('🔍 Auth: Service Role Bypass')
             user = { id: 'service-role', email: 'admin@system.local' };
         }
 
         if (!isServiceRole && (authError || !user)) {
-            console.warn('⚠️ Auth failed. Token starts with:', token.substring(0, 10));
-            throw new Error(`Unauthorized: ${authError?.message || 'Invalid Session'}`)
+            console.error(`❌ Authentication Failed for token starting with ${token.substring(0, 15)}...`);
+            // Better error message for the frontend
+            return new Response(JSON.stringify({
+                success: false,
+                error: 'Sessão inválida ou expirada. Por favor, faça login novamente.',
+                details: authError?.message
+            }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
         }
 
         console.log('🔍 Parsing request body...')
