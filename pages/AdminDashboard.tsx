@@ -23,6 +23,11 @@ const AdminDashboard: React.FC = () => {
 
          if (error) throw error;
 
+         if (data && !data.success) {
+            alert(`Erro do Servidor: ${data.error}`);
+            throw new Error(data.error);
+         }
+
          if (data && data.success) {
             // 1. Basic Stats
             setStats({
