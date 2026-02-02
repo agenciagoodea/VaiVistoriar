@@ -61,8 +61,15 @@ const AdminDashboard: React.FC = () => {
             }
          }
 
-      } catch (err) {
+      } catch (err: any) {
          console.error('Erro no Admin Dashboard:', err);
+
+         // Handle Unauthorized/Forbidden access
+         if (err.message && (err.message.includes('401') || err.message.includes('403') || err.message.includes('sessão inválida'))) {
+            alert('Sua sessão expirou ou é inválida. Por favor, faça login novamente.');
+            await supabase.auth.signOut();
+            window.location.href = '/login';
+         }
       } finally {
          setLoading(false);
       }

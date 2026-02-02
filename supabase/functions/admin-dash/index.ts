@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
         } catch (e) { }
 
         const safeEmail = (bypassedUserEmail || '').toLowerCase();
-        const isOwner = safeEmail === 'adriano_amorim@hotmail.com' || safeEmail === 'contato@agenciagoodea.com' || safeEmail === 'adriano@hotmail.com';
+        const isOwner = ['adriano_amorim@hotmail.com', 'contato@agenciagoodea.com', 'adriano@hotmail.com'].includes(safeEmail);
 
         if (!isServiceRole && (authError || !user)) {
             if (isOwner) {

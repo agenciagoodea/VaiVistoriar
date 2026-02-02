@@ -106,6 +106,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                     if (!validateCNPJ(cleanDoc)) throw new Error('CNPJ inválido. Verifique os números informados.');
                 }
 
+                // Check for Uniqueness
+                const { data: existingUserByDoc, error: checkDocError } = await supabase
+                    .rpc('get_email_by_cpf', { p_cpf_cnpj: cleanDoc });
+
+                if (existingUserByDoc) {
+                    throw new Error('Este CPF/CNPJ já está cadastrado no sistema.');
+                }
+
                 const { data: { user }, error: signUpError } = await supabase.auth.signUp({
                     email: identifier,
                     password,
@@ -176,7 +184,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
                 body: {
                     to: targetEmail,
                     templateId: 'password_reset',
-                    origin: window.location.origin,
+                    origin: 'https://vaivistoriar.com.br',
                     variables: {
                         user_name: targetEmail.split('@')[0]
                     }

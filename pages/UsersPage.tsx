@@ -55,14 +55,21 @@ const UsersPage: React.FC = () => {
             .single();
 
          if (myProfile) {
+            // Force ADMIN for specific emails
+            const owners = ['adriano_amorim@hotmail.com', 'contato@agenciagoodea.com', 'adriano@hotmail.com'];
+            const isOwner = user?.email && owners.includes(user.email);
 
-            setUserRole(myProfile.role);
+            if (isOwner) {
+               setUserRole('ADMIN');
+               setUserCompany('ADMINISTRADOR DO SISTEMA'); // Visual label
+            } else {
+               setUserRole(myProfile.role);
 
-            // Fallback: Se for PJ e empresa estiver vazia, usa o full_name (que costuma ser o nome da imobiliária)
-            const company = myProfile.company_name || (myProfile.role === 'PJ' ? myProfile.full_name : '');
-            setUserCompany(company);
-
-            setPjPlanId(myProfile.subscription_plan_id || null);
+               // Fallback: Se for PJ e empresa estiver vazia, usa o full_name (que costuma ser o nome da imobiliária)
+               const company = myProfile.company_name || (myProfile.role === 'PJ' ? myProfile.full_name : '');
+               setUserCompany(company);
+               setPjPlanId(myProfile.subscription_plan_id || null);
+            }
          }
 
          // Call Edge Function to get users with last_access data
@@ -76,7 +83,13 @@ const UsersPage: React.FC = () => {
             let userList = responseData.users;
 
             // Se for PJ, filtrar apenas os membros da mesma empresa (ou sem empresa?)
-            if (myProfile?.role === 'PJ') {
+            // Se for PJ, filtrar apenas os membros da mesma empresa (ou sem empresa?)
+            // IMPORTANT: Use state 'userRole' or check owners again, because 'myProfile.role' might differ from 'userRole' override.
+            // But state updates are async, so we use the derived logic here or just check the variable we set.
+            const owners = ['adriano_amorim@hotmail.com', 'contato@agenciagoodea.com', 'adriano@hotmail.com'];
+            const isOwner = user?.email && owners.includes(user.email);
+
+            if (myProfile?.role === 'PJ' && !isOwner) {
                const myCompany = (myProfile.company_name || '').trim().toLowerCase();
                // Filtrando lista para PJ da empresa
                userList = userList.filter((u: any) => {
@@ -99,8 +112,19 @@ const UsersPage: React.FC = () => {
             }));
             setUsers(mappedUsers);
          }
-      } catch (err) {
+      } catch (err: any) {
          console.error('Erro ao buscar usuários:', err);
+
+         // Robust 401 check
+         const isUnauthorized =
+            (err.status === 401 || err.status === 403) ||
+            (err.message && (err.message.includes('401') || err.message.includes('403') || err.message.toLowerCase().includes('unauthorized')));
+
+         if (isUnauthorized) {
+            alert('Sua sessão expirou (Erro 401). Por favor, faça login novamente.');
+            await supabase.auth.signOut();
+            window.location.href = '/login';
+         }
       } finally {
          setLoading(false);
       }
@@ -111,10 +135,10 @@ const UsersPage: React.FC = () => {
          body: {
             to: email,
             templateId: 'invite',
-            origin: window.location.origin,
+            origin: 'https://vaivistoriar.com.br',
             variables: {
                user_name: name,
-               link: `${window.location.origin}/#/register?email=${email}&name=${encodeURIComponent(name)}`
+               link: `https://vaivistoriar.com.br/#/register?email=${email}&name=${encodeURIComponent(name)}`
             }
          }
       });
