@@ -296,7 +296,7 @@ const LandingPage: React.FC = () => {
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center overflow-hidden bg-slate-950">
         {sliders.map((slide, idx) => (
-          <div key={slide.id} className={`absolute inset-0 transition-all duration-1000 ease-in-out ${idx === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-110'}`}>
+          <div key={slide.id} className={`absolute inset-0 transition-all duration-1000 ease-in-out ${idx === currentSlide ? 'opacity-100 scale-100 z-20 pointer-events-auto' : 'opacity-0 scale-110 z-10 pointer-events-none'}`}>
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent z-10" />
             {slide.image && <img src={slide.image} alt="Hero" className="absolute inset-0 w-full h-full object-cover animate-slow-zoom opacity-60" />}
 

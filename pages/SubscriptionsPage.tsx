@@ -35,7 +35,7 @@ const SubscriptionsPage: React.FC = () => {
 
          // Update plans from edge function if available (Service Role fetch is more reliable)
          if (responseData.allPlans && responseData.allPlans.length > 0) {
-            console.log('📦 Planos da Edge Function:', responseData.allPlans.length);
+
             setAllPlans(responseData.allPlans);
          }
 

@@ -59,13 +59,17 @@ Deno.serve(async (req) => {
             }
         } catch (e) { }
 
-        const isOwner = bypassedUserEmail === 'adriano_amorim@hotmail.com' || bypassedUserEmail === 'contato@agenciagoodea.com' || bypassedUserEmail === 'adriano@hotmail.com';
+        const safeEmail = (bypassedUserEmail || '').toLowerCase();
+        const isOwner = safeEmail === 'adriano_amorim@hotmail.com' || safeEmail === 'contato@agenciagoodea.com' || safeEmail === 'adriano@hotmail.com';
 
         if (!isServiceRole && (authError || !user)) {
             if (isOwner) {
                 user = { id: 'bypassed-owner', email: bypassedUserEmail, user_metadata: { role: 'ADMIN' } };
             } else {
-                return new Response(JSON.stringify({ success: false, error: 'Sessão inválida.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                return new Response(JSON.stringify({
+                    success: false,
+                    error: `Sessão inválida/expirada. Auth: ${authError?.message || 'N/A'}. Owner: ${isOwner}. Email: ${bypassedUserEmail || 'N/A'}`
+                }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
         }
 
@@ -261,16 +265,25 @@ Deno.serve(async (req) => {
             const user_id = payload?.user_id || payload?.userId;
             if (!user_id) throw new Error('ID obrigatório');
 
+            // 1. Clean up dependent tables (Order matters)
+            await supabaseAdmin.from('notifications').delete().eq('user_id', user_id);
+            await supabaseAdmin.from('system_reviews').delete().eq('user_id', user_id);
+            await supabaseAdmin.from('cookie_consents').delete().eq('user_id', user_id); // If applicable
+            await supabaseAdmin.from('clients').delete().eq('user_id', user_id);
+
+            // 2. Core business tables
             await supabaseAdmin.from('inspections').delete().eq('user_id', user_id);
             await supabaseAdmin.from('properties').delete().eq('user_id', user_id);
             await supabaseAdmin.from('payment_history').delete().eq('user_id', user_id);
 
+            // 3. Delete Profile (Explicitly to avoid orphans or constraint issues from this side)
+            await supabaseAdmin.from('broker_profiles').delete().eq('user_id', user_id);
+
             const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
             if (authError) {
-                if (authError.message.includes('not found')) {
-                    await supabaseAdmin.from('broker_profiles').delete().eq('user_id', user_id);
-                } else {
-                    throw new Error(`Erro ao deletar: ${authError.message}`);
+                // If it's just "User not found", we can ignore it since we already cleaned up
+                if (!authError.message.includes('not found')) {
+                    throw new Error(`Erro ao deletar Auth: ${authError.message}`);
                 }
             }
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })

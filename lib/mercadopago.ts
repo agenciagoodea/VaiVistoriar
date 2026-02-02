@@ -35,7 +35,7 @@ export const mercadopagoService = {
 
     async subscribeUser(planId: string, email: string) {
         // Implementar lógica de assinatura recorrente (Checkout PRO ou API Subscription)
-        console.log(`Iniciando assinatura do plano ${planId} para ${email}`);
+
     },
 
     async testToken(token?: string) {
@@ -91,13 +91,13 @@ export const mercadopagoService = {
             notification_url: `https://cmrgzaoexmjilvbuduek.supabase.co/functions/v1/mercadopago-webhook`
         };
 
-        console.log('Solicitando Preferência:', preferenceData);
+
 
         const { data, error } = await supabase.functions.invoke('mercadopago-api', {
             body: { action: 'create-preference', accessToken, payload: preferenceData }
         });
 
-        console.log('Resposta MP API:', { data, error });
+
 
         if (error || (data && data.success === false)) {
             const errorMsg = error?.message || (data && (data.error || data.message)) || 'Erro ao gerar checkout.';

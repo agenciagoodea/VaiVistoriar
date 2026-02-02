@@ -21,12 +21,12 @@ const CheckoutPending: React.FC = () => {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
-                console.log('Verificando status do pagamento pendente...');
+
                 const result = await mercadopagoService.checkPaymentStatus(user.id, '', paymentId || undefined, preferenceId || undefined);
 
                 if (result?.paymentApproved) {
                     setStatus('approved');
-                    console.log('Pagamento aprovado! Redirecionando...');
+
                     setTimeout(() => {
                         navigate('/checkout/success?' + searchParams.toString());
                     }, 2000);
@@ -53,7 +53,7 @@ const CheckoutPending: React.FC = () => {
                 schema: 'public',
                 table: 'payment_history',
             }, (payload) => {
-                console.log('Real-time: Mudança no histórico detectada:', payload.new.status);
+
                 // Verifica se é o pagamento atual ou se foi aprovado recentemente
                 if (payload.new.status === 'approved') {
                     // Confirmação extra via API antes de liberar
@@ -78,7 +78,7 @@ const CheckoutPending: React.FC = () => {
             }, (payload) => {
                 // Se o status mudou para Ativo e o plano é o que esperamos (ou apenas mudou para Ativo)
                 if (payload.new.status === 'Ativo') {
-                    console.log('Real-time: Perfil ativado detectado!');
+
                     setStatus('approved');
                     setTimeout(() => {
                         navigate('/checkout/success?' + searchParams.toString());

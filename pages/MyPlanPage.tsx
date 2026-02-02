@@ -50,7 +50,7 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
             // 3. Fetch All Available Tier Plans
             // Usar o role da prop se disponível, senão fallback para o do perfil ou metadata
             const effectiveRole = (propRole || profileData?.role || user.user_metadata?.role || 'PF').toUpperCase();
-            console.log('🔍 Effective Role for Plan Filtering:', effectiveRole);
+
 
             const { data: allPlans } = await supabase
                 .from('plans')
@@ -170,7 +170,7 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                                 fetchData();
                             }
                         } catch (pollErr) {
-                            console.log('Polling check:', pollErr);
+
                         }
                     }, 4000);
 

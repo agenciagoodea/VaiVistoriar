@@ -55,7 +55,7 @@ const UsersPage: React.FC = () => {
             .single();
 
          if (myProfile) {
-            console.log('👤 Perfil carregado:', myProfile.full_name, '| Cargo:', myProfile.role, '| Empresa:', myProfile.company_name);
+
             setUserRole(myProfile.role);
 
             // Fallback: Se for PJ e empresa estiver vazia, usa o full_name (que costuma ser o nome da imobiliária)
@@ -78,7 +78,7 @@ const UsersPage: React.FC = () => {
             // Se for PJ, filtrar apenas os membros da mesma empresa (ou sem empresa?)
             if (myProfile?.role === 'PJ') {
                const myCompany = (myProfile.company_name || '').trim().toLowerCase();
-               console.log('🏢 Filtrando lista para PJ da empresa:', myCompany);
+               // Filtrando lista para PJ da empresa
                userList = userList.filter((u: any) => {
                   const userCompany = (u.company_name || '').trim().toLowerCase();
                   return userCompany === myCompany;
@@ -287,7 +287,7 @@ const UsersPage: React.FC = () => {
    const handleDeleteUser = async (user_id: string) => {
       if (!confirm('Deseja realmente excluir este usuário e todos os seus dados? Esta ação não pode ser desfeita.')) return;
       try {
-         console.log('🗑️ Solicitando exclusão do usuário:', user_id);
+
          const { data, error } = await supabase.functions.invoke('admin-dash', {
             body: {
                action: 'delete_user',
@@ -350,12 +350,12 @@ const UsersPage: React.FC = () => {
    };
 
    const handleUnlinkUser = async (user: UserProfile) => {
-      console.log('🔗 Tentando desvincular usuário:', user);
+
       if (!confirm(`Deseja realmente desvincular ${user.full_name} da sua equipe? Ele passará a ser um corretor independente e sairá da sua lista.`)) return;
 
       try {
          // TENTATIVA DIRETA: Bypass Edge Function issues
-         console.log('🔗 Tentando desvincular via Direct DB Update:', user.user_id);
+
 
          const { error } = await supabase
             .from('broker_profiles')

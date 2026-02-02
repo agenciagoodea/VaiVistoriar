@@ -110,7 +110,7 @@ const SettingsPage: React.FC = () => {
             return;
          }
 
-         console.log('Settings: Fetching profile for user:', user.id);
+
 
          // Fetch Profile
          const { data: profileData, error: profileError } = await supabase
@@ -126,7 +126,7 @@ const SettingsPage: React.FC = () => {
          }
 
          if (profileData) {
-            console.log('Settings: Profile loaded successfully');
+
             setUserRole(profileData.role);
             setProfile({
                full_name: profileData.full_name || '',

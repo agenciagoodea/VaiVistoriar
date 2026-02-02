@@ -28,7 +28,7 @@ const ReviewList: React.FC = () => {
         setReviews(prev => prev.map(r => r.id === id ? { ...r, is_approved: newStatus } : r));
 
         try {
-            console.log(`🔄 Sincronizando aprovação no banco [ID: ${id}]:`, newStatus);
+
 
             const { error } = await supabase
                 .from('system_reviews')
@@ -37,11 +37,11 @@ const ReviewList: React.FC = () => {
 
             if (error) throw error;
 
-            console.log('✅ Sincronização concluída com sucesso');
+
 
             // Feedback via toast/alert (opcional se a UI já mudou)
             if (newStatus) {
-                console.log('Avaliação aprovada e publicada!');
+
             }
         } catch (err: any) {
             console.error('❌ Erro na sincronização:', err);

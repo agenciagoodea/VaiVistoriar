@@ -14,7 +14,7 @@ const CheckoutSuccess: React.FC = () => {
 
     useEffect(() => {
         const handleSuccess = async () => {
-            console.log(`Pagamento ${paymentId} concluído com status ${status} para o usuário ${externalRef}`);
+
 
             if (status === 'approved') {
                 setActivating(true);
@@ -29,7 +29,7 @@ const CheckoutSuccess: React.FC = () => {
                         const result = await mercadopagoService.checkPaymentStatus(user.id, planId || '', paymentId || undefined);
 
                         if (result?.success || result?.paymentApproved) {
-                            console.log('Plano ativado/verificado com sucesso via API!');
+
                         } else {
                             console.warn('Pagamento não confirmado pela API ainda.');
                         }

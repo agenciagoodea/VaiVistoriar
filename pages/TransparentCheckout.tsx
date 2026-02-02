@@ -49,7 +49,7 @@ const TransparentCheckout: React.FC<{ plan: any; email: string }> = ({ plan, ema
                             onSubmit: (data: any) => {
                                 // Enviar dados de pagamento para sua Edge Function de Checkout Transparente
                                 return new Promise((resolve, reject) => {
-                                    console.log('Dados do Cartão enviando para o Backend:', data);
+
                                     // Aqui você chamaria: supabase.functions.invoke('process-transparent-payment', { body: data })
                                     alert('Demonstração: Os dados seriam processados via API agora.');
                                     resolve(true);

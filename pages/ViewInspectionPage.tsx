@@ -288,7 +288,7 @@ const ViewInspectionPage: React.FC = () => {
             // Vamos regenerar para garantir que seja a versão mais atual.
             try {
                 pdfUrl = await uploadPDF();
-                console.log('PDF Uploaded:', pdfUrl);
+                // PDF Uploaded log removed for production
             } catch (uploadErr) {
                 console.error('Erro ao fazer upload do PDF, usando link web:', uploadErr);
             }

@@ -34,7 +34,7 @@ const CookieConsent: React.FC = () => {
                 ip_address: null
             };
 
-            console.log('🍪 Tentando salvar consentimento de cookies:', consentData);
+
 
             // Log do aceite no banco
             const { error } = await supabase.from('cookie_consents').insert(consentData);
@@ -44,7 +44,7 @@ const CookieConsent: React.FC = () => {
                 throw error;
             }
 
-            console.log('✅ Consentimento salvo com sucesso!');
+
 
             localStorage.setItem('vpro_cookie_consent', 'true');
             setIsVisible(false);
