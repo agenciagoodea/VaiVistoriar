@@ -43,7 +43,9 @@ const SettingsPage: React.FC = () => {
    const [tips, setTips] = useState<string[]>([]);
    const [loading, setLoading] = useState(true);
    const [saving, setSaving] = useState(false);
+   const [error, setError] = useState<string | null>(null);
    const [uploading, setUploading] = useState<string | null>(null);
+   const [userRole, setUserRole] = useState<'ADMIN' | 'PJ' | 'BROKER' | null>(null);
 
    // Global Branding & Visuals (#globais)
    const [brand, setBrand] = useState({
@@ -99,70 +101,33 @@ const SettingsPage: React.FC = () => {
    }, []);
 
    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
       try {
          const { data: { user } } = await supabase.auth.getUser();
-         if (!user) return;
+         if (!user) {
+            console.error('Settings: No authenticated user found');
+            return;
+         }
+
+         console.log('Settings: Fetching profile for user:', user.id);
 
          // Fetch Profile
-         const { data: profileData } = await supabase
+         const { data: profileData, error: profileError } = await supabase
             .from('broker_profiles')
             .select('*')
             .eq('user_id', user.id)
             .single();
 
-         // Fetch Landing Page Configs
-         const { data: systemConfigs } = await supabase
-            .from('system_configs')
-            .select('*');
-
-         if (systemConfigs) {
-            const find = (key: string) => systemConfigs.find(c => c.key === key)?.value;
-
-            // Globais
-            setBrand({
-               primaryColor: find('home_primary_color') || '#4f46e5',
-               secondaryColor: find('home_secondary_color') || '#f8fafc',
-               logoUrl: find('home_logo_url') || '',
-               logoHeight: parseInt(find('home_logo_height') || '40'),
-               whatsappNumber: find('whatsapp_number') || '',
-               whatsappMessage: find('whatsapp_message') || 'Olá, gostaria de saber mais sobre o VaiVistoriar.',
-               footerText: find('home_footer_json') ? JSON.parse(find('home_footer_json')).col1_text : ''
-            });
-
-            // Recursos
-            const savedHero = find('home_hero_text_json');
-            if (savedHero) setHeroText(JSON.parse(savedHero));
-
-            const savedFeatures = find('home_features_json');
-            if (savedFeatures) setFeatures(JSON.parse(savedFeatures));
-
-            // Landing
-            const savedSliders = find('home_sliders_json');
-            if (savedSliders) setSliders(JSON.parse(savedSliders));
-
-            const savedSteps = find('home_steps_json');
-            if (savedSteps) setSteps(JSON.parse(savedSteps));
-
-            const savedTips = find('inspection_tips');
-            if (savedTips) setTips(typeof savedTips === 'string' ? JSON.parse(savedTips) : savedTips);
-
-            // Políticas
-            setPolicies({
-               terms: find('terms_content') || '',
-               privacy: find('privacy_content') || '',
-               cookieBanner: find('cookie_consent_text') || ''
-            });
+         if (profileError) {
+            console.error('Settings: Error fetching profile:', profileError);
+            setError('Não foi possível carregar os dados do perfil. Verifique as permissões do banco de dados (RLS).');
+            return;
          }
 
-         // Fetch LGPD Logs
-         const { data: consentData } = await supabase
-            .from('cookie_consents')
-            .select('*')
-            .order('accepted_at', { ascending: false })
-            .limit(20);
-         if (consentData) setLgpdLogs(consentData);
-
          if (profileData) {
+            console.log('Settings: Profile loaded successfully');
+            setUserRole(profileData.role);
             setProfile({
                full_name: profileData.full_name || '',
                email: profileData.email || '',
@@ -179,9 +144,58 @@ const SettingsPage: React.FC = () => {
                company_name: profileData.company_name || '',
                avatar_url: profileData.avatar_url || ''
             });
+
+            // Re-check Admin role from profile directly to ensure configs load
+            if (profileData.role === 'ADMIN') {
+               const { data: systemConfigs } = await supabase
+                  .from('system_configs')
+                  .select('*');
+
+               if (systemConfigs) {
+                  const find = (key: string) => systemConfigs.find(c => c.key === key)?.value;
+
+                  setBrand({
+                     primaryColor: find('home_primary_color') || '#4f46e5',
+                     secondaryColor: find('home_secondary_color') || '#f8fafc',
+                     logoUrl: find('home_logo_url') || '',
+                     logoHeight: parseInt(find('home_logo_height') || '40'),
+                     whatsappNumber: find('whatsapp_number') || '',
+                     whatsappMessage: find('whatsapp_message') || 'Olá, gostaria de saber mais sobre o VaiVistoriar.',
+                     footerText: find('home_footer_json') ? JSON.parse(find('home_footer_json')).col1_text : ''
+                  });
+
+                  const savedHero = find('home_hero_text_json');
+                  if (savedHero) setHeroText(JSON.parse(savedHero));
+                  const savedFeatures = find('home_features_json');
+                  if (savedFeatures) setFeatures(JSON.parse(savedFeatures));
+                  const savedSliders = find('home_sliders_json');
+                  if (savedSliders) setSliders(JSON.parse(savedSliders));
+                  const savedSteps = find('home_steps_json');
+                  if (savedSteps) setSteps(JSON.parse(savedSteps));
+                  const savedTips = find('inspection_tips');
+                  if (savedTips) setTips(typeof savedTips === 'string' ? JSON.parse(savedTips) : savedTips);
+
+                  setPolicies({
+                     terms: find('terms_content') || '',
+                     privacy: find('privacy_content') || '',
+                     cookieBanner: find('cookie_consent_text') || ''
+                  });
+               }
+
+               const { data: consentData } = await supabase
+                  .from('cookie_consents')
+                  .select('*')
+                  .order('accepted_at', { ascending: false })
+                  .limit(20);
+               if (consentData) setLgpdLogs(consentData);
+            }
+         } else {
+            console.warn('Settings: No profile data returned');
+            setError('Dados do perfil não encontrados.');
          }
-      } catch (err) {
-         console.error(err);
+      } catch (err: any) {
+         console.error('Settings: Unexpected error:', err);
+         setError(err.message || 'Erro inesperado ao carregar configurações.');
       } finally {
          setLoading(false);
       }
@@ -268,34 +282,36 @@ const SettingsPage: React.FC = () => {
          }, { onConflict: 'user_id' });
          if (profileError) throw profileError;
 
-         const configUpdates = [
-            { key: 'home_primary_color', value: brand.primaryColor },
-            { key: 'home_secondary_color', value: brand.secondaryColor },
-            { key: 'home_logo_url', value: brand.logoUrl },
-            { key: 'home_logo_height', value: brand.logoHeight.toString() },
-            { key: 'whatsapp_number', value: brand.whatsappNumber },
-            { key: 'whatsapp_message', value: brand.whatsappMessage },
-            { key: 'home_hero_text_json', value: JSON.stringify(heroText) },
-            { key: 'home_features_json', value: JSON.stringify(features) },
-            { key: 'home_sliders_json', value: JSON.stringify(sliders) },
-            { key: 'home_steps_json', value: JSON.stringify(steps) },
-            { key: 'inspection_tips', value: JSON.stringify(tips) },
-            { key: 'terms_content', value: policies.terms },
-            { key: 'privacy_content', value: policies.privacy },
-            { key: 'cookie_consent_text', value: policies.cookieBanner },
-            {
-               key: 'home_footer_json', value: JSON.stringify({
-                  col1_text: brand.footerText, col2_title: 'Plataforma',
-                  col2_links: [{ label: 'Funcionalidades', url: '#recursos' }, { label: 'Preços', url: '#planos' }],
-                  col3_title: 'Contato', col3_contact: 'suporte@vaivistoriar.com.br'
-               })
-            }
-         ];
+         if (userRole === 'ADMIN') {
+            const configUpdates = [
+               { key: 'home_primary_color', value: brand.primaryColor },
+               { key: 'home_secondary_color', value: brand.secondaryColor },
+               { key: 'home_logo_url', value: brand.logoUrl },
+               { key: 'home_logo_height', value: brand.logoHeight.toString() },
+               { key: 'whatsapp_number', value: brand.whatsappNumber },
+               { key: 'whatsapp_message', value: brand.whatsappMessage },
+               { key: 'home_hero_text_json', value: JSON.stringify(heroText) },
+               { key: 'home_features_json', value: JSON.stringify(features) },
+               { key: 'home_sliders_json', value: JSON.stringify(sliders) },
+               { key: 'home_steps_json', value: JSON.stringify(steps) },
+               { key: 'inspection_tips', value: JSON.stringify(tips) },
+               { key: 'terms_content', value: policies.terms },
+               { key: 'privacy_content', value: policies.privacy },
+               { key: 'cookie_consent_text', value: policies.cookieBanner },
+               {
+                  key: 'home_footer_json', value: JSON.stringify({
+                     col1_text: brand.footerText, col2_title: 'Plataforma',
+                     col2_links: [{ label: 'Funcionalidades', url: '#recursos' }, { label: 'Preços', url: '#planos' }],
+                     col3_title: 'Contato', col3_contact: 'suporte@vaivistoriar.com.br'
+                  })
+               }
+            ];
 
-         for (const up of configUpdates) {
-            await supabase.from('system_configs').upsert({ key: up.key, value: up.value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+            for (const up of configUpdates) {
+               await supabase.from('system_configs').upsert({ key: up.key, value: up.value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+            }
          }
-         alert('Configurações salvas!');
+         alert('Alterações salvas com sucesso!');
       } catch (err: any) {
          alert(`Erro: ${err.message}`);
       } finally {
@@ -313,192 +329,321 @@ const SettingsPage: React.FC = () => {
       }
    };
 
-   if (loading) return <div className="p-20 text-center font-black text-slate-300 animate-pulse uppercase tracking-[0.2em]">Carregando...</div>;
-
    return (
       <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
          <div className="flex items-center justify-between">
             <div>
-               <h1 className="text-3xl font-black text-slate-900 tracking-tight text-indigo-600">Configurações</h1>
-               <p className="text-slate-500 mt-1">Gerencie seu perfil e toda a plataforma.</p>
+               <h1 className="text-3xl font-black text-slate-900 tracking-tight text-blue-600">
+                  {userRole === 'ADMIN' ? 'Painel de Controle' : 'Meu Perfil'}
+               </h1>
+               <p className="text-slate-500 mt-1">
+                  {userRole === 'ADMIN' ? 'Gerencie as configurações globais e seu perfil.' : 'Mantenha seus dados atualizados.'}
+               </p>
             </div>
-            <button onClick={handleSaveAll} disabled={saving} className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50">
-               {saving ? 'Gravando...' : 'Salvar Tudo'}
-            </button>
+
+            <div className="flex items-center gap-4">
+               {loading && (
+                  <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
+                     <span className="w-4 h-4 border-2 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></span>
+                     Carregando...
+                  </div>
+               )}
+               <button onClick={handleSaveAll} disabled={saving || loading} className="px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-200 transition-all active:scale-95 disabled:opacity-50">
+                  {saving ? 'Gravando...' : 'Salvar Alterações'}
+               </button>
+            </div>
          </div>
 
+         {error && (
+            <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+               <span className="material-symbols-outlined text-rose-500">error</span>
+               <div className="flex-1">
+                  <p className="text-sm font-bold text-rose-700">{error}</p>
+                  <p className="text-[10px] text-rose-500 font-medium uppercase tracking-tight mt-0.5">
+                     Isso pode ser resolvido aplicando as novas políticas de RLS no banco de dados.
+                  </p>
+               </div>
+               <button onClick={fetchData} className="px-3 py-1.5 bg-rose-100 text-rose-700 text-[10px] font-black uppercase rounded-lg hover:bg-rose-200">Retentar</button>
+            </div>
+         )}
+
          <div className="grid gap-12">
-            {/* 1. GLOBALS */}
-            <div id="globais" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
-               <div className="flex items-center gap-4 text-slate-800">
-                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
-                     <span className="material-symbols-outlined text-3xl">settings</span>
+            {/* SEÇÃO PRINCIPAL: PERFIL (Visível para todos, mas estilizada) */}
+            <div className="bg-white rounded-[40px] border border-slate-100 shadow-xl overflow-hidden">
+               <div className="p-8 border-b border-slate-50 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+                     <span className="material-symbols-outlined text-3xl">person</span>
                   </div>
                   <div>
-                     <h2 className="text-xl font-black uppercase tracking-tight">1. Configurações Globais</h2>
-                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Identidade, WhatsApp e Rodapé</p>
+                     <h2 className="text-xl font-black uppercase tracking-tight">Informações Profissionais</h2>
+                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Seus dados de identificação no sistema</p>
                   </div>
                </div>
-               <div className="grid md:grid-cols-2 gap-10">
-                  <div className="space-y-6">
-                     <div className="space-y-4">
-                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Logo</label>
-                        <div className="flex items-center gap-6">
-                           <div className="w-24 h-24 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center relative overflow-hidden group">
-                              {brand.logoUrl ? <img src={brand.logoUrl} className="max-w-[80%] max-h-[80%] object-contain" /> : <span className="material-symbols-outlined text-slate-300 text-3xl">image</span>}
-                              <label className="absolute inset-0 bg-indigo-600/80 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer text-white">
-                                 <span className="material-symbols-outlined">upload</span>
-                                 <input type="file" className="hidden" accept="image/*" onChange={e => handleAvatarUpload(e, 'logo')} />
-                              </label>
+
+               <div className="p-10 space-y-10">
+                  {/* Avatar Upload */}
+                  <div className="flex flex-col items-center justify-center space-y-4 pb-4 border-b border-slate-50">
+                     <div className="relative group">
+                        <div className="w-40 h-40 rounded-full border-4 border-slate-50 overflow-hidden shadow-2xl relative">
+                           {profile.avatar_url ? (
+                              <img src={profile.avatar_url} className="w-full h-full object-cover" />
+                           ) : (
+                              <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300">
+                                 <span className="material-symbols-outlined text-[80px]">person</span>
+                              </div>
+                           )}
+                           {uploading === 'profile' && (
+                              <div className="absolute inset-0 bg-white/80 flex items-center justify-center animate-pulse">
+                                 <span className="material-symbols-outlined text-blue-600 animate-spin">sync</span>
+                              </div>
+                           )}
+                        </div>
+                        <label className="absolute bottom-2 right-2 w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg cursor-pointer transform hover:scale-110 active:scale-95 transition-all">
+                           <span className="material-symbols-outlined text-xl">photo_camera</span>
+                           <input type="file" className="hidden" accept="image/*" onChange={e => handleAvatarUpload(e, 'avatar')} />
+                        </label>
+                     </div>
+                     <p className="text-[10px] font-black uppercase text-slate-400">Clique na câmera para mudar sua foto</p>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-8">
+                     <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nome Completo</label>
+                        <input type="text" value={profile.full_name} onChange={e => setProfile({ ...profile, full_name: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/5 transition-all" />
+                     </div>
+                     <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">E-mail</label>
+                        <input type="email" value={profile.email} readOnly className="w-full px-5 py-3.5 bg-slate-100 border border-slate-200 rounded-2xl text-sm font-bold text-slate-400 cursor-not-allowed" />
+                     </div>
+                     <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">CPF/CNPJ</label>
+                        <input type="text" value={profile.cpf_cnpj} onChange={e => setProfile({ ...profile, cpf_cnpj: formatCpfCnpj(e.target.value) })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/5 transition-all" />
+                     </div>
+                     <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Telefone</label>
+                        <input type="text" value={profile.phone} onChange={e => setProfile({ ...profile, phone: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/5 transition-all" />
+                     </div>
+
+                     {userRole === 'PJ' && (
+                        <div className="space-y-1 md:col-span-2">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nome da Empresa / Imobiliária</label>
+                           <input type="text" value={profile.company_name} onChange={e => setProfile({ ...profile, company_name: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/5 transition-all" />
+                        </div>
+                     )}
+
+                     {userRole === 'BROKER' && (
+                        <div className="space-y-1 md:col-span-2">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">CRECI (Opcional)</label>
+                           <input type="text" value={profile.creci} onChange={e => setProfile({ ...profile, creci: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/5 transition-all" />
+                        </div>
+                     )}
+                  </div>
+
+                  {/* Endereço */}
+                  <div className="pt-8 border-t border-slate-50 space-y-6">
+                     <h3 className="text-xs font-black uppercase text-slate-900 tracking-widest">Endereço</h3>
+                     <div className="grid md:grid-cols-4 gap-6">
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">CEP</label>
+                           <input type="text" value={profile.cep} onBlur={handleCEPBlur} onChange={e => setProfile({ ...profile, cep: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" />
+                        </div>
+                        <div className="md:col-span-3 space-y-1">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Logradouro</label>
+                           <input type="text" value={profile.street} onChange={e => setProfile({ ...profile, street: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Número</label>
+                           <input type="text" value={profile.number} onChange={e => setProfile({ ...profile, number: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Complemento</label>
+                           <input type="text" value={profile.complement} onChange={e => setProfile({ ...profile, complement: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Cidade</label>
+                           <input type="text" value={profile.city} onChange={e => setProfile({ ...profile, city: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Estado</label>
+                           <input type="text" value={profile.state} onChange={e => setProfile({ ...profile, state: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-center" />
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+            {/* CONFIGURAÇÕES DO ADMINISTRADOR (Apenas se ADMIN) */}
+            {userRole === 'ADMIN' && (
+               <div className="space-y-12 animate-in slide-in-from-top-4 duration-700">
+                  {/* Branding e Visuals */}
+                  <div id="globais" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
+                     <div className="flex items-center gap-4 text-slate-800">
+                        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
+                           <span className="material-symbols-outlined text-3xl">palette</span>
+                        </div>
+                        <div>
+                           <h2 className="text-xl font-black uppercase tracking-tight">Branding & Identidade</h2>
+                           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Cores, Logo e Contato</p>
+                        </div>
+                     </div>
+                     <div className="grid md:grid-cols-2 gap-10">
+                        <div className="space-y-6">
+                           <div className="space-y-4">
+                              <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Logo</label>
+                              <div className="flex items-center gap-6">
+                                 <div className="w-24 h-24 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center relative overflow-hidden group">
+                                    {brand.logoUrl ? <img src={brand.logoUrl} className="max-w-[80%] max-h-[80%] object-contain" /> : <span className="material-symbols-outlined text-slate-300 text-3xl">image</span>}
+                                    <label className="absolute inset-0 bg-indigo-600/80 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer text-white">
+                                       <span className="material-symbols-outlined">upload</span>
+                                       <input type="file" className="hidden" accept="image/*" onChange={e => handleAvatarUpload(e, 'logo')} />
+                                    </label>
+                                 </div>
+                                 <div className="flex-1 space-y-4">
+                                    <label className="text-[10px] font-black uppercase text-slate-400">Altura Logo (px)</label>
+                                    <input type="number" value={brand.logoHeight} onChange={e => setBrand({ ...brand, logoHeight: parseInt(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 rounded-xl text-sm font-bold border border-slate-100" />
+                                 </div>
+                              </div>
                            </div>
-                           <div className="flex-1 space-y-4">
-                              <label className="text-[10px] font-black uppercase text-slate-400">Altura Logo (px)</label>
-                              <input type="number" value={brand.logoHeight} onChange={e => setBrand({ ...brand, logoHeight: parseInt(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 rounded-xl text-sm font-bold border border-slate-100" />
+                           <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                 <label className="text-[10px] font-black uppercase text-slate-400">Primária</label>
+                                 <input type="color" value={brand.primaryColor} onChange={e => setBrand({ ...brand, primaryColor: e.target.value })} className="w-full h-10 rounded-xl cursor-pointer" />
+                              </div>
+                              <div className="space-y-1.5">
+                                 <label className="text-[10px] font-black uppercase text-slate-400">Secundária</label>
+                                 <input type="color" value={brand.secondaryColor} onChange={e => setBrand({ ...brand, secondaryColor: e.target.value })} className="w-full h-10 rounded-xl cursor-pointer" />
+                              </div>
                            </div>
                         </div>
-                     </div>
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                           <label className="text-[10px] font-black uppercase text-slate-400">Pimária</label>
-                           <input type="color" value={brand.primaryColor} onChange={e => setBrand({ ...brand, primaryColor: e.target.value })} className="w-full h-10 rounded-xl cursor-pointer" />
-                        </div>
-                        <div className="space-y-1.5">
-                           <label className="text-[10px] font-black uppercase text-slate-400">Secundária</label>
-                           <input type="color" value={brand.secondaryColor} onChange={e => setBrand({ ...brand, secondaryColor: e.target.value })} className="w-full h-10 rounded-xl cursor-pointer" />
-                        </div>
-                     </div>
-                  </div>
-                  <div className="space-y-6">
-                     <div className="space-y-4">
-                        <input type="text" placeholder="WhatsApp (55...)" value={brand.whatsappNumber} onChange={e => setBrand({ ...brand, whatsappNumber: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-100" />
-                        <input type="text" placeholder="Mensagem Inicial" value={brand.whatsappMessage} onChange={e => setBrand({ ...brand, whatsappMessage: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm border border-slate-100" />
-                     </div>
-                     <textarea placeholder="Texto do Rodapé" rows={3} value={brand.footerText} onChange={e => setBrand({ ...brand, footerText: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm border border-slate-100 resize-none" />
-                  </div>
-               </div>
-            </div>
-
-            {/* 2. FEATURES */}
-            <div id="recursos" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
-               <div className="flex items-center gap-4 text-slate-800">
-                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
-                     <span className="material-symbols-outlined text-3xl">layers</span>
-                  </div>
-                  <div>
-                     <h2 className="text-xl font-black uppercase tracking-tight">2. Recursos do Sistema</h2>
-                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Texto Hero e Cards</p>
-                  </div>
-               </div>
-               <div className="space-y-8">
-                  <div className="grid md:grid-cols-2 gap-6">
-                     <input type="text" placeholder="Título Hero" value={heroText.title} onChange={e => setHeroText({ ...heroText, title: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm font-black border border-slate-100" />
-                     <input type="text" placeholder="Destaque" value={heroText.highlight} onChange={e => setHeroText({ ...heroText, highlight: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-100 text-indigo-600" />
-                     <textarea placeholder="Descrição Hero" rows={2} className="md:col-span-2 w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm border border-slate-100" value={heroText.description} onChange={e => setHeroText({ ...heroText, description: e.target.value })} />
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-6">
-                     {features.map((f, i) => (
-                        <div key={f.id} className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 relative space-y-4">
-                           <button onClick={() => removeFeature(i)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500"><span className="material-symbols-outlined text-sm">close</span></button>
-                           <div className="flex items-center gap-3">
-                              <span className="material-symbols-outlined text-indigo-600 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">{f.icon}</span>
-                              <input type="text" value={f.title} onChange={e => updateFeature(i, 'title', e.target.value)} className="flex-1 bg-white px-4 py-2 rounded-xl text-xs font-black border border-slate-100" />
+                        <div className="space-y-6">
+                           <div className="space-y-4">
+                              <input type="text" placeholder="WhatsApp (55...)" value={brand.whatsappNumber} onChange={e => setBrand({ ...brand, whatsappNumber: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-100" />
+                              <input type="text" placeholder="Mensagem Inicial" value={brand.whatsappMessage} onChange={e => setBrand({ ...brand, whatsappMessage: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm border border-slate-100" />
                            </div>
-                           <textarea value={f.desc} onChange={e => updateFeature(i, 'desc', e.target.value)} rows={2} className="w-full bg-white px-4 py-2 rounded-xl text-xs border border-slate-100" />
-                           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                              {ICON_BASE.map(icon => <button key={icon} onClick={() => updateFeature(i, 'icon', icon)} className={`p-1.5 rounded-lg ${f.icon === icon ? 'bg-indigo-600 text-white' : 'bg-white text-slate-300'}`}><span className="material-symbols-outlined text-[16px]">{icon}</span></button>)}
+                           <textarea placeholder="Texto do Rodapé" rows={3} value={brand.footerText} onChange={e => setBrand({ ...brand, footerText: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm border border-slate-100 resize-none" />
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* 2. FEATURES */}
+                  <div id="recursos" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
+                     <div className="flex items-center gap-4 text-slate-800">
+                        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
+                           <span className="material-symbols-outlined text-3xl">layers</span>
+                        </div>
+                        <div>
+                           <h2 className="text-xl font-black uppercase tracking-tight">Recursos do Site</h2>
+                           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Texto Hero e Cards Informativos</p>
+                        </div>
+                     </div>
+                     <div className="space-y-8">
+                        <div className="grid md:grid-cols-2 gap-6">
+                           <input type="text" placeholder="Título Hero" value={heroText.title} onChange={e => setHeroText({ ...heroText, title: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm font-black border border-slate-100" />
+                           <input type="text" placeholder="Destaque" value={heroText.highlight} onChange={e => setHeroText({ ...heroText, highlight: e.target.value })} className="w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-100 text-indigo-600" />
+                           <textarea placeholder="Descrição Hero" rows={2} className="md:col-span-2 w-full px-5 py-3.5 bg-slate-50 rounded-2xl text-sm border border-slate-100" value={heroText.description} onChange={e => setHeroText({ ...heroText, description: e.target.value })} />
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-6">
+                           {features.map((f, i) => (
+                              <div key={f.id} className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 relative space-y-4">
+                                 <button onClick={() => removeFeature(i)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500"><span className="material-symbols-outlined text-sm">close</span></button>
+                                 <div className="flex items-center gap-3">
+                                    <span className="material-symbols-outlined text-indigo-600 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">{f.icon}</span>
+                                    <input type="text" value={f.title} onChange={e => updateFeature(i, 'title', e.target.value)} className="flex-1 bg-white px-4 py-2 rounded-xl text-xs font-black border border-slate-100" />
+                                 </div>
+                                 <textarea value={f.desc} onChange={e => updateFeature(i, 'desc', e.target.value)} rows={2} className="w-full bg-white px-4 py-2 rounded-xl text-xs border border-slate-100" />
+                                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                                    {ICON_BASE.map(icon => <button key={icon} onClick={() => updateFeature(i, 'icon', icon)} className={`p-1.5 rounded-lg ${f.icon === icon ? 'bg-indigo-600 text-white' : 'bg-white text-slate-300'}`}><span className="material-symbols-outlined text-[16px]">{icon}</span></button>)}
+                                 </div>
+                              </div>
+                           ))}
+                           <button onClick={addFeature} className="md:col-span-2 py-4 border-2 border-dashed border-slate-100 rounded-[32px] text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:bg-slate-50">+ Adicionar Card</button>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* 3. SLIDES */}
+                  <div id="slides" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">view_carousel</span></div>
+                           <h2 className="text-xl font-black uppercase tracking-tight">Slides da Home</h2>
+                        </div>
+                        <button onClick={() => setSliders([...sliders, { id: Date.now().toString(), badge: 'Novo', title: 'Título', subtitle: '...', image: '' }])} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase">+ Adicionar</button>
+                     </div>
+                     <div className="grid md:grid-cols-2 gap-6">
+                        {sliders.map(s => (
+                           <div key={s.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[32px] space-y-4">
+                              <input type="text" value={s.title} onChange={e => setSliders(sliders.map(sl => sl.id === s.id ? { ...sl, title: e.target.value } : sl))} className="w-full bg-white px-4 py-2 rounded-xl font-black text-xs border border-slate-100" />
+                              <div className="h-24 bg-white rounded-2xl border border-slate-100 overflow-hidden relative cursor-pointer" onClick={() => (document.getElementById('up-' + s.id) as any).click()}>
+                                 {s.image ? <img src={s.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-200"><span className="material-symbols-outlined">image</span></div>}
+                                 <input type="file" id={'up-' + s.id} className="hidden" onChange={e => handleAvatarUpload(e, 'slider', s.id)} />
+                              </div>
                            </div>
-                        </div>
-                     ))}
-                     <button onClick={addFeature} className="md:col-span-2 py-4 border-2 border-dashed border-slate-100 rounded-[32px] text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:bg-slate-50">+ Adicionar Card</button>
+                        ))}
+                     </div>
                   </div>
-               </div>
-            </div>
 
-            {/* 3. SLIDES */}
-            <div id="slides" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">view_carousel</span></div>
-                     <h2 className="text-xl font-black uppercase tracking-tight">3. Slides</h2>
+                  {/* 4. PASSOS */}
+                  <div id="passos" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
+                     <div className="flex items-center gap-4 text-orange-600">
+                        <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">timeline</span></div>
+                        <h2 className="text-xl font-black uppercase">Passo a Passo</h2>
+                     </div>
+                     <div className="grid md:grid-cols-2 gap-6">
+                        {steps.map(st => (
+                           <div key={st.id} className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 space-y-2">
+                              <input type="text" value={st.title} onChange={e => setSteps(steps.map(item => item.id === st.id ? { ...item, title: e.target.value } : item))} className="w-full bg-white px-4 py-2 rounded-xl text-xs font-black border border-slate-100" />
+                              <textarea value={st.desc} onChange={e => setSteps(steps.map(item => item.id === st.id ? { ...item, desc: e.target.value } : item))} className="w-full bg-white px-4 py-2 rounded-xl text-[10px] border border-slate-100 resize-none" />
+                           </div>
+                        ))}
+                     </div>
                   </div>
-                  <button onClick={() => setSliders([...sliders, { id: Date.now().toString(), badge: 'Novo', title: 'Título', subtitle: '...', image: '' }])} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase">+ Adicionar</button>
-               </div>
-               <div className="grid md:grid-cols-2 gap-6">
-                  {sliders.map(s => (
-                     <div key={s.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[32px] space-y-4">
-                        <input type="text" value={s.title} onChange={e => setSliders(sliders.map(sl => sl.id === s.id ? { ...sl, title: e.target.value } : sl))} className="w-full bg-white px-4 py-2 rounded-xl font-black text-xs border border-slate-100" />
-                        <div className="h-24 bg-white rounded-2xl border border-slate-100 overflow-hidden relative cursor-pointer" onClick={() => (document.getElementById('up-' + s.id) as any).click()}>
-                           {s.image ? <img src={s.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-200"><span className="material-symbols-outlined">image</span></div>}
-                           <input type="file" id={'up-' + s.id} className="hidden" onChange={e => handleAvatarUpload(e, 'slider', s.id)} />
+
+                  {/* 5. DICAS */}
+                  <div id="dicas" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
+                     <div className="flex items-center gap-4 text-emerald-600">
+                        <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">lightbulb</span></div>
+                        <h2 className="text-xl font-black uppercase">Dicas de Vistoria</h2>
+                     </div>
+                     <div className="grid md:grid-cols-2 gap-4">
+                        {tips.map((tip, i) => <input key={i} value={tip} onChange={e => updateTip(i, e.target.value)} className="bg-slate-50 px-5 py-3 rounded-2xl text-xs border border-slate-100" />)}
+                        <button onClick={() => setTips([...tips, ''])} className="md:col-span-2 py-3 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-bold text-slate-300 uppercase tracking-widest">+ Nova Dica</button>
+                     </div>
+                  </div>
+
+                  {/* 6. AVALIAÇÕES */}
+                  <div id="avaliacoes" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-pink-600">
+                           <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">star</span></div>
+                           <h2 className="text-xl font-black uppercase">Avaliações de Clientes</h2>
+                        </div>
+                        <button onClick={handleRequestEvaluation} className="px-6 py-2.5 bg-pink-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-pink-100 transition-all hover:bg-black">SOLICITAR A TODOS</button>
+                     </div>
+                     <ReviewList />
+                  </div>
+
+                  {/* 7. POLÍTICAS & LGPD */}
+                  <div id="politicas" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
+                     <div className="flex items-center gap-4 text-blue-800">
+                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">gavel</span></div>
+                        <div><h2 className="text-xl font-black uppercase">Políticas & LGPD</h2></div>
+                     </div>
+                     <div className="space-y-6">
+                        <textarea value={policies.terms} onChange={e => setPolicies({ ...policies, terms: e.target.value })} placeholder="Termos de Uso" rows={5} className="w-full bg-slate-50 px-5 py-3.5 rounded-2xl text-xs border border-slate-100" />
+                        <textarea value={policies.privacy} onChange={e => setPolicies({ ...policies, privacy: e.target.value })} placeholder="Política de Privacidade" rows={5} className="w-full bg-slate-50 px-5 py-3.5 rounded-2xl text-xs border border-slate-100" />
+                        <div className="overflow-x-auto rounded-3xl border border-slate-100">
+                           <table className="w-full text-left text-[10px]">
+                              <thead className="bg-slate-50 text-slate-400 font-black uppercase"><tr><th className="px-6 py-4">Data</th><th className="px-6 py-4">Sessão</th></tr></thead>
+                              <tbody className="divide-y divide-slate-100">
+                                 {lgpdLogs.map(log => <tr key={log.id}><td className="px-6 py-4 font-bold">{new Date(log.accepted_at).toLocaleString('pt-BR')}</td><td className="px-6 py-4 font-mono text-slate-300">{log.session_id}</td></tr>)}
+                              </tbody>
+                           </table>
                         </div>
                      </div>
-                  ))}
-               </div>
-            </div>
-
-            {/* 4. PASSOS */}
-            <div id="passos" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4"><div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">timeline</span></div><h2 className="text-xl font-black uppercase">4. Passo a Passo</h2></div>
-               </div>
-               <div className="grid md:grid-cols-2 gap-6">
-                  {steps.map(st => (
-                     <div key={st.id} className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 space-y-2">
-                        <input type="text" value={st.title} onChange={e => setSteps(steps.map(item => item.id === st.id ? { ...item, title: e.target.value } : item))} className="w-full bg-white px-4 py-2 rounded-xl text-xs font-black border border-slate-100" />
-                        <textarea value={st.desc} onChange={e => setSteps(steps.map(item => item.id === st.id ? { ...item, desc: e.target.value } : item))} className="w-full bg-white px-4 py-2 rounded-xl text-[10px] border border-slate-100 resize-none" />
-                     </div>
-                  ))}
-               </div>
-            </div>
-
-            {/* 5. DICAS */}
-            <div id="dicas" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
-               <div className="flex items-center gap-4"><div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">lightbulb</span></div><h2 className="text-xl font-black uppercase">5. Dicas</h2></div>
-               <div className="grid md:grid-cols-2 gap-4">
-                  {tips.map((tip, i) => <input key={i} value={tip} onChange={e => updateTip(i, e.target.value)} className="bg-slate-50 px-5 py-3 rounded-2xl text-xs border border-slate-100" />)}
-                  <button onClick={() => setTips([...tips, ''])} className="md:col-span-2 py-3 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-bold text-slate-300 uppercase">+ Nova Dica</button>
-               </div>
-            </div>
-
-            {/* 6. AVALIAÇÕES */}
-            <div id="avaliacoes" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4"><div className="w-12 h-12 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">star</span></div><h2 className="text-xl font-black uppercase">6. Avaliações</h2></div>
-                  <button onClick={handleRequestEvaluation} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all hover:bg-black">SOLICITAR A TODOS</button>
-               </div>
-               <ReviewList />
-            </div>
-
-            {/* 7. POLÍTICAS & LGPD */}
-            <div id="politicas" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
-               <div className="flex items-center gap-4 text-slate-800">
-                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">gavel</span></div>
-                  <div><h2 className="text-xl font-black uppercase">7. Políticas & Logs LGPD</h2></div>
-               </div>
-               <div className="space-y-6">
-                  <textarea value={policies.terms} onChange={e => setPolicies({ ...policies, terms: e.target.value })} placeholder="Termos de Uso" rows={5} className="w-full bg-slate-50 px-5 py-3.5 rounded-2xl text-xs border border-slate-100" />
-                  <textarea value={policies.privacy} onChange={e => setPolicies({ ...policies, privacy: e.target.value })} placeholder="Política de Privacidade" rows={5} className="w-full bg-slate-50 px-5 py-3.5 rounded-2xl text-xs border border-slate-100" />
-                  <div className="overflow-x-auto rounded-3xl border border-slate-100">
-                     <table className="w-full text-left text-[10px]">
-                        <thead className="bg-slate-50 text-slate-400 font-black uppercase"><tr><th className="px-6 py-4">Data</th><th className="px-6 py-4">Sessão</th></tr></thead>
-                        <tbody className="divide-y divide-slate-100">
-                           {lgpdLogs.map(log => <tr key={log.id}><td className="px-6 py-4 font-bold">{new Date(log.accepted_at).toLocaleString('pt-BR')}</td><td className="px-6 py-4 font-mono text-slate-300">{log.session_id}</td></tr>)}
-                        </tbody>
-                     </table>
                   </div>
                </div>
-            </div>
-
-            {/* PERFIL (OLD SECTION 0) */}
-            <div id="perfil" className="bg-white rounded-[40px] border border-slate-100 shadow-xl p-10 space-y-10">
-               <div className="flex items-center gap-4"><div className="w-12 h-12 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center"><span className="material-symbols-outlined text-3xl">person</span></div><h2 className="text-xl font-black uppercase text-slate-400">Dados do Perfil</h2></div>
-               <div className="grid md:grid-cols-2 gap-6 opacity-60">
-                  <input type="text" value={profile.full_name} onChange={e => setProfile({ ...profile, full_name: e.target.value })} className="bg-slate-50 px-5 py-3.5 rounded-2xl text-sm font-bold border border-slate-100" placeholder="Nome Completo" />
-                  <input type="text" value={profile.company_name} onChange={e => setProfile({ ...profile, company_name: e.target.value })} className="bg-slate-50 px-5 py-3.5 rounded-2xl text-sm font-bold border border-slate-100" placeholder="Empresa/Imobiliária" />
-                  <input type="text" value={profile.phone} onChange={e => setProfile({ ...profile, phone: e.target.value })} className="bg-slate-50 px-5 py-3.5 rounded-2xl text-sm font-bold border border-slate-100" placeholder="Telefone" />
-                  <input type="text" value={profile.cpf_cnpj} onChange={e => setProfile({ ...profile, cpf_cnpj: formatCpfCnpj(e.target.value) })} className="bg-slate-50 px-5 py-3.5 rounded-2xl text-sm font-bold border border-slate-100" placeholder="CPF/CNPJ" />
-               </div>
-            </div>
+            )}
          </div>
       </div>
    );

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { formatCpfCnpj } from '../lib/utils';
 
 const ViewInspectionPage: React.FC = () => {
     const { id } = useParams();
@@ -38,11 +39,35 @@ const ViewInspectionPage: React.FC = () => {
 
             if (error) throw error;
 
-            // Normalizar retornos do Supabase (garantir objeto em vez de array)
             if (data) {
                 if (data.property && Array.isArray(data.property)) data.property = data.property[0];
                 if (data.lessor && Array.isArray(data.lessor)) data.lessor = data.lessor[0];
                 if (data.lessee && Array.isArray(data.lessee)) data.lessee = data.lessee[0];
+
+                // Fetch broker profile
+                const { data: brokerProfile } = await supabase
+                    .from('broker_profiles')
+                    .select('*')
+                    .eq('user_id', data.user_id)
+                    .single();
+
+                if (brokerProfile) {
+                    data.broker_data = brokerProfile;
+
+                    // If broker belongs to a company, fetch PJ profile for logo
+                    if (brokerProfile.company_name) {
+                        const { data: companyProfile } = await supabase
+                            .from('broker_profiles')
+                            .select('*')
+                            .eq('role', 'PJ')
+                            .eq('company_name', brokerProfile.company_name)
+                            .maybeSingle();
+
+                        if (companyProfile) {
+                            data.company_data = companyProfile;
+                        }
+                    }
+                }
             }
 
             setInspection(data);
@@ -369,23 +394,89 @@ const ViewInspectionPage: React.FC = () => {
             {/* Document Container - COMPACT LAYOUT */}
             <div id="inspection-report" ref={reportRef} className="bg-white border border-slate-200 shadow-xl rounded-[2px] overflow-hidden font-['Inter'] text-xs">
 
-                {/* HEAD */}
-                <div className="report-header p-6 border-b-4 border-blue-600 bg-slate-50 flex flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white shadow-md bg-white">
-                            <img src={inspection.broker_data?.avatar_url || 'https://via.placeholder.com/100'} className="w-full h-full object-cover" />
+                {/* Compact Header (2-Row Layout) */}
+                <div className="report-header p-6 md:p-8 border-b-2 border-blue-600 bg-white">
+                    {/* Row 1: Top section with Company (Left) and Broker (Right) */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
+                        {/* Company Identity (Left) */}
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 flex items-center justify-center p-1.5 shrink-0">
+                                {inspection.company_data?.avatar_url || inspection.broker_data?.avatar_url ? (
+                                    <img
+                                        src={inspection.company_data?.avatar_url || inspection.broker_data?.avatar_url}
+                                        className="max-w-full max-h-full object-contain"
+                                        alt="Logo da Empresa"
+                                    />
+                                ) : (
+                                    <span className="material-symbols-outlined text-slate-300 text-3xl">business</span>
+                                )}
+                            </div>
+                            <div className="space-y-0.5">
+                                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-none">
+                                    {inspection.company_data?.company_name || inspection.broker_data?.company_name || 'Vistoria Profissional'}
+                                </h2>
+                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">
+                                    CNPJ: {formatCpfCnpj(inspection.company_data?.cpf_cnpj || inspection.broker_data?.cpf_cnpj || '')}
+                                </p>
+                                <div className="text-slate-400 text-[9px] font-semibold flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-0.5 mt-1">
+                                    <span className="flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[10px] text-blue-500">phone</span>
+                                        {inspection.company_data?.phone || inspection.broker_data?.phone || '---'}
+                                    </span>
+                                    <span className="hidden sm:inline border-l border-slate-200 h-2" />
+                                    <span className="flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[12px] text-slate-300">location_on</span>
+                                        {inspection.company_data?.street}, {inspection.company_data?.number} {inspection.company_data?.city}/{inspection.company_data?.state}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{inspection.broker_data?.company_name || 'Vistoria Profissional'}</h2>
-                            <p className="text-blue-600 font-bold text-xs">{inspection.broker_data?.full_name} • CRECI {inspection.broker_data?.creci}</p>
-                            <p className="text-slate-400 text-[10px]">{inspection.broker_data?.phone}</p>
+
+                        {/* Broker Details (Right) */}
+                        <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 self-end md:self-auto ml-auto md:ml-0">
+                            <div className="text-right">
+                                <p className="text-[7px] font-black text-blue-600 uppercase tracking-widest leading-none">Vistoriador</p>
+                                <p className="text-[10px] font-black text-slate-900 uppercase mt-0.5 leading-tight">{inspection.broker_data?.full_name}</p>
+                                <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                                    <span className="text-[9px] font-bold text-slate-400">CRECI {inspection.broker_data?.creci || '---'}</span>
+                                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                    <span className="text-[8px] font-medium text-slate-400 lowercase">{inspection.broker_data?.email}</span>
+                                </div>
+                            </div>
+                            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm shrink-0">
+                                <img src={inspection.broker_data?.avatar_url || 'https://via.placeholder.com/100'} className="w-full h-full object-cover" alt="Avatar Vistoriador" />
+                            </div>
                         </div>
                     </div>
-                    <div className="text-right flex flex-col items-end">
-                        <div className="inline-block px-6 py-1.5 bg-blue-600 text-white rounded-md font-black text-xs uppercase tracking-widest mb-2 shadow-sm shadow-blue-200">
-                            {inspection.report_type}
+
+                    {/* Row 2: Bottom bar with Report Info (Single organized line) */}
+                    <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="px-3 py-1 bg-slate-900 text-white rounded-lg font-black text-[9px] uppercase tracking-[0.1em]">
+                                {inspection.report_type}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Tipo:</span>
+                                <span className="text-[9px] font-black text-blue-600 uppercase italic">{inspection.type}</span>
+                            </div>
                         </div>
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">Emissão: {new Date().toLocaleDateString('pt-BR')}</p>
+
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Emissão:</span>
+                                <span className="text-[9px] font-black text-slate-700">{new Date(inspection.created_at || new Date()).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">ID:</span>
+                                <span className="text-[9px] font-mono font-black text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">
+                                    #{inspection.id.split('-')[0].toUpperCase()}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-100">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">Finalizado</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

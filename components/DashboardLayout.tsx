@@ -44,17 +44,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
     { label: 'Minhas Vistorias', path: '/inspections', icon: 'assignment' },
     { label: 'Meus Imóveis', path: '/properties', icon: 'apartment' },
     { label: 'Clientes', path: '/clients', icon: 'groups' },
-    { label: 'Configurações', path: '/settings', icon: 'settings' },
+    { label: 'Meu Perfil', path: '/settings', icon: 'person' },
   ];
 
   const pjMenu = [
     { label: 'Dashboard', path: '/pj', icon: 'dashboard' },
-    { label: 'Corretores', path: '/users', icon: 'group' },
+    { label: 'Equipe', path: '/team', icon: 'group' },
     { label: 'Minhas Vistorias', path: '/inspections', icon: 'assignment' },
     { label: 'Meus Imóveis', path: '/properties', icon: 'apartment' },
     { label: 'Clientes', path: '/clients', icon: 'groups' },
     { label: 'Plano', path: '/broker/plan', icon: 'credit_card' },
-    { label: 'Configurações', path: '/settings', icon: 'settings' },
+    { label: 'Meu Perfil', path: '/settings', icon: 'person' },
   ];
 
   const [isConfigOpen, setIsConfigOpen] = useState(location.pathname.startsWith('/admin/'));
@@ -245,7 +245,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
               {isActive('/clients') && 'Gestão de Clientes'}
               {isActive('/clients/new') && 'Novo Cliente'}
               {isActive('/clients/edit') && 'Modificar Dados'}
-              {isActive('/users') && 'Membros'}
+              {(isActive('/users') || isActive('/team')) && 'Membros'}
               {isActive('/admin/seo') && 'SEO e Indexação'}
               {isActive('/settings') && 'Configurações'}
             </h2>

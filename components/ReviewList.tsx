@@ -22,16 +22,32 @@ const ReviewList: React.FC = () => {
     }, []);
 
     const handleToggleApproval = async (id: string, currentStatus: boolean) => {
+        const newStatus = !currentStatus;
+
+        // 1. Atualização Otimista (feedback instantâneo na UI)
+        setReviews(prev => prev.map(r => r.id === id ? { ...r, is_approved: newStatus } : r));
+
         try {
+            console.log(`🔄 Sincronizando aprovação no banco [ID: ${id}]:`, newStatus);
+
             const { error } = await supabase
                 .from('system_reviews')
-                .update({ is_approved: !currentStatus })
+                .update({ is_approved: newStatus })
                 .eq('id', id);
 
             if (error) throw error;
-            fetchReviews(); // Refresh list
+
+            console.log('✅ Sincronização concluída com sucesso');
+
+            // Feedback via toast/alert (opcional se a UI já mudou)
+            if (newStatus) {
+                console.log('Avaliação aprovada e publicada!');
+            }
         } catch (err: any) {
-            alert('Erro ao atualizar aprovação: ' + err.message);
+            console.error('❌ Erro na sincronização:', err);
+            // Reverter em caso de erro
+            setReviews(prev => prev.map(r => r.id === id ? { ...r, is_approved: currentStatus } : r));
+            alert('❌ Erro ao salvar alteração: ' + err.message);
         }
     };
 
@@ -117,11 +133,13 @@ const ReviewList: React.FC = () => {
                     {/* Action Buttons */}
                     <div className="absolute top-4 right-4 flex gap-2">
                         <button
-                            onClick={() => handleToggleApproval(r.id, r.is_approved || false)}
-                            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all text-lg ${r.is_approved ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                            onClick={() => handleToggleApproval(r.id, !!r.is_approved)}
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${r.is_approved ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
                             title={r.is_approved ? 'Publicada - Clique para despublicar' : 'Pendente - Clique para publicar'}
                         >
-                            {r.is_approved ? '✓' : '⚠️'}
+                            <span className="material-symbols-outlined text-[18px]">
+                                {r.is_approved ? 'check_circle' : 'radio_button_unchecked'}
+                            </span>
                         </button>
                         <button
                             onClick={() => handleDelete(r.id)}

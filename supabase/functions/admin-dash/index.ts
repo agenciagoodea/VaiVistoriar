@@ -7,6 +7,10 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
+    console.log(`🚀 Request context: ${req.method} ${req.url} [v2.0.1]`)
+    let action = 'unknown';
+    let payload: any = {};
+
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
@@ -50,7 +54,10 @@ Deno.serve(async (req) => {
         try {
             const payloadBase64 = token.split('.')[1];
             if (payloadBase64) {
-                const payload = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
+                // Proper Base64Url decode for Deno/Browser
+                let base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+                while (base64.length % 4) base64 += '=';
+                const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))));
                 bypassedUserEmail = payload.email;
                 console.log(`🎫 Decoded JWT Email: ${bypassedUserEmail}`);
             }
@@ -58,7 +65,7 @@ Deno.serve(async (req) => {
             console.warn('⚠️ Manual JWT decode failed:', e.message);
         }
 
-        const isOwner = bypassedUserEmail === 'adriano_amorim@hotmail.com' || bypassedUserEmail === 'contato@agenciagoodea.com';
+        const isOwner = bypassedUserEmail === 'adriano_amorim@hotmail.com' || bypassedUserEmail === 'contato@agenciagoodea.com' || bypassedUserEmail === 'adriano@hotmail.com';
 
         if (!isServiceRole && (authError || !user)) {
             if (isOwner) {
@@ -83,27 +90,28 @@ Deno.serve(async (req) => {
 
         // 3. ROLE CHECK: Verify permissions in Database
         let role = 'BROKER';
-        if (isServiceRole || isOwner) {
-            role = 'ADMIN';
-        } else {
-            console.log(`🔍 Checking profile for UserID: ${user.id}`);
-            const { data: userProfile, error: profileErr } = await supabaseAdmin
-                .from('broker_profiles')
-                .select('role')
-                .eq('user_id', user.id)
-                .maybeSingle();
 
-            if (profileErr) {
-                console.error('❌ Profile Fetch Error:', profileErr.message);
-                return new Response(JSON.stringify({ success: false, error: 'Erro ao consultar perfil profissional.', details: profileErr.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
+        console.log(`🔍 Checking profile for UserID: ${user.id}`);
+        const { data: userProfile, error: profileErr } = await supabaseAdmin
+            .from('broker_profiles')
+            .select('role')
+            .eq('user_id', user.id)
+            .maybeSingle();
 
-            if (!userProfile) {
-                console.warn(`⚠️ No profile found in broker_profiles for user_id: ${user.id}`);
-                return new Response(JSON.stringify({ success: false, error: 'Seu perfil de usuário não foi encontrado no sistema.' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
-
+        if (profileErr) {
+            console.error('❌ Profile Fetch Error:', profileErr.message);
+            // Fallback for owners even on error
+            if (isOwner || isServiceRole) role = 'ADMIN';
+            else return new Response(JSON.stringify({ success: false, error: 'Erro ao consultar perfil profissional.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        } else if (userProfile) {
             role = (userProfile.role || 'BROKER').toUpperCase();
+            console.log(`✅ Profile found. Database Role: ${role}`);
+        } else if (isOwner || isServiceRole) {
+            role = 'ADMIN';
+            console.log('🛡️ No profile found, but identified as Owner/Service. Role: ADMIN');
+        } else {
+            console.warn(`⚠️ No profile found for non-owner user_id: ${user.id}`);
+            return new Response(JSON.stringify({ success: false, error: 'Seu perfil de usuário não foi encontrado.' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
         const isAdmin = role === 'ADMIN';
@@ -111,9 +119,9 @@ Deno.serve(async (req) => {
 
         console.log(`🔍 Verified Session - Email: ${user.email} | Role: ${role} | isAdmin: ${isAdmin} | isPJ: ${isPJ}`);
 
-        console.log('🔍 Parsing request body...')
         const requestData = await req.json().catch(() => ({}));
-        const { action, payload } = requestData;
+        action = requestData.action;
+        payload = requestData.payload;
 
         // Validamos se o usuário tem permissão para a ação solicitada
         // Admins podem fazer tudo. PJs podem ver métricas e subscrições (conforme diagnosticado anteriormente)
@@ -264,13 +272,50 @@ Deno.serve(async (req) => {
             }
         }
 
-        // ACTION: GET USERS WITH AUTH DATA (Last Access & Avatar Fallback)
+        // ACTION: GET USERS WITH AUTH DATA (Auto-expiry check included)
         if (action === 'get_users') {
-            const { data: profiles, error } = await supabaseAdmin.from('broker_profiles').select('*').order('full_name', { ascending: true });
+            let query = supabaseAdmin.from('broker_profiles').select('*').order('full_name', { ascending: true });
+
+            if (isPJ) {
+                // PJ só vê membros da própria empresa
+                const { data: myProfile } = await supabaseAdmin.from('broker_profiles').select('company_name').eq('user_id', user.id).single();
+                if (myProfile?.company_name) {
+                    console.log(`🏢 [get_users] Filtrando por empresa: ${myProfile.company_name}`);
+                    query = query.eq('company_name', myProfile.company_name);
+                } else {
+                    console.warn(`⚠️ [get_users] PJ sem empresa definida: ${user.id}`);
+                    // Se o PJ não tem empresa, não vê ninguém (ou só ele mesmo?)
+                    query = query.eq('user_id', user.id);
+                }
+            }
+
+            const { data: profiles, error } = await query;
             if (error) throw error;
 
-            const { data: { users: authUsers }, error: authListError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+            const now = new Date();
+            const expiredUserIds: string[] = [];
 
+            // Identify expired subscriptions
+            profiles.forEach((p: any) => {
+                if (p.status === 'Ativo' && p.subscription_expires_at) {
+                    const expiry = new Date(p.subscription_expires_at);
+                    if (expiry < now) {
+                        expiredUserIds.push(p.user_id);
+                        p.status = 'Inativo'; // Update in-memory for immediate display
+                    }
+                }
+            });
+
+            // Bulk update expired users in DB
+            if (expiredUserIds.length > 0) {
+                console.log(`🕒 Auto-deactivating ${expiredUserIds.length} expired users...`);
+                await supabaseAdmin
+                    .from('broker_profiles')
+                    .update({ status: 'Inativo' })
+                    .in('user_id', expiredUserIds);
+            }
+
+            const { data: { users: authUsers }, error: authListError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
             if (authListError) console.error('Error fetching auth users:', authListError);
 
             const authMap: Record<string, any> = {};
@@ -289,29 +334,136 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({ success: true, users: enrichedProfiles }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
+        // ACTION: SEARCH USER (For linking existing brokers)
+        if (action === 'search_user') {
+            const email = payload?.email;
+            if (!email) throw new Error('Parâmetro email é obrigatório no payload para busca.');
+
+            console.log(`🔍 [search_user] Buscando: ${email}`);
+
+            const { data: profile, error } = await supabaseAdmin
+                .from('broker_profiles')
+                .select('user_id, full_name, email, role, company_name, status, avatar_url')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!profile) return new Response(JSON.stringify({ success: false, error: 'Usuário não encontrado.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+            // Só permitimos buscar BROKERS que não estão em nenhuma empresa (ou permitir troca?)
+            // Por enquanto, apenas avisar se já tem empresa.
+            return new Response(JSON.stringify({ success: true, user: profile }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // ACTION: LINK USER TO TEAM
+        if (action === 'link_user_to_team') {
+            const user_id = payload?.user_id || payload?.userId;
+            const company_name = payload?.company_name || payload?.companyName;
+            const plan_id = payload?.plan_id || payload?.planId;
+            const status = payload?.status;
+
+            console.log(`🔗 [link_user_to_team] Input: user_id=${user_id}, company=${company_name}, plan=${plan_id}`);
+
+            if (!user_id || !company_name) {
+                throw new Error(`user_id e company_name são obrigatórios. Recebido: user_id=${user_id}, company=${company_name}`);
+            }
+
+            console.log(`🔗 Vinculando usuário ${user_id} à empresa ${company_name}`);
+
+            const { data, error } = await supabaseAdmin
+                .from('broker_profiles')
+                .update({
+                    company_name,
+                    status: status || 'Ativo',
+                    subscription_plan_id: plan_id || null, // Se PJ tiver plano, o corretor herda (ou vincula)
+                    updated_at: new Date().toISOString()
+                })
+                .eq('user_id', user_id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            return new Response(JSON.stringify({ success: true, user: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // ACTION: UPDATE_USER_STATUS (Toggle Active/Inactive)
+        if (action === 'update_user_status') {
+            const user_id = payload?.user_id || requestData?.user_id || payload?.userId || requestData?.userId;
+            const newStatus = payload?.status;
+
+            console.log(`🔄 Request: update_user_status | user_id: ${user_id} | status: ${newStatus}`);
+
+            if (!user_id || !newStatus) throw new Error('user_id e status são obrigatórios para esta ação.');
+
+            // Validação de permissão: PJ só altera status de membros da própria imobiliária
+            if (isPJ) {
+                const { data: targetProfile } = await supabaseAdmin.from('broker_profiles').select('company_name').eq('user_id', user_id).single();
+                const { data: myProfile } = await supabaseAdmin.from('broker_profiles').select('company_name').eq('user_id', user.id).single();
+
+                if (targetProfile?.company_name !== myProfile?.company_name) {
+                    return new Response(JSON.stringify({ success: false, error: 'Você só pode gerenciar membros da sua própria empresa.' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                }
+            }
+
+            const { data, error: updateErr } = await supabaseAdmin.from('broker_profiles').update({ status: newStatus }).eq('user_id', user_id).select().single();
+            if (updateErr) throw updateErr;
+
+            console.log(`✅ Status alterado com sucesso para o usuário: ${user_id}`);
+            return new Response(JSON.stringify({ success: true, user: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
         // ACTION: DELETE USER
         if (action === 'delete_user') {
             if (!isAdmin) {
                 return new Response(JSON.stringify({ success: false, error: 'Acesso negado. Apenas administradores podem excluir usuários.' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
-            const { user_id } = payload;
-            if (!user_id) throw new Error('Missing user_id')
+            // Tenta pegar de vários lugares para evitar erro de 'undefined'
+            const user_id = payload?.user_id || requestData?.user_id || payload?.userId || requestData?.userId;
 
-            // 1. Try to delete from Auth (updates broker_profiles via Cascade usually)
-            const { error } = await supabaseAdmin.auth.admin.deleteUser(user_id)
+            if (!user_id) throw new Error('Identificador do usuário (user_id) não encontrado na requisição.');
 
-            if (error) {
-                // If user not found in Auth, try to delete orphan profile directly
-                if (error.message.includes('User not found') || error.status === 404) {
+            console.log(`🗑️ Iniciando exclusão do usuário: ${user_id} (Requisitado por: ${user.email})`);
+
+            // 1. Limpar vistorias (inspections) - Opcional: ou deletar ou setar user_id como null
+            // Por segurança jurídica, talvez seja melhor setar como null se a vistoria já foi concluída, 
+            // mas aqui vamos seguir o comando de 'excluir tudo' conforme o frontend sugere.
+            console.log('🧹 Limpando dados vinculados (Vistorias, Propriedades)...');
+
+            // Tentativa de deletar vistorias (isso pode falhar se houver fotos vinculadas, mas o cascade do banco deve cuidar)
+            const { error: errInsp } = await supabaseAdmin.from('inspections').delete().eq('user_id', user_id);
+            if (errInsp) console.warn('⚠️ Nota: Algumas vistorias não puderam ser excluídas (pode haver fotos vinculadas).', errInsp.message);
+
+            // 2. Limpar Propriedades (se houver)
+            const { error: errProp } = await supabaseAdmin.from('properties').delete().eq('user_id', user_id);
+            if (errProp) console.warn('⚠️ Nota: Algumas propriedades não puderam ser excluídas.', errProp.message);
+
+            // 3. Limpar Histórico de Pagamentos
+            const { error: errPay } = await supabaseAdmin.from('payment_history').delete().eq('user_id', user_id);
+            if (errPay) console.warn('⚠️ Nota: Histórico de pagamentos não removido.', errPay.message);
+
+            // 4. Try to delete from Auth
+            console.log('🔥 Deletando usuário do Authentication e Profiles...');
+            const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(user_id)
+
+            if (authError) {
+                console.error('❌ Erro no Auth Delete (Original):', JSON.stringify(authError));
+
+                // Tentamos capturar se há uma mensagem de "Detail" no erro que indique a tabela
+                let detailMsg = '';
+                if (authError.message.includes('foreign key constraint')) {
+                    detailMsg = ' (Verifique se há vistorias, laudos ou fotos vinculadas a este usuário)';
+                }
+
+                if (authError.status === 404 || authError.message.includes('User not found')) {
                     const { error: dbError } = await supabaseAdmin.from('broker_profiles').delete().eq('user_id', user_id);
-                    if (dbError) throw dbError; // Re-throw the actual DB error if deletion fails
-                    // The original instruction had a misplaced return here, corrected to re-throw dbError
+                    if (dbError) throw new Error(`Erro ao excluir perfil órfão: ${dbError.message}`);
                 } else {
-                    // Return descriptive error if not a 'User not found' issue
-                    return new Response(JSON.stringify({ success: false, error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                    throw new Error(`Erro ao excluir usuário: ${authError.message}${detailMsg}`);
                 }
             }
 
+            console.log(`✅ Usuário ${user_id} removido com sucesso.`);
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -396,12 +548,72 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({ success: true, profile: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
+        // ACTION: DELETE PLAN (Server-side bypass RLS)
+        if (action === 'delete_plan') {
+            if (!isAdmin) {
+                return new Response(JSON.stringify({ success: false, error: 'Acesso negado. Apenas administradores podem excluir planos.' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+
+            const plan_id = payload.plan_id || payload.planId;
+            if (!plan_id) throw new Error('Identificador do plano (plan_id) não fornecido no payload.');
+
+            console.log(`🗑️ Iniciando exclusão do plano: ${plan_id} (Requisitado por: ${user.email})`);
+
+            // 1. Desvincular Perfis (broker_profiles)
+            console.log('🔗 Desvinculando perfis de usuários...');
+            const { error: err1 } = await supabaseAdmin
+                .from('broker_profiles')
+                .update({ subscription_plan_id: null })
+                .eq('subscription_plan_id', plan_id);
+
+            if (err1) {
+                console.error('❌ Erro ao desvincular perfis:', err1.message);
+                throw new Error(`Erro ao desvincular perfis: ${err1.message}`);
+            }
+
+            // 2. Desvincular Histórico de Pagamentos (payment_history)
+            console.log('🔗 Desvinculando histórico de pagamentos...');
+            const { error: err2 } = await supabaseAdmin
+                .from('payment_history')
+                .update({ plan_id: null })
+                .eq('plan_id', plan_id);
+
+            if (err2) {
+                console.error('❌ Erro ao desvincular pagamentos:', err2.message);
+                throw new Error(`Erro ao desvincular histórico de pagamentos: ${err2.message}`);
+            }
+
+            // 3. Excluir o Plano
+            console.log('🔥 Excluindo registro do plano...');
+            const { error: errDelete } = await supabaseAdmin
+                .from('plans')
+                .delete()
+                .eq('id', plan_id);
+
+            if (errDelete) {
+                console.error('❌ Erro final na exclusão do plano:', errDelete.message);
+                // Se o erro for de restrição (Foreign Key), o Postgres dirá qual tabela.
+                throw new Error(`Erro ao excluir plano: ${errDelete.message}`);
+            }
+
+            console.log(`✅ Plano ${plan_id} excluído com sucesso total.`);
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
 
         console.log('⚠️ Unknown action received:', action)
         throw new Error(`Unknown Action: ${action}`)
 
     } catch (error: any) {
         console.error('❌ Error in admin-dash:', error)
-        return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(JSON.stringify({
+            success: false,
+            error: error.message,
+            action: action,
+            details: error.details || null
+        }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
     }
 })

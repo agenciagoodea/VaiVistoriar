@@ -139,52 +139,44 @@ const PlanConfigPage: React.FC = () => {
    const handleDeletePlan = async () => {
       if (!selectedPlanId) return;
 
+      const planToDelete = plans.find(p => p.id === selectedPlanId);
+      const confirmMessage = `Deseja realmente EXCLUIR o plano "${planToDelete?.name || 'este plano'}" permanentemente?\n\nUsuários e históricos de pagamento vinculados serão desassociados automaticamente.`;
+
+      if (!window.confirm(confirmMessage)) return;
+
       setSaving(true);
       try {
-         // First, check how many subscriptions are linked to this plan
-         const { data: linkedSubs, error: checkError } = await supabase
-            .from('user_subscriptions')
-            .select('id')
-            .eq('plan_id', selectedPlanId);
+         const { data, error } = await supabase.functions.invoke('admin-dash', {
+            body: {
+               action: 'delete_plan',
+               payload: { plan_id: selectedPlanId }
+            }
+         });
 
-         if (checkError) throw checkError;
+         if (error) throw error;
+         if (data && !data.success) throw new Error(data.error || 'Erro ao excluir plano no servidor');
 
-         const count = linkedSubs?.length || 0;
-         let confirmMessage = 'Excluir este plano permanentemente?';
-
-         if (count > 0) {
-            confirmMessage = `ATENÇÃO: Este plano possui ${count} assinatura(s) vinculada(s).\n\nAo excluir este plano, todas as assinaturas vinculadas serão DESVINCULADAS (plan_id será definido como NULL).\n\nDeseja continuar?`;
-         }
-
-         if (!window.confirm(confirmMessage)) {
-            setSaving(false);
-            return;
-         }
-
-         // If there are linked subscriptions, unlink them first
-         if (count > 0) {
-            const { error: unlinkError } = await supabase
-               .from('user_subscriptions')
-               .update({ plan_id: null })
-               .eq('plan_id', selectedPlanId);
-
-            if (unlinkError) throw unlinkError;
-         }
-
-         // Now delete the plan
-         const { error: deleteError } = await supabase
-            .from('subscription_plans')
-            .delete()
-            .eq('id', selectedPlanId);
-
-         if (deleteError) throw deleteError;
-
-         alert(`Plano excluído com sucesso!${count > 0 ? ` ${count} assinatura(s) foram desvinculadas.` : ''}`);
+         alert('Plano excluído com sucesso!');
          setSelectedPlanId(null);
          fetchPlans();
       } catch (err: any) {
          console.error('Erro ao excluir plano:', err);
-         alert(`Erro ao excluir plano: ${err.message || 'Erro desconhecido'}`);
+
+         let errorMessage = 'Erro desconhecido ao excluir o plano.';
+
+         // Tentamos extrair detalhes do erro da resposta HTTP
+         if (err.context && typeof err.context.json === 'function') {
+            try {
+               const errorData = await err.context.json();
+               errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch (e) {
+               console.warn('Não foi possível ler o JSON do erro:', e);
+            }
+         } else if (err.message) {
+            errorMessage = err.message;
+         }
+
+         alert(`Erro: ${errorMessage}`);
       } finally {
          setSaving(false);
       }

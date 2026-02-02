@@ -28,6 +28,13 @@ const UsersPage: React.FC = () => {
       confirmPassword: ''
    });
 
+   const [modalTab, setModalTab] = useState<'create' | 'link'>('create');
+   const [searchEmail, setSearchEmail] = useState('');
+   const [searchResult, setSearchResult] = useState<any>(null);
+   const [searching, setSearching] = useState(false);
+   const [linking, setLinking] = useState(false);
+   const [pjPlanId, setPjPlanId] = useState<string | null>(null);
+
    const [userRole, setUserRole] = useState<'ADMIN' | 'PJ' | 'BROKER'>('ADMIN');
    const [userCompany, setUserCompany] = useState<string>('');
 
@@ -43,13 +50,19 @@ const UsersPage: React.FC = () => {
          // Buscar perfil do usuário logado para saber o cargo e empresa
          const { data: myProfile } = await supabase
             .from('broker_profiles')
-            .select('role, company_name')
+            .select('full_name, role, company_name, subscription_plan_id')
             .eq('user_id', user?.id)
             .single();
 
          if (myProfile) {
+            console.log('👤 Perfil carregado:', myProfile.full_name, '| Cargo:', myProfile.role, '| Empresa:', myProfile.company_name);
             setUserRole(myProfile.role);
-            setUserCompany(myProfile.company_name || '');
+
+            // Fallback: Se for PJ e empresa estiver vazia, usa o full_name (que costuma ser o nome da imobiliária)
+            const company = myProfile.company_name || (myProfile.role === 'PJ' ? myProfile.full_name : '');
+            setUserCompany(company);
+
+            setPjPlanId(myProfile.subscription_plan_id || null);
          }
 
          // Call Edge Function to get users with last_access data
@@ -62,9 +75,14 @@ const UsersPage: React.FC = () => {
          if (responseData && responseData.users) {
             let userList = responseData.users;
 
-            // Se for PJ, filtrar apenas os membros da mesma empresa
+            // Se for PJ, filtrar apenas os membros da mesma empresa (ou sem empresa?)
             if (myProfile?.role === 'PJ') {
-               userList = userList.filter((u: any) => u.company_name === myProfile.company_name);
+               const myCompany = (myProfile.company_name || '').trim().toLowerCase();
+               console.log('🏢 Filtrando lista para PJ da empresa:', myCompany);
+               userList = userList.filter((u: any) => {
+                  const userCompany = (u.company_name || '').trim().toLowerCase();
+                  return userCompany === myCompany;
+               });
             }
 
             const mappedUsers = userList.map((u: any) => ({
@@ -145,7 +163,8 @@ const UsersPage: React.FC = () => {
                      password: newUser.password,
                      full_name: newUser.full_name,
                      role: 'BROKER',
-                     company_name: userCompany
+                     company_name: userCompany,
+                     subscription_plan_id: pjPlanId
                   }
                });
 
@@ -173,9 +192,78 @@ const UsersPage: React.FC = () => {
          setShowModal(false);
          setEditingUser(null);
          setNewUser({ full_name: '', email: '', role: 'BROKER', password: '', confirmPassword: '' });
+         setModalTab('create'); // Reset tab
+         setSearchEmail(''); // Reset search
+         setSearchResult(null); // Reset search result
          fetchUsers();
       } catch (err: any) {
          alert('Erro ao salvar usuÃ¡rio: ' + err.message);
+      }
+   };
+
+   const handleSearch = async () => {
+      setSearching(true);
+      setSearchResult(null);
+      try {
+         const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
+            body: {
+               action: 'search_user',
+               payload: { email: searchEmail }
+            }
+         });
+
+         if (error) throw error;
+
+         if (responseData && responseData.user) {
+            setSearchResult(responseData.user);
+         } else {
+            alert('Usuário não encontrado.');
+         }
+      } catch (err: any) {
+         console.error('Erro ao buscar usuário:', err);
+         const errorMsg = err.context?.message || err.message || 'Erro desconhecido';
+         alert('Erro ao buscar usuário: ' + errorMsg);
+      } finally {
+         setSearching(false);
+      }
+   };
+
+   const handleLinkExisting = async () => {
+      if (!searchResult || !searchResult.user_id) return;
+
+      if (!userCompany) {
+         alert('⚠️ Erro de Vínculo: Não foi possível identificar o nome da sua imobiliária. Por favor, preencha o seu nome ou nome da empresa nas configurações do seu perfil antes de vincular corretores.');
+         return;
+      }
+
+      setLinking(true);
+      try {
+         const { data, error } = await supabase.functions.invoke('admin-dash', {
+            body: {
+               action: 'link_user_to_team',
+               payload: {
+                  user_id: searchResult.user_id,
+                  company_name: userCompany,
+                  plan_id: pjPlanId
+               }
+            }
+         });
+
+         if (error) throw error;
+         if (data && data.success === false) throw new Error(data.error);
+
+         alert('Usuário vinculado à sua equipe com sucesso!');
+         setShowModal(false);
+         setModalTab('create'); // Reset tab
+         setSearchEmail(''); // Reset search
+         setSearchResult(null); // Reset search result
+         fetchUsers();
+      } catch (err: any) {
+         console.error('Erro ao vincular usuário:', err);
+         const errorMsg = err.context?.message || err.message || 'Erro desconhecido';
+         alert('Erro ao vincular usuário: ' + errorMsg);
+      } finally {
+         setLinking(false);
       }
    };
 
@@ -188,6 +276,7 @@ const UsersPage: React.FC = () => {
          password: '',
          confirmPassword: ''
       });
+      setModalTab('create'); // Ensure 'create' tab is active for editing
       setShowModal(true);
    };
 
@@ -198,22 +287,65 @@ const UsersPage: React.FC = () => {
    const handleDeleteUser = async (user_id: string) => {
       if (!confirm('Deseja realmente excluir este usuário e todos os seus dados? Esta ação não pode ser desfeita.')) return;
       try {
+         console.log('🗑️ Solicitando exclusão do usuário:', user_id);
          const { data, error } = await supabase.functions.invoke('admin-dash', {
-            body: { action: 'delete_user', user_id }
+            body: {
+               action: 'delete_user',
+               user_id: user_id,
+               payload: { user_id }
+            }
          });
 
-         // Verificar erro do invoke
-         if (error) throw new Error(error.message || 'Erro na API');
+         if (error) {
+            let msg = error.message;
+            if (error.context && typeof error.context.json === 'function') {
+               try {
+                  const body = await error.context.json();
+                  msg = body.error || body.message || msg;
+               } catch (e) {
+                  console.warn('Erro ao ler corpo do erro HTTP:', e);
+               }
+            }
+            throw new Error(msg);
+         }
 
-         // Verificar success no body da resposta
-         if (data && !data.success) {
+         if (data && data.success === false) {
             throw new Error(data.error || 'Erro ao excluir usuário');
          }
 
          alert('Usuário excluído com sucesso.');
          fetchUsers();
       } catch (err: any) {
-         alert('Erro ao excluir: ' + (err.message || 'Falha desconhecida'));
+         console.error('Erro ao excluir usuário:', err);
+         alert(`[ERRO DETALHADO]: ${err.message || 'Falha desconhecida'}`);
+      }
+   };
+
+   const handleToggleStatus = async (user: UserProfile) => {
+      const newStatus = user.status === 'Ativo' ? 'Inativo' : 'Ativo';
+      const actionLabel = newStatus === 'Ativo' ? 'ativar' : 'desativar';
+
+      if (!confirm(`Deseja realmente ${actionLabel} este usuário?`)) return;
+
+      try {
+         const { data, error } = await supabase.functions.invoke('admin-dash', {
+            body: {
+               action: 'update_user_status',
+               payload: {
+                  user_id: user.user_id,
+                  status: newStatus
+               }
+            }
+         });
+
+         if (error) throw error;
+         if (data && data.success === false) throw new Error(data.error);
+
+         alert(`Usuário ${newStatus === 'Ativo' ? 'ativado' : 'desativado'} com sucesso.`);
+         fetchUsers();
+      } catch (err: any) {
+         console.error('Erro ao alterar status:', err);
+         alert(`Erro ao alterar status: ${err.message || 'Falha desconhecida'}`);
       }
    };
 
@@ -241,7 +373,10 @@ const UsersPage: React.FC = () => {
             <button
                onClick={() => {
                   setEditingUser(null);
-                  setNewUser({ full_name: '', email: '', role: 'BROKER', password: '' });
+                  setNewUser({ full_name: '', email: '', role: 'BROKER', password: '', confirmPassword: '' });
+                  setModalTab('create'); // Reset tab to 'create' when opening for new user
+                  setSearchEmail('');
+                  setSearchResult(null);
                   setShowModal(true);
                }}
                className="h-10 flex items-center gap-2 px-6 rounded-lg bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all transform active:scale-95"
@@ -279,7 +414,7 @@ const UsersPage: React.FC = () => {
                   className="px-6 py-3.5 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-sm outline-none cursor-pointer"
                >
                   <option value="all">Todos Tipos</option>
-                  <option value="BROKER">Corretor (PF)</option>
+                  <option value="BROKER">Corretor(a)</option>
                   <option value="PJ">Imobiliária (PJ)</option>
                   <option value="ADMIN">Administrador</option>
                </select>
@@ -322,7 +457,7 @@ const UsersPage: React.FC = () => {
                            </td>
                            <td className="px-6 py-4 text-center">
                               <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${u.role === 'PJ' ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                                 {u.role}
+                                 {u.role === 'BROKER' ? 'CORRETOR(A)' : u.role}
                               </span>
                            </td>
                            <td className="px-6 py-4">
@@ -338,6 +473,15 @@ const UsersPage: React.FC = () => {
                                  {u.status === 'Pendente' && (
                                     <button onClick={() => handleResendInvite(u)} title="Reenviar Convite" className="p-2 text-amber-500 hover:scale-110 transition-transform"><span className="material-symbols-outlined text-[20px]">forward_to_inbox</span></button>
                                  )}
+                                 <button
+                                    onClick={() => handleToggleStatus(u)}
+                                    title={u.status === 'Ativo' ? 'Desativar Usuário' : 'Ativar Usuário'}
+                                    className={`p-2 transition-colors ${u.status === 'Ativo' ? 'text-slate-400 hover:text-amber-500' : 'text-slate-400 hover:text-green-500'}`}
+                                 >
+                                    <span className="material-symbols-outlined text-[20px]">
+                                       {u.status === 'Ativo' ? 'person_off' : 'person_check'}
+                                    </span>
+                                 </button>
                                  <button onClick={() => handleEditClick(u)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                  {!isCurrentUser && (
                                     <button onClick={() => handleDeleteUser(u.user_id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
@@ -365,81 +509,161 @@ const UsersPage: React.FC = () => {
                            : (editingUser ? 'Atualize as informações do perfil abaixo.' : 'O novo usuário receberá as credenciais por e-mail.')}
                      </p>
                   </div>
-                  <form onSubmit={handleSaveUser} className="p-8 space-y-5">
-                     <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nome Completo</label>
-                        <input
-                           required
-                           type="text"
-                           value={newUser.full_name}
-                           onChange={e => setNewUser({ ...newUser, full_name: e.target.value })}
-                           className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 text-sm font-bold"
-                        />
+                  {userRole === 'PJ' && !editingUser && (
+                     <div className="flex border-b border-slate-100">
+                        <button
+                           onClick={() => { setModalTab('create'); setSearchResult(null); setSearchEmail(''); }}
+                           className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${modalTab === 'create' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}`}
+                        >
+                           Cadastrar Novo
+                        </button>
+                        <button
+                           onClick={() => { setModalTab('link'); setSearchResult(null); setSearchEmail(''); }}
+                           className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${modalTab === 'link' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}`}
+                        >
+                           Buscar Existente
+                        </button>
                      </div>
-                     <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">E-mail</label>
-                        <input
-                           required
-                           type="email"
-                           readOnly={!!editingUser}
-                           value={newUser.email}
-                           onChange={e => setNewUser({ ...newUser, email: e.target.value })}
-                           className={`w-full px-5 py-3.5 border rounded-2xl outline-none text-sm font-bold ${editingUser ? 'bg-slate-100 text-slate-400 border-transparent cursor-not-allowed' : 'bg-slate-50 border-slate-100 focus:ring-4 focus:ring-blue-500/5'}`}
-                        />
-                     </div>
-                     {userRole === 'PJ' ? (
-                        !editingUser && (
-                           <>
-                              <div className="space-y-1">
-                                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha de Acesso</label>
-                                 <input
-                                    required
-                                    type="password"
-                                    value={newUser.password}
-                                    onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 text-sm font-bold"
-                                    placeholder="Mínimo 6 caracteres"
-                                 />
-                              </div>
-                              <div className="space-y-1">
-                                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Confirmar Senha</label>
-                                 <input
-                                    required
-                                    type="password"
-                                    value={newUser.confirmPassword}
-                                    onChange={e => setNewUser({ ...newUser, confirmPassword: e.target.value })}
-                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 text-sm font-bold"
-                                    placeholder="Repita a senha"
-                                 />
-                              </div>
-                           </>
-                        )
-                     ) : (
+                  )}
+
+                  {modalTab === 'create' || editingUser ? (
+                     <form onSubmit={handleSaveUser} className="p-8 space-y-5">
                         <div className="space-y-1">
-                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tipo de Acesso</label>
-                           <div className="grid grid-cols-2 gap-3">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nome Completo</label>
+                           <input
+                              required
+                              type="text"
+                              value={newUser.full_name}
+                              onChange={e => setNewUser({ ...newUser, full_name: e.target.value })}
+                              className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 text-sm font-bold"
+                           />
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">E-mail</label>
+                           <input
+                              required
+                              type="email"
+                              readOnly={!!editingUser}
+                              value={newUser.email}
+                              onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                              className={`w-full px-5 py-3.5 border rounded-2xl outline-none text-sm font-bold ${editingUser ? 'bg-slate-100 text-slate-400 border-transparent cursor-not-allowed' : 'bg-slate-50 border-slate-100 focus:ring-4 focus:ring-blue-500/5'}`}
+                           />
+                        </div>
+                        {userRole === 'PJ' ? (
+                           !editingUser && (
+                              <>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha de Acesso</label>
+                                    <input
+                                       required
+                                       type="password"
+                                       value={newUser.password}
+                                       onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                                       className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 text-sm font-bold"
+                                       placeholder="Mínimo 6 caracteres"
+                                    />
+                                 </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Confirmar Senha</label>
+                                    <input
+                                       required
+                                       type="password"
+                                       value={newUser.confirmPassword}
+                                       onChange={e => setNewUser({ ...newUser, confirmPassword: e.target.value })}
+                                       className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 text-sm font-bold"
+                                       placeholder="Repita a senha"
+                                    />
+                                 </div>
+                              </>
+                           )
+                        ) : (
+                           <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tipo de Acesso</label>
+                              <div className="grid grid-cols-2 gap-3">
+                                 <button
+                                    type="button"
+                                    onClick={() => setNewUser({ ...newUser, role: 'BROKER' })}
+                                    className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newUser.role === 'BROKER' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' : 'bg-white text-slate-400 border-slate-100'}`}
+                                 >
+                                    Corretor (PF)
+                                 </button>
+                                 <button
+                                    type="button"
+                                    onClick={() => setNewUser({ ...newUser, role: 'PJ' })}
+                                    className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newUser.role === 'PJ' ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-slate-400 border-slate-100'}`}
+                                 >
+                                    Imobiliária (PJ)
+                                 </button>
+                              </div>
+                           </div>
+                        )}
+                        <div className="flex gap-3 pt-4">
+                           <button type="button" onClick={() => { setShowModal(false); setEditingUser(null); setModalTab('create'); setSearchEmail(''); setSearchResult(null); }} className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 rounded-2xl transition-all">Cancelar</button>
+                           <button type="submit" className="flex-1 py-4 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95">{editingUser ? 'Salvar Edição' : 'Salvar Usuário'}</button>
+                        </div>
+                     </form>
+                  ) : (
+                     <div className="p-8 space-y-6">
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black uppercase text-slate-400 ml-1">E-mail do Corretor</label>
+                           <div className="flex gap-2">
+                              <input
+                                 type="email"
+                                 placeholder="corretor@email.com"
+                                 value={searchEmail}
+                                 onChange={e => setSearchEmail(e.target.value)}
+                                 className="flex-1 px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 text-sm font-bold"
+                              />
                               <button
-                                 type="button"
-                                 onClick={() => setNewUser({ ...newUser, role: 'BROKER' })}
-                                 className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newUser.role === 'BROKER' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' : 'bg-white text-slate-400 border-slate-100'}`}
+                                 onClick={handleSearch}
+                                 disabled={searching || !searchEmail}
+                                 className="px-6 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
                               >
-                                 Corretor (PF)
-                              </button>
-                              <button
-                                 type="button"
-                                 onClick={() => setNewUser({ ...newUser, role: 'PJ' })}
-                                 className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${newUser.role === 'PJ' ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-slate-400 border-slate-100'}`}
-                              >
-                                 Imobiliária (PJ)
+                                 {searching ? '...' : 'Buscar'}
                               </button>
                            </div>
                         </div>
-                     )}
-                     <div className="flex gap-3 pt-4">
-                        <button type="button" onClick={() => { setShowModal(false); setEditingUser(null); }} className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 rounded-2xl transition-all">Cancelar</button>
-                        <button type="submit" className="flex-1 py-4 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95">{editingUser ? 'Salvar Edição' : 'Salvar Usuário'}</button>
+
+                        {searchResult && (
+                           <div className="p-6 bg-blue-50 rounded-[24px] border border-blue-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                              <div className="flex items-center gap-4">
+                                 {searchResult.avatar_url ? (
+                                    <img src={searchResult.avatar_url} className="w-12 h-12 rounded-full object-cover shadow-sm bg-blue-100" />
+                                 ) : (
+                                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                       <span className="material-symbols-outlined text-[24px]">person</span>
+                                    </div>
+                                 )}
+                                 <div>
+                                    <p className="text-sm font-black text-slate-900">{searchResult.full_name}</p>
+                                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
+                                       {searchResult.role === 'BROKER' ? 'CORRETOR(A)' : searchResult.role}
+                                    </p>
+                                 </div>
+                              </div>
+
+                              {searchResult.company_name ? (
+                                 <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                                    <p className="text-[10px] font-bold text-amber-700 italic flex items-center gap-2">
+                                       <span className="material-symbols-outlined text-[14px]">warning</span>
+                                       Este corretor já pertence à empresa: {searchResult.company_name}
+                                    </p>
+                                 </div>
+                              ) : (
+                                 <button
+                                    onClick={handleLinkExisting}
+                                    disabled={linking}
+                                    className="w-full mt-6 py-4 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                                 >
+                                    {linking ? 'Vinculando...' : 'Adicionar à Minha Equipe'}
+                                 </button>
+                              )}
+                           </div>
+                        )}
+
+                        <button type="button" onClick={() => { setShowModal(false); setModalTab('create'); setSearchEmail(''); setSearchResult(null); }} className="w-full py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 rounded-2xl transition-all">Cancelar</button>
                      </div>
-                  </form>
+                  )}
                </div>
             </div>
          )}

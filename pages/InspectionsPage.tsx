@@ -24,22 +24,23 @@ const InspectionsPage: React.FC = () => {
       // 1. Buscar perfil do usuário para saber o cargo
       const { data: profile } = await supabase
         .from('broker_profiles')
-        .select('role, company_name')
+        .select('role, full_name, company_name')
         .eq('user_id', user.id)
         .single();
 
       const role = profile?.role || 'BROKER';
+      const myCompany = (profile?.company_name || (role === 'PJ' ? profile?.full_name : ''))?.trim() || '';
       setMyRole(role);
 
       // 2. Buscar vistorias (sem Join direto para evitar erro de FK inexistente no cache)
       let query = supabase.from('inspections').select('*');
 
-      if (role === 'PJ') {
+      if (role === 'PJ' && myCompany) {
         // Se for PJ, primeiro buscamos todos os IDs de usuários da mesma empresa
         const { data: companyBrokers } = await supabase
           .from('broker_profiles')
           .select('user_id')
-          .eq('company_name', profile?.company_name);
+          .eq('company_name', myCompany);
 
         const brokerIds = companyBrokers?.map(b => b.user_id) || [];
         query = query.in('user_id', brokerIds);

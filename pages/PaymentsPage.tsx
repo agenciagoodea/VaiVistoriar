@@ -32,12 +32,22 @@ const PaymentsPage: React.FC = () => {
             if (h.status === 'approved') totalVal += price;
             if (h.status === 'pending') pendingCount++;
 
+            const methodMap: Record<string, string> = {
+              'credit_card': 'Cartão de Crédito',
+              'debit_card': 'Cartão de Débito',
+              'pix': 'PIX',
+              'bolbradesco': 'Boleto',
+              'account_money': 'Saldo Mercado Pago'
+            };
+
+            const methodLabel = methodMap[h.payment_method_id] || h.payment_method_id || 'Mercado Pago';
+
             return {
               id: `#TR-${h.id.slice(0, 4)}`,
               client: h.profiles?.full_name || h.profiles?.email || 'Usuário',
               plan: h.plan_name || 'Plano',
               val: `R$ ${price.toFixed(price % 1 === 0 ? 0 : 2).replace('.', ',')}`,
-              method: 'Mercado Pago',
+              method: methodLabel,
               status: h.status === 'approved' ? 'Pago' : h.status === 'pending' ? 'Pendente' : h.status === 'refunded' ? 'Reembolsado' : h.status
             };
           });
@@ -117,9 +127,9 @@ const PaymentsPage: React.FC = () => {
                 <td className="px-6 py-4 text-right font-black text-slate-900">{t.val}</td>
                 <td className="px-6 py-4">
                   <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${t.status === 'Pago' ? 'bg-green-50 text-green-700' :
-                      t.status === 'Pendente' ? 'bg-yellow-50 text-yellow-700' :
-                        t.status === 'Reembolsado' ? 'bg-slate-100 text-slate-600' :
-                          'bg-red-50 text-red-700'
+                    t.status === 'Pendente' ? 'bg-yellow-50 text-yellow-700' :
+                      t.status === 'Reembolsado' ? 'bg-slate-100 text-slate-600' :
+                        'bg-red-50 text-red-700'
                     }`}>
                     {t.status}
                   </span>

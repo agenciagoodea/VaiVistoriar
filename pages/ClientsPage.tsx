@@ -17,16 +17,28 @@ const ClientsPage: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Buscar perfil para saber cargo
+      // Buscar perfil para saber cargo e empresa
       const { data: profile } = await supabase
         .from('broker_profiles')
-        .select('role')
+        .select('role, full_name, company_name')
         .eq('user_id', user.id)
         .single();
 
+      const role = profile?.role || 'BROKER';
+      const myCompany = (profile?.company_name || (role === 'PJ' ? profile?.full_name : ''))?.trim() || '';
       let query = supabase.from('clients').select('*');
 
-      if (profile?.role === 'PJ' || profile?.role === 'BROKER') {
+      if (role === 'PJ' && myCompany) {
+        // Se for PJ, primeiro buscamos todos os IDs de usuários da mesma empresa
+        const { data: companyBrokers } = await supabase
+          .from('broker_profiles')
+          .select('user_id')
+          .eq('company_name', myCompany);
+
+        const brokerIds = companyBrokers?.map(b => b.user_id) || [];
+        query = query.in('user_id', brokerIds);
+      } else if (role === 'BROKER' || (role === 'PJ' && !myCompany)) {
+        // Se for Corretor ou PJ sem empresa definida, vê apenas os seus próprios clientes
         query = query.eq('user_id', user.id);
       }
 

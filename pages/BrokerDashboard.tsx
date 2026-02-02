@@ -6,9 +6,17 @@ import { Inspection } from '../types';
 
 const BrokerDashboard: React.FC = () => {
   const [inspections, setInspections] = React.useState<Inspection[]>([]);
-  const [stats, setStats] = React.useState({ monthCount: 0, pendingCount: 0, propertiesCount: 0 });
-  const [planUsage, setPlanUsage] = React.useState({ name: 'Plano Trial', current: 0, max: 0, expiry: '' });
-  const [userProfile, setUserProfile] = React.useState<{ full_name: string } | null>(null);
+  const [stats, setStats] = React.useState({ monthCount: 0, pendingCount: 0, propertiesCount: 0, brokersCount: 0 });
+  const [planUsage, setPlanUsage] = React.useState({
+    name: 'Plano Trial',
+    current: 0,
+    max: 0,
+    expiry: '',
+    maxPhotos: 0,
+    maxBrokers: 0,
+    type: 'PF'
+  });
+  const [userProfile, setUserProfile] = React.useState<{ full_name: string, role: string, company_name?: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
   const navigate = useNavigate();
 
@@ -30,12 +38,21 @@ const BrokerDashboard: React.FC = () => {
         .single();
 
       if (profile) {
-        setUserProfile({ full_name: profile.full_name || user.email?.split('@')[0] });
+        setUserProfile({
+          full_name: profile.full_name || user.email?.split('@')[0],
+          role: profile.role,
+          company_name: profile.company_name
+        });
+
+        const plan = profile.plans as any;
         setPlanUsage({
-          name: (profile.plans as any)?.name || 'Plano Grátis',
-          current: 0, // Will be updated below
-          max: (profile.plans as any)?.max_inspections || 5,
-          expiry: profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR') : 'Sem expiração'
+          name: plan?.name || 'Plano Grátis',
+          current: 0, // Will be updated
+          max: plan?.max_inspections || 5,
+          expiry: profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR') : 'Sem expiração',
+          maxPhotos: plan?.max_photos || 30,
+          maxBrokers: plan?.max_brokers || 0,
+          type: plan?.plan_type || 'PF'
         });
       }
 
@@ -61,10 +78,23 @@ const BrokerDashboard: React.FC = () => {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
+      // 2.1 Brokers Count (If PJ)
+      let brokersCount = 0;
+      const company = (profile?.company_name || profile?.full_name || '').trim();
+      if (profile?.role === 'PJ' && company) {
+        const { count } = await supabase
+          .from('broker_profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_name', company)
+          .eq('status', 'Ativo');
+        brokersCount = count || 0;
+      }
+
       setStats({
         monthCount: monthCount || 0,
         pendingCount: pendingCount || 0,
-        propertiesCount: propertiesCount || 0
+        propertiesCount: propertiesCount || 0,
+        brokersCount
       });
 
       setPlanUsage(prev => ({ ...prev, current: monthCount || 0 }));
@@ -156,17 +186,28 @@ const BrokerDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-blue-200 transition-all">
           <div className="flex justify-between items-start mb-2">
-            <div className="p-2 bg-slate-50 rounded-lg text-slate-400">
+            <div className="p-2 bg-blue-50 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
               <span className="material-symbols-outlined">data_usage</span>
             </div>
-            <button onClick={() => navigate('/settings')} className="text-xs font-bold text-blue-600">Gerenciar</button>
+            <button
+              onClick={() => navigate('/broker/plan')}
+              className="text-[10px] font-black uppercase text-blue-600 tracking-widest hover:underline"
+            >
+              Gerenciar
+            </button>
           </div>
           <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-slate-900 font-bold">{planUsage.name}</span>
-              <span className="text-slate-500">{planUsage.current}/{planUsage.max}</span>
+            <div className="flex justify-between items-end mb-2">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plano Atual</p>
+                <span className="text-sm font-black text-slate-900 uppercase tracking-tight">{planUsage.name}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-sm font-black text-blue-600">{planUsage.current}</span>
+                <span className="text-xs text-slate-400 font-bold">/{planUsage.max}</span>
+              </div>
             </div>
             <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
@@ -174,9 +215,18 @@ const BrokerDashboard: React.FC = () => {
                 style={{ width: `${Math.min((planUsage.current / planUsage.max) * 100, 100)}%` }}
               ></div>
             </div>
-            <p className="text-[10px] text-slate-400 mt-2 font-medium">
-              {planUsage.expiry === 'Sem expiração' ? 'Plano Vitalício' : `Renova em ${planUsage.expiry}`}
-            </p>
+            <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-50">
+              <div className="text-[9px] font-bold text-slate-400">
+                <p className="uppercase tracking-tighter">Fotos/Vistoria</p>
+                <p className="text-slate-900 font-black">{planUsage.maxPhotos}</p>
+              </div>
+              {planUsage.type === 'PJ' && (
+                <div className="text-[9px] font-bold text-slate-400">
+                  <p className="uppercase tracking-tighter">Corretores</p>
+                  <p className="text-slate-900 font-black">{stats.brokersCount}/{planUsage.maxBrokers}</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -270,7 +320,7 @@ const BrokerDashboard: React.FC = () => {
                 ))}
               </div>
               <button
-                onClick={() => navigate('/admin/plans')}
+                onClick={() => navigate('/broker/plan')}
                 className="w-full py-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm font-bold text-slate-700 transition-colors"
               >
                 Ver Planos

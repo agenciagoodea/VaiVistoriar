@@ -11,6 +11,14 @@ const PJDashboard: React.FC = () => {
       completed: 0,
       activeBrokers: 0
    });
+   const [userProfile, setUserProfile] = useState<{ full_name: string, company_name?: string } | null>(null);
+   const [planUsage, setPlanUsage] = useState({
+      name: 'Plano Grátis',
+      current: 0,
+      max: 5,
+      maxBrokers: 0,
+      expiry: ''
+   });
    const [performanceData, setPerformanceData] = useState<{ name: string, val: number }[]>([]);
 
    useEffect(() => {
@@ -25,23 +33,46 @@ const PJDashboard: React.FC = () => {
          // 1. Get PJ Profile and Company Name
          const { data: profile } = await supabase
             .from('broker_profiles')
-            .select('company_name')
+            .select('*, plans:subscription_plan_id(*)')
             .eq('user_id', user.id)
             .single();
 
-         const company = profile?.company_name || '';
+         if (profile) {
+            setUserProfile({
+               full_name: profile.full_name || user.email?.split('@')[0],
+               company_name: profile.company_name
+            });
+         }
 
-         // 2. Fetch Team Members first
-         const { data: teamMembers } = await supabase
-            .from('broker_profiles')
-            .select('user_id, full_name')
-            .eq('company_name', company);
+         // Fallback: If company_name is empty, use full_name (which is often the company name for PJ)
+         const company = (profile?.company_name || profile?.full_name || '').trim();
+         const plan = profile?.plans as any;
 
-         const userIds = teamMembers?.map(m => m.user_id) || [];
+         setPlanUsage({
+            name: plan?.name || 'Plano Trial',
+            current: 0, // Updated below
+            max: plan?.max_inspections || 5,
+            maxBrokers: plan?.max_brokers || 0,
+            expiry: profile?.subscription_expires_at ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR') : 'Sem expiração'
+         });
 
-         if (userIds.length === 0) {
-            setLoading(false);
-            return;
+         // 2. Fetch Team Members
+         let userIds: string[] = [user.id];
+         let teamMembers: any[] = [{ user_id: user.id, full_name: profile?.full_name || 'Eu' }];
+
+         if (company) {
+            const { data: members } = await supabase
+               .from('broker_profiles')
+               .select('user_id, full_name')
+               .eq('company_name', company);
+
+            if (members && members.length > 0) {
+               teamMembers = members;
+               userIds = members.map(m => m.user_id);
+               if (!userIds.includes(user.id)) {
+                  userIds.push(user.id);
+               }
+            }
          }
 
          // 3. Fetch Team Inspections for Metrics using the userIds list
@@ -78,12 +109,16 @@ const PJDashboard: React.FC = () => {
             .slice(0, 5); // Top 5
 
          // 4. Active Brokers
-         const { count: brokersCount } = await supabase
-            .from('broker_profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('company_name', company)
-            .eq('role', 'BROKER')
-            .eq('status', 'Ativo');
+         let brokersCount = 0;
+         if (company) {
+            const { count } = await supabase
+               .from('broker_profiles')
+               .select('*', { count: 'exact', head: true })
+               .eq('company_name', company)
+               .eq('role', 'BROKER')
+               .eq('status', 'Ativo');
+            brokersCount = count || 0;
+         }
 
          setMetrics({
             inspectionsMonth: thisMonth.length,
@@ -91,6 +126,8 @@ const PJDashboard: React.FC = () => {
             completed: done.length,
             activeBrokers: brokersCount || 0
          });
+
+         setPlanUsage(prev => ({ ...prev, current: thisMonth.length }));
 
          setPerformanceData(chartData.length > 0 ? chartData : [
             { name: 'Sem dados', val: 0 },
@@ -113,7 +150,9 @@ const PJDashboard: React.FC = () => {
       <div className="space-y-8 animate-in fade-in duration-500">
          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-               <h1 className="text-3xl font-black text-slate-900 tracking-tight">Visão da Equipe</h1>
+               <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                  {userProfile?.company_name || userProfile?.full_name || 'Visão da Equipe'}
+               </h1>
                <p className="text-slate-500 mt-1">Acompanhe o desempenho da sua imobiliária em tempo real.</p>
             </div>
             <div className="flex gap-3">
@@ -128,7 +167,7 @@ const PJDashboard: React.FC = () => {
             </div>
          </div>
 
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {[
                { label: 'Vistorias (Mês)', value: metrics.inspectionsMonth, icon: 'assignment_turned_in', color: 'blue' },
                { label: 'Aguardando Aprovação', value: metrics.waitingApproval, icon: 'hourglass_top', color: 'amber' },
@@ -147,6 +186,34 @@ const PJDashboard: React.FC = () => {
                   </div>
                </div>
             ))}
+
+            {/* Plan Usage Card */}
+            <div className="bg-slate-900 p-6 rounded-xl shadow-xl flex flex-col justify-between group">
+               <div className="flex justify-between items-start mb-2">
+                  <div className="p-2 bg-white/10 rounded-lg text-white">
+                     <span className="material-symbols-outlined">data_usage</span>
+                  </div>
+                  <button onClick={() => navigate('/broker/plan')} className="text-[10px] font-black uppercase text-blue-400 tracking-widest hover:text-blue-300">Meu Plano</button>
+               </div>
+               <div>
+                  <div className="flex justify-between items-end mb-2">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{planUsage.name}</p>
+                     <div className="text-right">
+                        <span className="text-sm font-black text-white">{planUsage.current}</span>
+                        <span className="text-xs text-slate-500 font-bold">/{planUsage.max}</span>
+                     </div>
+                  </div>
+                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                     <div
+                        className="h-full bg-blue-500 rounded-full transition-all duration-1000"
+                        style={{ width: `${Math.min((planUsage.current / planUsage.max) * 100, 100)}%` }}
+                     ></div>
+                  </div>
+                  <p className="text-[9px] text-slate-500 mt-2 font-medium uppercase tracking-tight">
+                     Limite de Corretores: <span className="text-slate-300 font-bold">{metrics.activeBrokers}/{planUsage.maxBrokers}</span>
+                  </p>
+               </div>
+            </div>
          </div>
 
          <div className="grid lg:grid-cols-3 gap-6">

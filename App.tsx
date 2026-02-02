@@ -141,6 +141,7 @@ const App: React.FC = () => {
           {/* Shared Broker and PJ Routes for Plans */}
           <Route element={<ProtectedRoute allowedRoles={['BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} />}>
             <Route path="/broker/plan" element={<MyPlanPage role={role} />} />
+            <Route path="/team" element={<UsersPage />} />
           </Route>
 
           {/* Broker Specific Routes */}

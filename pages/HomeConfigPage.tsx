@@ -353,33 +353,123 @@ const HomeConfigPage: React.FC = () => {
                             <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
                                 <span className="material-symbols-outlined text-[28px]">view_agenda</span>
                             </div>
-                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Rodapé Modular</h3>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Rodapé Modular</h3>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Configure as informações exibidas no rodapé da landing page</p>
+                            </div>
                         </div>
                         <div className="grid gap-10">
-                            <div className="p-8 bg-slate-50/50 rounded-[32px] border border-slate-100 space-y-6">
-                                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Coluna 1: Bio e Logo</h4>
-                                <textarea rows={2} value={footer.col1_text} onChange={e => setFooter({ ...footer, col1_text: e.target.value })} className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-medium" />
+                            {/* Coluna 1 - Sobre */}
+                            <div className="p-8 bg-gradient-to-br from-slate-50 to-white rounded-[32px] border border-slate-100 space-y-6 shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-[18px]">info</span>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Coluna 1: Sobre a Empresa</h4>
+                                        <p className="text-[9px] text-slate-400 font-medium">Texto descritivo exibido ao lado do logo</p>
+                                    </div>
+                                </div>
+                                <textarea
+                                    rows={2}
+                                    value={footer.col1_text}
+                                    onChange={e => setFooter({ ...footer, col1_text: e.target.value })}
+                                    className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                    placeholder="Descreva brevemente sua empresa..."
+                                />
                             </div>
+
                             <div className="grid md:grid-cols-2 gap-10">
-                                <div className="p-8 bg-slate-50/50 rounded-[32px] border border-slate-100 space-y-6">
-                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Coluna 2: Links Rápidos</h4>
-                                    <input type="text" value={footer.col2_title} onChange={e => setFooter({ ...footer, col2_title: e.target.value })} className="w-full px-5 py-3.5 bg-white border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest" />
+                                {/* Coluna 2 - Links de Navegação */}
+                                <div className="p-8 bg-gradient-to-br from-blue-50 to-white rounded-[32px] border border-blue-100 space-y-6 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-[18px]">link</span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Coluna 2: Navegação</h4>
+                                            <p className="text-[9px] text-slate-400 font-medium">Links rápidos para seções da página</p>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={footer.col2_title}
+                                        onChange={e => setFooter({ ...footer, col2_title: e.target.value })}
+                                        className="w-full px-5 py-3.5 bg-white border border-blue-200 rounded-2xl text-xs font-black uppercase tracking-widest focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                        placeholder="Título da seção"
+                                    />
                                     <div className="space-y-3">
+                                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Links (use # para âncoras)</p>
                                         {footer.col2_links.map((link, lidx) => (
                                             <div key={lidx} className="flex gap-2">
-                                                <input type="text" value={link.label} onChange={e => {
-                                                    const l = [...footer.col2_links];
-                                                    l[lidx].label = e.target.value;
-                                                    setFooter({ ...footer, col2_links: l });
-                                                }} placeholder="Link" className="flex-1 px-4 py-2 bg-white rounded-xl text-xs border border-slate-100" />
+                                                <input
+                                                    type="text"
+                                                    value={link.label}
+                                                    onChange={e => {
+                                                        const l = [...footer.col2_links];
+                                                        l[lidx].label = e.target.value;
+                                                        setFooter({ ...footer, col2_links: l });
+                                                    }}
+                                                    placeholder="Nome do link"
+                                                    className="flex-1 px-4 py-2.5 bg-white rounded-xl text-xs font-bold border border-blue-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={link.url}
+                                                    onChange={e => {
+                                                        const l = [...footer.col2_links];
+                                                        l[lidx].url = e.target.value;
+                                                        setFooter({ ...footer, col2_links: l });
+                                                    }}
+                                                    placeholder="#secao ou /pagina"
+                                                    className="w-32 px-4 py-2.5 bg-white rounded-xl text-xs font-mono border border-blue-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                                />
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                                <div className="p-8 bg-slate-50/50 rounded-[32px] border border-slate-100 space-y-6">
-                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Coluna 3: Contato</h4>
-                                    <input type="text" value={footer.col3_title} onChange={e => setFooter({ ...footer, col3_title: e.target.value })} className="w-full px-5 py-3.5 bg-white border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest" />
-                                    <input type="text" value={footer.col3_contact} onChange={e => setFooter({ ...footer, col3_contact: e.target.value })} className="w-full px-5 py-3.5 bg-white border border-slate-100 rounded-2xl text-xs font-bold" />
+
+                                {/* Coluna 3 - Contato */}
+                                <div className="p-8 bg-gradient-to-br from-emerald-50 to-white rounded-[32px] border border-emerald-100 space-y-6 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-[18px]">contact_mail</span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Coluna 3: Contato</h4>
+                                            <p className="text-[9px] text-slate-400 font-medium">Informações de contato da empresa</p>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={footer.col3_title}
+                                        onChange={e => setFooter({ ...footer, col3_title: e.target.value })}
+                                        className="w-full px-5 py-3.5 bg-white border border-emerald-200 rounded-2xl text-xs font-black uppercase tracking-widest focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                                        placeholder="Título da seção"
+                                    />
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest block mb-2">Email ou Telefone</label>
+                                            <input
+                                                type="text"
+                                                value={footer.col3_contact}
+                                                onChange={e => setFooter({ ...footer, col3_contact: e.target.value })}
+                                                className="w-full px-5 py-3.5 bg-white border border-emerald-200 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                                                placeholder="contato@empresa.com.br"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Dica de uso */}
+                            <div className="p-6 bg-amber-50 border border-amber-100 rounded-[24px] flex items-start gap-4">
+                                <span className="material-symbols-outlined text-amber-600 text-[20px] mt-0.5">lightbulb</span>
+                                <div className="flex-1">
+                                    <h5 className="text-[10px] font-black text-amber-900 uppercase tracking-widest mb-1">Dica de Configuração</h5>
+                                    <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
+                                        Use <code className="px-2 py-0.5 bg-amber-100 rounded text-amber-900 font-bold">#funcionalidades</code>, <code className="px-2 py-0.5 bg-amber-100 rounded text-amber-900 font-bold">#como-funciona</code>, <code className="px-2 py-0.5 bg-amber-100 rounded text-amber-900 font-bold">#depoimentos</code> ou <code className="px-2 py-0.5 bg-amber-100 rounded text-amber-900 font-bold">#planos</code> nos links para navegação suave entre seções.
+                                    </p>
                                 </div>
                             </div>
                         </div>
