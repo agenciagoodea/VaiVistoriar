@@ -36,14 +36,11 @@ const CookieConsent: React.FC = () => {
                 ip_address: null
             };
 
+            const { error: insertError } = await supabase.from('cookie_consents').insert([consentData]);
 
-
-            // Log do aceite no banco
-            const { error } = await supabase.from('cookie_consents').insert(consentData);
-
-            if (error) {
-                console.error('❌ Erro no INSERT de cookie_consents:', error);
-                throw error;
+            if (insertError) {
+                console.error('❌ Erro no INSERT de cookie_consents:', insertError);
+                throw insertError;
             }
 
 

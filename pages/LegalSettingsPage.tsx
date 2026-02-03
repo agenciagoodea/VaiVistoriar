@@ -30,9 +30,9 @@ const LegalSettingsPage: React.FC = () => {
             if (configs) {
                 const find = (key: string) => configs.find(c => c.key === key)?.value;
                 setLegal({
-                    terms: find('legal_terms') || '',
-                    privacy: find('legal_privacy') || '',
-                    cookieBanner: find('legal_cookie_banner') || legal.cookieBanner
+                    terms: find('terms_content') || '',
+                    privacy: find('privacy_content') || '',
+                    cookieBanner: find('cookie_consent_text') || legal.cookieBanner
                 });
             }
 
@@ -54,9 +54,9 @@ const LegalSettingsPage: React.FC = () => {
         setSaving(true);
         try {
             const updates = [
-                { key: 'legal_terms', value: legal.terms },
-                { key: 'legal_privacy', value: legal.privacy },
-                { key: 'legal_cookie_banner', value: legal.cookieBanner }
+                { key: 'terms_content', value: legal.terms },
+                { key: 'privacy_content', value: legal.privacy },
+                { key: 'cookie_consent_text', value: legal.cookieBanner }
             ];
             for (const up of updates) {
                 await supabase.from('system_configs').upsert({ key: up.key, value: up.value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
