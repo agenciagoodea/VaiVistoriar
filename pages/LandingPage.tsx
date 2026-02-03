@@ -498,11 +498,14 @@ const LandingPage: React.FC = () => {
                     </div>
 
                     {plan.billingCycle === 'Anual' && (
-                      <div className={`mt-6 p-6 rounded-[32px] border transition-all ${isPopular ? 'bg-white/10 border-white/20' : 'bg-emerald-50/50 border-emerald-100/50'}`}>
+                      <div className={`mt-6 p-6 rounded-[32px] border transition-all relative overflow-hidden ${isPopular ? 'bg-white/10 border-white/20' : 'bg-emerald-50/50 border-emerald-100/50'}`}>
                         {plan.comparisonPrice && (
-                          <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-2 ${isPopular ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                            Economize R$ {((plan.comparisonPrice * 12) - plan.price).toFixed(2).replace('.', ',')} / ano
-                          </p>
+                          <div className="flex flex-col mb-3">
+                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] opacity-60 ${isPopular ? 'text-white' : 'text-slate-400'}`}>Desconto Anual</span>
+                            <p className={`text-2xl font-black ${isPopular ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                              - R$ {((plan.comparisonPrice * 12) - plan.price).toFixed(2).replace('.', ',')}
+                            </p>
+                          </div>
                         )}
                         <p className={`text-sm font-bold ${isPopular ? 'text-slate-300' : 'text-slate-500'}`}>
                           Equivale a <span className={`font-black ${isPopular ? 'text-white' : 'text-slate-900'}`}>R$ {(plan.price / 12).toFixed(2).replace('.', ',')}</span> por mês

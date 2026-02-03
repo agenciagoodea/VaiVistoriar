@@ -338,9 +338,10 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">/ {plan.billingCycle === 'Anual' ? 'ano' : 'mês'}</p>
 
                                         {plan.billingCycle === 'Anual' && plan.comparisonPrice && (
-                                            <div className="mt-1">
-                                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
-                                                    Economize R$ {((plan.comparisonPrice * 12) - plan.price).toFixed(2).replace('.', ',')}
+                                            <div className="mt-2 text-right">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Economia Anual</span>
+                                                <p className="text-xl font-black text-emerald-600 tracking-tight">
+                                                    - R$ {((plan.comparisonPrice * 12) - plan.price).toFixed(2).replace('.', ',')}
                                                 </p>
                                             </div>
                                         )}
@@ -353,10 +354,13 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                                 </p>
 
                                 {plan.billingCycle === 'Anual' && (
-                                    <div className="mb-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-                                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">Pagamento Único</p>
-                                        <p className="text-sm font-bold text-slate-600">
-                                            Equivale a <span className="text-blue-700 font-black">R$ {(plan.price / 12).toFixed(2).replace('.', ',')}</span> por mês
+                                    <div className="mb-6 p-5 bg-blue-50/50 rounded-3xl border border-blue-100/50">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">Pagamento Único</p>
+                                            <span className="bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-lg animate-pulse">MELHOR VALOR</span>
+                                        </div>
+                                        <p className="text-sm font-bold text-slate-600 leading-relaxed">
+                                            Apenas <span className="text-blue-700 font-black text-lg">R$ {(plan.price / 12).toFixed(2).replace('.', ',')}</span> <span className="text-[10px] text-slate-400 uppercase tracking-widest">/ mês</span>
                                         </p>
                                     </div>
                                 )}

@@ -59,9 +59,17 @@ const PlanConfigPage: React.FC = () => {
          }));
 
          setPlans(mappedPlans);
-         if (mappedPlans.length > 0 && !selectedPlanId) {
-            setSelectedPlanId(mappedPlans[0].id);
-            setForm(mappedPlans[0]);
+
+         // Sincronizar o form com o plano selecionado (útil após salvamento)
+         if (mappedPlans.length > 0) {
+            const currentSelected = selectedPlanId
+               ? mappedPlans.find(p => p.id === selectedPlanId)
+               : mappedPlans[0];
+
+            if (currentSelected) {
+               if (!selectedPlanId) setSelectedPlanId(currentSelected.id);
+               setForm(currentSelected);
+            }
          }
       } catch (err) {
          console.error('Erro ao buscar planos:', err);
@@ -87,7 +95,7 @@ const PlanConfigPage: React.FC = () => {
             price: form.price,
             billing_cycle: form.billingCycle,
             status: form.status,
-            features: { ...form.features, comparison_price: form.comparisonPrice },
+            features: form.features,
             plan_type: form.type,
             max_inspections: form.maxInspections,
             max_photos: form.maxPhotos,
@@ -95,7 +103,8 @@ const PlanConfigPage: React.FC = () => {
             max_brokers: form.maxBrokers,
             storage_gb: form.storageGb,
             plan_badge_text: form.badgeText,
-            duration_days: form.durationDays
+            duration_days: form.durationDays,
+            comparison_price: form.comparisonPrice
          }).eq('id', selectedPlanId);
 
          if (error) throw error;
@@ -118,7 +127,7 @@ const PlanConfigPage: React.FC = () => {
             price: form.price,
             billing_cycle: form.billingCycle,
             status: form.status,
-            features: { ...form.features, comparison_price: form.comparisonPrice },
+            features: form.features,
             plan_type: form.type,
             max_inspections: form.maxInspections,
             max_photos: form.maxPhotos,
@@ -126,7 +135,8 @@ const PlanConfigPage: React.FC = () => {
             max_brokers: form.maxBrokers,
             storage_gb: form.storageGb,
             plan_badge_text: form.badgeText,
-            duration_days: form.durationDays
+            duration_days: form.durationDays,
+            comparison_price: form.comparisonPrice
          }]);
 
          if (error) throw error;
@@ -251,6 +261,11 @@ const PlanConfigPage: React.FC = () => {
                               /{plan.billingCycle === 'Anual' ? 'ano' : 'mês'}
                            </span>
                         </div>
+                        {plan.billingCycle === 'Anual' && plan.comparisonPrice && (
+                           <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">
+                              Economia R$ {((plan.comparisonPrice * 12) - plan.price).toFixed(2).replace('.', ',')}
+                           </p>
+                        )}
                      </div>
 
                      <div className="space-y-3 pt-4 border-t border-slate-50">
@@ -351,8 +366,9 @@ const PlanConfigPage: React.FC = () => {
                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Preço Mensal Ref. (Para cálculo de economia)</label>
                            <input
                               type="number"
+                              step="0.01"
                               value={form.comparisonPrice || ''}
-                              onChange={e => setForm({ ...form, comparisonPrice: parseFloat(e.target.value) })}
+                              onChange={e => setForm({ ...form, comparisonPrice: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
                               className="w-full px-6 py-4 bg-amber-50/20 border border-amber-100/50 rounded-2xl text-sm font-black shadow-sm outline-none focus:ring-4 focus:ring-amber-500/5 transition-all text-amber-600"
                               placeholder="Ex: 99.90"
                            />
