@@ -19,6 +19,7 @@ const PJDashboard: React.FC = () => {
       maxBrokers: 0,
       expiry: ''
    });
+   const [whatsappSupport, setWhatsappSupport] = useState('');
    const [performanceData, setPerformanceData] = useState<{ name: string, val: number }[]>([]);
 
    useEffect(() => {
@@ -29,6 +30,12 @@ const PJDashboard: React.FC = () => {
       try {
          const { data: { user } } = await supabase.auth.getUser();
          if (!user) return;
+
+         // 0. Fetch Support Number
+         const { data: configs } = await supabase.from('system_configs').select('*').in('key', ['whatsapp_number']);
+         if (configs) {
+            setWhatsappSupport(configs.find(c => c.key === 'whatsapp_number')?.value || '');
+         }
 
          // 1. Get PJ Profile and Company Name
          const { data: profile } = await supabase
@@ -248,14 +255,17 @@ const PJDashboard: React.FC = () => {
                   </div>
                   <div className="flex gap-2 justify-center">
                      <button
-                        onClick={() => window.open('https://g.page/r/SeuLinkDeAvaliacao/review', '_blank')}
+                        onClick={() => navigate('/feedback')}
                         className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-400 text-blue-900 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
                      >
                         <span className="material-symbols-outlined text-[16px]">thumb_up</span>
                         Avaliar
                      </button>
                      <button
-                        onClick={() => window.open('https://wa.me/5511999999999', '_blank')}
+                        onClick={() => {
+                           const num = whatsappSupport || '5511999999999';
+                           window.open(`https://wa.me/${num.replace(/\D/g, '')}`, '_blank');
+                        }}
                         className="flex-1 py-2 bg-green-500 hover:bg-green-400 text-white rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
                      >
                         <span className="material-symbols-outlined text-[16px]">chat</span>

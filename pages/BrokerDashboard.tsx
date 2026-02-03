@@ -17,6 +17,7 @@ const BrokerDashboard: React.FC = () => {
     type: 'PF'
   });
   const [userProfile, setUserProfile] = React.useState<{ full_name: string, role: string, company_name?: string } | null>(null);
+  const [whatsappSupport, setWhatsappSupport] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const navigate = useNavigate();
 
@@ -29,6 +30,13 @@ const BrokerDashboard: React.FC = () => {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // 0. Fetch System Configs (Support Number)
+      const { data: configs } = await supabase.from('system_configs').select('*').in('key', ['whatsapp_number']);
+      if (configs) {
+        const num = configs.find(c => c.key === 'whatsapp_number')?.value;
+        setWhatsappSupport(num || '');
+      }
 
       // 1. Profile & Plan
       const { data: profile } = await supabase
@@ -303,28 +311,52 @@ const BrokerDashboard: React.FC = () => {
 
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="h-32 bg-slate-200 relative">
-              <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80" alt="Upgrade" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-blue-900/60 flex flex-col justify-end p-5">
-                <h4 className="text-white font-bold text-lg">Vistoria Premium</h4>
-                <p className="text-blue-100 text-xs font-medium">Desbloqueie recursos exclusivos</p>
+            <div className="bg-slate-900 p-6 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <span className="material-symbols-outlined text-[100px]">verified</span>
+              </div>
+              <h4 className="font-bold text-lg relative z-10">Meu Plano Atual</h4>
+              <p className="text-blue-200 text-xs font-medium relative z-10 uppercase tracking-wider">{planUsage.name}</p>
+              <div className="mt-4 relative z-10">
+                <p className="text-[10px] uppercase text-slate-400 font-bold">Expira em</p>
+                <p className="font-bold">{planUsage.expiry}</p>
               </div>
             </div>
+
             <div className="p-5 space-y-4">
-              <div className="space-y-2">
-                {['Vistorias Ilimitadas', 'Relatórios Customizados', 'Suporte Prioritário'].map((feat, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                    <span className="material-symbols-outlined text-green-500 fill-icon text-[18px]">check_circle</span>
-                    {feat}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-600 font-medium">Vistorias</span>
+                  <span className={`font-bold ${planUsage.current >= planUsage.max ? 'text-red-600' : 'text-slate-900'}`}>
+                    {planUsage.current} / {planUsage.max}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${planUsage.current >= planUsage.max ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${Math.min((planUsage.current / planUsage.max) * 100, 100)}%` }}></div>
+                </div>
+
+                <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50">
+                  <span className="text-slate-600 font-medium">Fotos p/ Vistoria</span>
+                  <span className="font-bold text-slate-900">{planUsage.maxPhotos}</span>
+                </div>
+
+                {planUsage.type === 'PJ' && (
+                  <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-50">
+                    <span className="text-slate-600 font-medium">Corretores</span>
+                    <span className="font-bold text-slate-900">{stats.brokersCount} / {planUsage.maxBrokers}</span>
                   </div>
-                ))}
+                )}
               </div>
-              <button
-                onClick={() => navigate('/broker/plan')}
-                className="w-full py-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm font-bold text-slate-700 transition-colors"
-              >
-                Ver Planos
-              </button>
+
+              <div className="pt-2">
+                <button
+                  onClick={() => navigate('/broker/plan')}
+                  className="w-full py-2.5 rounded-lg border border-indigo-100 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[18px]">upgrade</span>
+                  Gerenciar Plano
+                </button>
+              </div>
             </div>
           </div>
 
@@ -339,14 +371,17 @@ const BrokerDashboard: React.FC = () => {
             </div>
             <div className="flex gap-2 justify-center">
               <button
-                onClick={() => window.open('https://g.page/r/SeuLinkDeAvaliacao/review', '_blank')}
+                onClick={() => navigate('/feedback')}
                 className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-400 text-blue-900 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
               >
                 <span className="material-symbols-outlined text-[16px]">thumb_up</span>
                 Avaliar
               </button>
               <button
-                onClick={() => window.open('https://wa.me/5511999999999', '_blank')} // Placeholder number, user should configure
+                onClick={() => {
+                  const num = whatsappSupport || '5511999999999';
+                  window.open(`https://wa.me/${num.replace(/\D/g, '')}`, '_blank');
+                }}
                 className="flex-1 py-2 bg-green-500 hover:bg-green-400 text-white rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
               >
                 <span className="material-symbols-outlined text-[16px]">chat</span>
