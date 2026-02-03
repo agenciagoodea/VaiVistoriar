@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
+import FeedbackModal from '../components/FeedbackModal';
+
 const PJDashboard: React.FC = () => {
    const navigate = useNavigate();
    const [loading, setLoading] = useState(true);
@@ -20,6 +22,7 @@ const PJDashboard: React.FC = () => {
       expiry: ''
    });
    const [whatsappSupport, setWhatsappSupport] = useState('');
+   const [showFeedback, setShowFeedback] = useState(false);
    const [performanceData, setPerformanceData] = useState<{ name: string, val: number }[]>([]);
 
    useEffect(() => {

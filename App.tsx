@@ -45,7 +45,6 @@ import SEOConfigPage from './pages/SEOConfigPage';
 import MyPlanPage from './pages/MyPlanPage';
 import ReportsPage from './pages/ReportsPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import FeedbackPage from './pages/FeedbackPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
@@ -109,7 +108,6 @@ const App: React.FC = () => {
         <Route path="/checkout/failure" element={<CheckoutFailure />} />
         <Route path="/checkout/pending" element={<CheckoutPending />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/feedback" element={<FeedbackPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/login" element={!session ? <LoginPage /> : <Navigate to={role === 'ADMIN' ? '/admin' : role === 'BROKER' ? '/broker' : '/pj'} replace />} />
         <Route path="/register" element={!session ? <LoginPage isRegisterMode={true} /> : <Navigate to={role === 'ADMIN' ? '/admin' : role === 'BROKER' ? '/broker' : '/pj'} replace />} />

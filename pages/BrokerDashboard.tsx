@@ -1,5 +1,24 @@
 
-import React from 'react';
+import FeedbackModal from '../components/FeedbackModal';
+
+const BrokerDashboard: React.FC = () => {
+  // ... existing states ...
+  const [showFeedback, setShowFeedback] = React.useState(false);
+
+  // ... rest of code ...
+
+  // Update button:
+  <button
+    onClick={() => setShowFeedback(true)}
+    className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-400 text-blue-900 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
+  >
+
+  // Add modal at end:
+
+    <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
+  </div>
+  );
+};
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Inspection } from '../types';
@@ -19,6 +38,7 @@ const BrokerDashboard: React.FC = () => {
   const [userProfile, setUserProfile] = React.useState<{ full_name: string, role: string, company_name?: string } | null>(null);
   const [whatsappSupport, setWhatsappSupport] = React.useState('');
   const [loading, setLoading] = React.useState(true);
+  const [showFeedback, setShowFeedback] = React.useState(false);
   const navigate = useNavigate();
 
   React.useEffect(() => {
