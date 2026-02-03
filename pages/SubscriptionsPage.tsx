@@ -96,7 +96,7 @@ const SubscriptionsPage: React.FC = () => {
                   plan_id: newPlanId,
                   adminPassword: adminPassword,
                   status: 'Ativo',
-                  expires_at: new Date(new Date().getFullYear() + 1, new Date().getMonth(), new Date().getDate()).toISOString()
+                  expires_at: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString()
                }
             }
          });

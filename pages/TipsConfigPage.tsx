@@ -13,25 +13,54 @@ const TipsConfigPage: React.FC = () => {
 
     const fetchConfigs = async () => {
         try {
-            const { data: configs } = await supabase.from('system_configs').select('*');
-            if (configs) {
-                const savedTips = configs.find(c => c.key === 'inspection_tips')?.value;
-                if (savedTips) setTips(JSON.parse(savedTips));
+            const { data: configs } = await supabase.from('system_configs').select('*').eq('key', 'inspection_tips').maybeSingle();
+            if (configs?.value) {
+                try {
+                    const parsed = JSON.parse(configs.value);
+                    if (Array.isArray(parsed)) {
+                        setTips(parsed.filter(t => typeof t === 'string' && t.trim() !== ''));
+                    } else if (typeof parsed === 'string' && parsed.trim() !== '') {
+                        setTips([parsed]);
+                    } else {
+                        setTips([]);
+                    }
+                } catch (e) {
+                    // SE FALHAR O PARSE: Pode ser uma string bruta (legado)
+                    console.warn('Dicas no banco não são JSON válido, tentando recuperar como string bruta:', e);
+                    if (typeof configs.value === 'string' && configs.value.trim() !== '') {
+                        setTips([configs.value.trim()]);
+                    } else {
+                        setTips([]);
+                    }
+                }
             }
         } catch (err) {
-            console.error(err);
+            console.error('Erro ao buscar dicas:', err);
         } finally {
             setLoading(false);
         }
     };
 
     const handleSave = async () => {
+        const cleanTips = tips.map(t => t.trim()).filter(t => t !== '');
+
+        if (cleanTips.length === 0 && tips.length > 0) {
+            if (!confirm('Deseja realmente apagar todas as dicas?')) return;
+        }
+
         setSaving(true);
         try {
-            await supabase.from('system_configs').upsert({ key: 'inspection_tips', value: JSON.stringify(tips), updated_at: new Date().toISOString() }, { onConflict: 'key' });
-            alert('Dicas salvas!');
+            const { error } = await supabase.from('system_configs').upsert({
+                key: 'inspection_tips',
+                value: JSON.stringify(cleanTips),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+
+            if (error) throw error;
+            setTips(cleanTips);
+            alert('✅ Dicas salvas com sucesso!');
         } catch (err: any) {
-            alert(`Erro: ${err.message}`);
+            alert(`❌ Erro ao salvar: ${err.message}`);
         } finally {
             setSaving(false);
         }

@@ -133,9 +133,17 @@ const NewInspectionPage: React.FC = () => {
             if (tipsData?.value) {
                 try {
                     const parsedTips = JSON.parse(tipsData.value);
-                    setInspectionTips(Array.isArray(parsedTips) ? parsedTips : []);
+                    const validTips = Array.isArray(parsedTips)
+                        ? parsedTips.filter((t: any) => typeof t === 'string' && t.trim() !== '')
+                        : (typeof parsedTips === 'string' && parsedTips.trim() !== '' ? [parsedTips] : []);
+                    setInspectionTips(validTips);
                 } catch (e) {
-                    console.error('Erro ao processar dicas:', e);
+                    console.warn('Dicas no banco não são JSON válido, tentando recuperar como string:', e);
+                    if (typeof tipsData.value === 'string' && tipsData.value.trim() !== '') {
+                        setInspectionTips([tipsData.value.trim()]);
+                    } else {
+                        setInspectionTips([]);
+                    }
                 }
             }
 
