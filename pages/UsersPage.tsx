@@ -72,12 +72,26 @@ const UsersPage: React.FC = () => {
             }
          }
 
-         // Call Edge Function to get users with last_access data
+         // Call Edge Function with EXPLICIT token to avoid issues with stale/anon sessions
+         const { data: { session } } = await supabase.auth.getSession();
+         const headers: Record<string, string> = {};
+         if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+         }
+
          const { data: responseData, error } = await supabase.functions.invoke('admin-dash', {
-            body: { action: 'get_users' }
+            body: { action: 'get_users' },
+            headers
          });
 
-         if (error) throw error;
+         if (error) {
+            console.error('❌ Edge Function Error Details:', error);
+            if (error.context && typeof error.context.json === 'function') {
+               const debugData = await error.context.json().catch(() => ({}));
+               console.error('📦 Error Response Body:', debugData);
+            }
+            throw error;
+         }
 
          if (responseData && responseData.users) {
             let userList = responseData.users;
@@ -115,13 +129,25 @@ const UsersPage: React.FC = () => {
       } catch (err: any) {
          console.error('Erro ao buscar usuários:', err);
 
+         // Extract detailed error from response body if available
+         let detailMsg = '';
+         if (err.context && typeof err.context.json === 'function') {
+            try {
+               const body = await err.context.json();
+               if (body.details) detailMsg = `\nDetalhes: ${body.details}`;
+               if (body.debug) detailMsg += `\nDebug: ${JSON.stringify(body.debug)}`;
+            } catch (e) {
+               console.warn('Não foi possível ler corpo do erro:', e);
+            }
+         }
+
          // Robust 401 check
          const isUnauthorized =
             (err.status === 401 || err.status === 403) ||
             (err.message && (err.message.includes('401') || err.message.includes('403') || err.message.toLowerCase().includes('unauthorized')));
 
          if (isUnauthorized) {
-            alert('Sua sessão expirou (Erro 401). Por favor, faça login novamente.');
+            console.error('🔴 Sessão expirou ou é inválida (401).');
             await supabase.auth.signOut();
             window.location.href = '/login';
          }

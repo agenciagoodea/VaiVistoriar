@@ -88,6 +88,11 @@ const SubscriptionsPage: React.FC = () => {
 
       try {
          setModalLoading(true);
+
+         const plan = allPlans.find(p => p.id === newPlanId);
+         const duration = plan?.duration_days || 30; // Fallback to 30
+         const expiresAt = new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toISOString();
+
          const { data: response, error } = await supabase.functions.invoke('admin-dash', {
             body: {
                action: 'update_user_plan',
@@ -96,7 +101,7 @@ const SubscriptionsPage: React.FC = () => {
                   plan_id: newPlanId,
                   adminPassword: adminPassword,
                   status: 'Ativo',
-                  expires_at: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString()
+                  expires_at: expiresAt
                }
             }
          });

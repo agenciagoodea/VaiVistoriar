@@ -15,6 +15,7 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
     const [profile, setProfile] = useState<any>(null);
     const [primaryColor, setPrimaryColor] = useState('#2563eb');
     const [supportWhatsapp, setSupportWhatsapp] = useState('');
+    const [billingCycle, setBillingCycle] = useState<'Mensal' | 'Anual'>('Mensal');
 
     useEffect(() => {
         fetchData();
@@ -298,19 +299,43 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
 
                 {/* Upgrade Options */}
                 <div className="lg:col-span-2 space-y-8">
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                        <div className="w-1.5 h-6 rounded-full bg-blue-600" />
-                        Upgrades Disponíveis
-                    </h3>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mr-4">
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                            <div className="w-1.5 h-6 rounded-full bg-blue-600" />
+                            Upgrades Disponíveis
+                        </h3>
+
+                        {/* Toggle de Ciclo */}
+                        <div className="flex items-center p-1 bg-slate-100 rounded-2xl w-fit">
+                            <button
+                                onClick={() => setBillingCycle('Mensal')}
+                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${billingCycle === 'Mensal' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                                    }`}
+                            >
+                                Mensal
+                            </button>
+                            <button
+                                onClick={() => setBillingCycle('Anual')}
+                                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${billingCycle === 'Anual' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                                    }`}
+                            >
+                                Anual
+                                <span className="bg-emerald-500 text-white text-px-8 py-0.5 rounded px-1.5 text-[8px] animate-pulse">OFF</span>
+                            </button>
+                        </div>
+                    </div>
 
                     <div className="grid md:grid-cols-2 gap-8">
-                        {plans.filter(p => p.id !== currentPlan?.id).map((plan) => (
+                        {plans.filter(p => p.id !== currentPlan?.id && p.billingCycle === billingCycle).map((plan) => (
                             <div key={plan.id} className="bg-white rounded-[40px] border border-slate-100 p-8 shadow-xl hover:shadow-2xl transition-all group border-b-4" style={{ borderBottomColor: primaryColor }}>
                                 <div className="flex justify-between items-start mb-8">
                                     <div className="p-3 rounded-2xl bg-blue-50 text-blue-600 group-hover:scale-110 transition-transform duration-500">
                                         <span className="material-symbols-outlined text-2xl font-bold">bolt</span>
                                     </div>
-                                    <span className="text-[18px] font-black text-slate-900 tracking-tighter">R$ {plan.price.toFixed(2).replace('.', ',')}</span>
+                                    <div className="text-right">
+                                        <span className="text-[18px] font-black text-slate-900 tracking-tighter">R$ {plan.price.toFixed(2).replace('.', ',')}</span>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">/ {plan.billingCycle === 'Anual' ? 'ano' : 'mês'}</p>
+                                    </div>
                                 </div>
 
                                 <h4 className="text-2xl font-black text-slate-900 mb-2 tracking-tight group-hover:text-blue-600 transition-colors uppercase">{plan.name}</h4>

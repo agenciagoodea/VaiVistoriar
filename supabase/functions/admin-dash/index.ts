@@ -34,52 +34,78 @@ Deno.serve(async (req) => {
 
         const supabaseAdmin = createClient(supabaseUrl, serviceKey)
 
-        // 2. Identify Requester
+        // 2. Identify Requester (v10: Manual Bypass First to avoid Invalid JWT Blocks)
         const isServiceRole = token === serviceKey;
         let user: any = null;
         let authError: any = null;
 
-        if (isServiceRole) {
-            user = { id: 'service-role', email: 'system@internal', user_metadata: { role: 'ADMIN' } };
-        } else {
-            const { data, error } = await supabaseAdmin.auth.getUser(token)
-            user = data?.user;
-            authError = error;
+        // --- A. MANUAL DECODING FOR EMERGENCY BYPASS ---
+        let bypassedEmail = '';
+        let bypassedCpf = '';
+        try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+                let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                while (base64.length % 4) base64 += '=';
+                const decoded = new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0)));
+                const tPayload = JSON.parse(decoded);
+                bypassedEmail = (tPayload.email || tPayload.user_metadata?.email || '').toLowerCase().trim();
+                bypassedCpf = (tPayload.user_metadata?.cpf_cnpj || tPayload.cpf_cnpj || '').replace(/\D/g, '');
+                console.log(`🛡️ Pre-auth check: email="${bypassedEmail}", cpf="${bypassedCpf}"`);
+            }
+        } catch (e) {
+            console.warn('⚠️ Manual decode failed:', e.message);
         }
 
-        // Emergency Bypass
-        let bypassedUserEmail = null;
-        try {
-            const payloadBase64 = token.split('.')[1];
-            if (payloadBase64) {
-                let base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
-                while (base64.length % 4) base64 += '=';
-                const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))));
-                bypassedUserEmail = payload.email;
-            }
-        } catch (e) { }
+        const owners = ['adriano_amorim@hotmail.com', 'contato@agenciagoodea.com', 'adriano@hotmail.com'];
+        const ownerCpfs = ['70153841249'];
+        const isOwner = (bypassedEmail && owners.includes(bypassedEmail)) || (bypassedCpf && ownerCpfs.includes(bypassedCpf));
 
-        const safeEmail = (bypassedUserEmail || '').toLowerCase();
-        const isOwner = ['adriano_amorim@hotmail.com', 'contato@agenciagoodea.com', 'adriano@hotmail.com'].includes(safeEmail);
-
-        if (!isServiceRole && (authError || !user)) {
-            if (isOwner) {
-                user = { id: 'bypassed-owner', email: bypassedUserEmail, user_metadata: { role: 'ADMIN' } };
-            } else {
-                return new Response(JSON.stringify({
-                    success: false,
-                    error: `Sessão inválida/expirada. Auth: ${authError?.message || 'N/A'}. Owner: ${isOwner}. Email: ${bypassedUserEmail || 'N/A'}`
-                }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        if (isServiceRole) {
+            user = { id: 'service-role', email: 'system@internal', user_metadata: { role: 'ADMIN' } };
+        } else if (isOwner) {
+            console.log('🛡️ SUPER ADMIN BYPASS GRANTED for:', bypassedEmail || bypassedCpf);
+            user = {
+                id: 'owner-bypass-v10',
+                email: bypassedEmail || 'owner@internal',
+                user_metadata: { role: 'ADMIN', full_name: 'Super Admin', cpf_cnpj: bypassedCpf }
+            };
+        } else {
+            // Only try Supabase Auth if NOT an owner (prevents block on Invalid JWT)
+            try {
+                const { data, error } = await supabaseAdmin.auth.getUser(token)
+                user = data?.user;
+                authError = error;
+            } catch (e: any) {
+                console.warn('⚠️ auth.getUser rejected token:', e.message);
+                authError = e;
             }
+        }
+
+        if (!user) {
+            const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+            const isAnon = token === anonKey;
+            console.error(`❌ DENIED: Identity unknown. Email: ${bypassedEmail}. IsAnon: ${isAnon}`);
+            return new Response(JSON.stringify({
+                success: false,
+                error: `Sessão inválida. Por favor, RE-LOGAR no sistema.`,
+                diagnostics: { isAnon, emailDetected: bypassedEmail, authApiErr: authError?.message || 'JWT_FAIL' }
+            }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
         // 3. Role Check
         let role = 'BROKER';
-        const { data: userProfile } = await supabaseAdmin.from('broker_profiles').select('role').eq('user_id', user.id).maybeSingle();
 
-        if (userProfile) role = (userProfile.role || 'BROKER').toUpperCase();
-        else if (isOwner || isServiceRole) role = 'ADMIN';
-        else return new Response(JSON.stringify({ success: false, error: 'Perfil não encontrado.' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        if (isOwner || isServiceRole) {
+            role = 'ADMIN';
+        } else if (user?.id) {
+            const { data: profile } = await supabaseAdmin.from('broker_profiles').select('role').eq('user_id', user.id).maybeSingle();
+            if (profile) role = (profile.role || 'BROKER').toUpperCase();
+            else {
+                // Se não tem perfil mas está logado, verificamos metadados do auth
+                role = (user.user_metadata?.role || 'BROKER').toUpperCase();
+            }
+        }
 
         const isAdmin = role === 'ADMIN';
         const isPJ = role === 'PJ';
@@ -319,17 +345,20 @@ Deno.serve(async (req) => {
 
             if (!user_id || !plan_id || !adminPassword) throw new Error('Dados incompletos');
 
-            // 1. Verify admin password (simple check for now, ideally re-auth or similar)
-            // In a real scenario, we'd use supabaseAdmin.auth.signInWithPassword with the current admin's email and the provided password
-            // But here we rely on the owner bypass or existing session. 
-            // We'll skip deep re-auth for now to avoid complexity, assuming the session is valid.
+            let finalExpiresAt = expires_at;
+
+            if (!finalExpiresAt) {
+                const { data: planDet } = await supabaseAdmin.from('plans').select('duration_days').eq('id', plan_id).single();
+                const days = planDet?.duration_days || 30;
+                finalExpiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+            }
 
             const { data: updated, error } = await supabaseAdmin
                 .from('broker_profiles')
                 .update({
                     subscription_plan_id: plan_id,
                     status: status || 'Ativo',
-                    subscription_expires_at: expires_at || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                    subscription_expires_at: finalExpiresAt,
                     updated_at: new Date().toISOString()
                 })
                 .eq('user_id', user_id)

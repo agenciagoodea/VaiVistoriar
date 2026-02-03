@@ -244,7 +244,9 @@ const PlanConfigPage: React.FC = () => {
                         <h4 className="text-xl font-black text-slate-900 leading-tight">{plan.name}</h4>
                         <div className="flex items-baseline gap-1 mt-1">
                            <span className="text-2xl font-black text-slate-900 tracking-tighter">R$ {plan.price.toFixed(2).replace('.', ',')}</span>
-                           <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">/mês</span>
+                           <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                              /{plan.billingCycle === 'Anual' ? 'ano' : 'mês'}
+                           </span>
                         </div>
                      </div>
 
@@ -342,7 +344,7 @@ const PlanConfigPage: React.FC = () => {
                         />
                      </div>
 
-                     <div className="grid md:grid-cols-3 gap-6">
+                     <div className="grid md:grid-cols-4 gap-6">
                         <div className="space-y-2">
                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Preço (R$)</label>
                            <input
@@ -351,6 +353,24 @@ const PlanConfigPage: React.FC = () => {
                               onChange={e => setForm({ ...form, price: parseFloat(e.target.value) })}
                               className="w-full px-6 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-black shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
                            />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ciclo</label>
+                           <select
+                              value={form.billingCycle}
+                              onChange={e => {
+                                 const cycle = e.target.value as 'Mensal' | 'Anual';
+                                 setForm({
+                                    ...form,
+                                    billingCycle: cycle,
+                                    durationDays: cycle === 'Anual' ? 365 : 30
+                                 });
+                              }}
+                              className="w-full px-6 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-sm outline-none cursor-pointer"
+                           >
+                              <option value="Mensal">Mensal (30 dias)</option>
+                              <option value="Anual">Anual (365 dias)</option>
+                           </select>
                         </div>
                         <div className="space-y-2">
                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Modalidade</label>
@@ -444,7 +464,9 @@ const PlanConfigPage: React.FC = () => {
                            <h4 className="text-2xl font-black text-slate-900 leading-none">{form.name || 'Nome do Plano'}</h4>
                            <p className="text-2xl font-black text-slate-900">
                               R$ {form.price?.toFixed(2).replace('.', ',')}
-                              <span className="text-[10px] text-slate-400 font-black tracking-widest ml-1">/ MÊS</span>
+                              <span className="text-[10px] text-slate-400 font-black tracking-widest ml-1">
+                                 / {form.billingCycle === 'Anual' ? 'ANO' : 'MÊS'}
+                              </span>
                            </p>
                         </div>
                         <div className="space-y-4 text-left">
