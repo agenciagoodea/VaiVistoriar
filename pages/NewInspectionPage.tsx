@@ -68,7 +68,7 @@ const NewInspectionPage: React.FC = () => {
                 phone: newClientPhone,
                 email: newClientEmail,
                 profile_type: type,
-                type: 'PF' // Default
+                avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(newClientName)}&background=random`
             }]).select().single();
 
             if (error) throw error;
@@ -93,7 +93,8 @@ const NewInspectionPage: React.FC = () => {
                 name: newPropertyName,
                 address: newPropertyAddress,
                 type: newPropertyType,
-                owner_id: lessorId || null // Link to selected lessor if available
+                owner_id: lessorId || null,
+                owner: clients.find(c => c.id === lessorId)?.name || ''
             }]).select().single();
 
             if (error) throw error;
@@ -293,6 +294,9 @@ const NewInspectionPage: React.FC = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Sessão expirada');
 
+            // Capturar dados do corretor atualizado
+            const { data: profile } = await supabase.from('broker_profiles').select('*').eq('user_id', user.id).single();
+
             const selectedProperty = properties.find(p => p.id === propertyId);
 
             const { data, error } = await supabase.from('inspections').insert([{
@@ -311,7 +315,8 @@ const NewInspectionPage: React.FC = () => {
                 is_furnished: isFurnished,
                 rooms: rooms.map(r => ({ id: r.id, name: r.name, condition: r.condition, observations: r.observations, photos: r.photos })),
                 extra_costs: costs,
-                general_observations: generalObservations
+                general_observations: generalObservations,
+                broker_data: profile || {} // Salvar snapshot do corretor
             }]);
 
             if (error) throw error;
