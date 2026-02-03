@@ -39,22 +39,22 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   ];
 
   const brokerMenu = [
-    { label: 'Dashboard', path: '/broker', icon: 'dashboard' },
-    { label: 'Plano', path: '/broker/plan', icon: 'credit_card' },
-    { label: 'Minhas Vistorias', path: '/inspections', icon: 'assignment' },
-    { label: 'Meus Imóveis', path: '/properties', icon: 'apartment' },
-    { label: 'Clientes', path: '/clients', icon: 'groups' },
-    { label: 'Meu Perfil', path: '/settings', icon: 'person' },
+    { label: 'Dashboard', path: '/broker', icon: 'grid_view' },
+    { label: 'Clientes', path: '/clients', icon: 'person_search' },
+    { label: 'Imóveis', path: '/properties', icon: 'home_work' },
+    { label: 'Vistorias', path: '/inspections', icon: 'assignment_turned_in' },
+    { label: 'Plano', path: '/broker/plan', icon: 'account_balance_wallet' },
+    { label: 'Perfil', path: '/settings', icon: 'account_circle' },
   ];
 
   const pjMenu = [
-    { label: 'Dashboard', path: '/pj', icon: 'dashboard' },
-    { label: 'Equipe', path: '/team', icon: 'group' },
-    { label: 'Minhas Vistorias', path: '/inspections', icon: 'assignment' },
-    { label: 'Meus Imóveis', path: '/properties', icon: 'apartment' },
-    { label: 'Clientes', path: '/clients', icon: 'groups' },
-    { label: 'Plano', path: '/broker/plan', icon: 'credit_card' },
-    { label: 'Meu Perfil', path: '/settings', icon: 'person' },
+    { label: 'Dashboard', path: '/pj', icon: 'grid_view' },
+    { label: 'Equipe', path: '/team', icon: 'badge' },
+    { label: 'Clientes', path: '/clients', icon: 'person_search' },
+    { label: 'Imóveis', path: '/properties', icon: 'home_work' },
+    { label: 'Vistorias', path: '/inspections', icon: 'assignment_turned_in' },
+    { label: 'Plano', path: '/broker/plan', icon: 'account_balance_wallet' },
+    { label: 'Perfil', path: '/settings', icon: 'account_circle' },
   ];
 
   const [isConfigOpen, setIsConfigOpen] = useState(location.pathname.startsWith('/admin/'));

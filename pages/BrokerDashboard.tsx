@@ -144,10 +144,6 @@ const BrokerDashboard: React.FC = () => {
           <p className="text-slate-500 mt-1">Aqui está o resumo das suas atividades hoje.</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => navigate('/properties/new')} className="h-10 flex items-center gap-2 px-4 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors">
-            <span className="material-symbols-outlined text-[20px]">add_home</span>
-            Novo Imóvel
-          </button>
           <Link to="/inspections/new" className="h-10 flex items-center gap-2 px-6 rounded-lg bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all transform active:scale-95">
             <span className="material-symbols-outlined text-[20px]">add_circle</span>
             Nova Vistoria
