@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 import FeedbackModal from '../components/FeedbackModal';
 
@@ -13,6 +13,7 @@ const PJDashboard: React.FC = () => {
       completed: 0,
       activeBrokers: 0
    });
+   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
    const [userProfile, setUserProfile] = useState<{ full_name: string, company_name?: string } | null>(null);
    const [planUsage, setPlanUsage] = useState({
       name: 'Plano Grátis',
@@ -48,6 +49,12 @@ const PJDashboard: React.FC = () => {
             .single();
 
          if (profile) {
+            if (profile.subscription_expires_at) {
+               const expiresAt = new Date(profile.subscription_expires_at);
+               const diff = expiresAt.getTime() - new Date().getTime();
+               setDaysRemaining(Math.ceil(diff / (1000 * 60 * 60 * 24)));
+            }
+
             setUserProfile({
                full_name: profile.full_name || user.email?.split('@')[0],
                company_name: profile.company_name
@@ -157,7 +164,24 @@ const PJDashboard: React.FC = () => {
    };
 
    return (
-      <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="space-y-10 animate-in fade-in duration-500 pb-20">
+         {daysRemaining !== null && daysRemaining <= 5 && (
+            <div className="p-6 bg-gradient-to-r from-amber-500 to-orange-600 rounded-[32px] text-white shadow-xl shadow-amber-200 flex flex-col md:flex-row items-center justify-between gap-6 transform hover:scale-[1.01] transition-all">
+               <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                     <span className="material-symbols-outlined text-3xl font-bold">assignment_late</span>
+                  </div>
+                  <div>
+                     <h3 className="text-xl font-black tracking-tight">Renove seu plano!</h3>
+                     <p className="text-white/80 text-sm font-bold">Sua assinatura vence em {daysRemaining > 0 ? `${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'}` : 'menos de 24 horas'}. Não perca o acesso às funcionalidades da Equipe.</p>
+                  </div>
+               </div>
+               <Link to="/broker/plan" className="px-10 py-4 bg-white text-orange-600 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg hover:bg-slate-50 transition-all active:scale-95">
+                  Renovar Agora
+               </Link>
+            </div>
+         )}
+
          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                <h1 className="text-3xl font-black text-slate-900 tracking-tight">

@@ -238,15 +238,22 @@ async function handlePaymentActivation(latestPayment: any, latestStatus: string,
 
         if (finalUserId && finalPlanId) {
             // A. Ativar plano no banco
-            const nextMonth = new Date()
-            nextMonth.setMonth(nextMonth.getMonth() + 1)
+            const { data: planDetails } = await supabaseAdmin
+                .from('plans')
+                .select('duration_days')
+                .eq('id', finalPlanId)
+                .single();
+
+            const durationDays = planDetails?.duration_days || 30;
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + durationDays);
 
             const { data: updatedProfile, error: profErr } = await supabaseAdmin
                 .from('broker_profiles')
                 .update({
                     subscription_plan_id: finalPlanId,
                     status: 'Ativo',
-                    subscription_expires_at: nextMonth.toISOString(),
+                    subscription_expires_at: expiresAt.toISOString(),
                     updated_at: new Date().toISOString()
                 })
                 .eq('user_id', finalUserId)

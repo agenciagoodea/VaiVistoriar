@@ -130,7 +130,14 @@ const NewInspectionPage: React.FC = () => {
 
             setClients(clientsData || []);
             setProperties(propertiesData || []);
-            if (tipsData) setInspectionTips(tipsData.value);
+            if (tipsData?.value) {
+                try {
+                    const parsedTips = JSON.parse(tipsData.value);
+                    setInspectionTips(Array.isArray(parsedTips) ? parsedTips : []);
+                } catch (e) {
+                    console.error('Erro ao processar dicas:', e);
+                }
+            }
 
             // Verificar limites de uso
             const { data: { user } } = await supabase.auth.getUser();

@@ -45,4 +45,5 @@ export interface Plan {
   subscribers: number;
   type: 'PF' | 'PJ';
   badgeText?: string;
+  durationDays?: number;
 }

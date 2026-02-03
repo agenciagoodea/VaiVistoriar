@@ -29,6 +29,8 @@ const CookieConsent: React.FC = () => {
 
             const consentData = {
                 user_id: user?.id || null,
+                email: user?.email || 'anonimo@site.com',
+                accepted_at: new Date().toISOString(),
                 session_id: localStorage.getItem('vpro_session_id') || 'anon_session',
                 user_agent: navigator.userAgent,
                 ip_address: null

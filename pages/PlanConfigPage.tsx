@@ -24,6 +24,7 @@ const PlanConfigPage: React.FC = () => {
       maxBrokers: 0,
       storageGb: 0,
       badgeText: '',
+      durationDays: 30, // Default 30 days
       features: { inspections: '', storage: '', users: '' }
    });
 
@@ -52,6 +53,7 @@ const PlanConfigPage: React.FC = () => {
             maxBrokers: p.max_brokers || 0,
             storageGb: p.storage_gb || 0,
             badgeText: p.plan_badge_text || '',
+            durationDays: p.duration_days || 30,
             subscribers: 0 // Mock por enquanto
          }));
 
@@ -91,7 +93,8 @@ const PlanConfigPage: React.FC = () => {
             max_rooms: form.maxRooms,
             max_brokers: form.maxBrokers,
             storage_gb: form.storageGb,
-            plan_badge_text: form.badgeText
+            plan_badge_text: form.badgeText,
+            duration_days: form.durationDays
          }).eq('id', selectedPlanId);
 
          if (error) throw error;
@@ -121,7 +124,8 @@ const PlanConfigPage: React.FC = () => {
             max_rooms: form.maxRooms,
             max_brokers: form.maxBrokers,
             storage_gb: form.storageGb,
-            plan_badge_text: form.badgeText
+            plan_badge_text: form.badgeText,
+            duration_days: form.durationDays
          }]);
 
          if (error) throw error;
@@ -315,6 +319,16 @@ const PlanConfigPage: React.FC = () => {
                               onChange={e => setForm({ ...form, badgeText: e.target.value })}
                               className="w-full px-6 py-4 bg-blue-50/30 border border-blue-100/50 rounded-2xl text-sm font-bold shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-blue-600"
                               placeholder="Ex: MAIS POPULAR"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Duração (Dias)</label>
+                           <input
+                              type="number"
+                              value={form.durationDays}
+                              onChange={e => setForm({ ...form, durationDays: parseInt(e.target.value) })}
+                              className="w-full px-6 py-4 bg-emerald-50/30 border border-emerald-100/50 rounded-2xl text-sm font-black shadow-sm outline-none focus:ring-4 focus:ring-emerald-500/5 transition-all text-emerald-600"
+                              placeholder="Ex: 30"
                            />
                         </div>
                      </div>

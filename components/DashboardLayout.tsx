@@ -63,6 +63,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   const [brand, setBrand] = useState<{ primaryColor: string; logoUrl: string | null }>({ primaryColor: '#2563eb', logoUrl: null });
   const [userProfile, setUserProfile] = React.useState<{ full_name: string; avatar_url: string; email: string } | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
 
   React.useEffect(() => {
     const fetchConfigs = async () => {
@@ -98,6 +99,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
         // Verificação de Expiração do Plano Trial
         if (profile?.subscription_expires_at) {
           const expiresAt = new Date(profile.subscription_expires_at);
+          const diff = expiresAt.getTime() - new Date().getTime();
+          const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+          setDaysRemaining(days);
+
           if (expiresAt < new Date()) {
             alert('Seu plano expirou. Por favor, realize o upgrade para continuar utilizando o sistema.');
           }
@@ -282,6 +287,22 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
 
         {/* Scrollable Dashboard Body - Responsive Padding */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+          {daysRemaining !== null && daysRemaining <= 5 && (
+            <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-[24px] flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-200">
+                  <span className="material-symbols-outlined font-bold">warning</span>
+                </div>
+                <div>
+                  <p className="text-sm font-black text-amber-900 leading-tight">Atenção: Seu plano expira em {daysRemaining > 0 ? `${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'}` : 'menos de 24 horas'}.</p>
+                  <p className="text-[11px] font-bold text-amber-600 mt-0.5">Renove sua assinatura para não perder o acesso às funcionalidades e salvamento ilimitado.</p>
+                </div>
+              </div>
+              <Link to="/broker/plan" className="px-6 py-3 bg-amber-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-amber-200 hover:bg-black transition-all active:scale-95">
+                Renovar Plano Agora
+              </Link>
+            </div>
+          )}
           <Outlet />
         </div>
       </main>
