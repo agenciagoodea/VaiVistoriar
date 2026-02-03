@@ -74,7 +74,7 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                     maxPhotos: p.max_photos || 0,
                     maxRooms: p.max_rooms || 0,
                     storageGb: p.storage_gb || 0,
-                    comparisonPrice: p.features?.comparison_price ? parseFloat(p.features.comparison_price) : undefined
+                    comparisonPrice: p.comparison_price ? parseFloat(p.comparison_price) : undefined
                 })));
             }
 

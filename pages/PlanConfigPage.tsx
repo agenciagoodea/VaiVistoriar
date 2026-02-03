@@ -54,7 +54,7 @@ const PlanConfigPage: React.FC = () => {
             storageGb: p.storage_gb || 0,
             badgeText: p.plan_badge_text || '',
             durationDays: p.duration_days || 30,
-            comparisonPrice: p.features?.comparison_price ? parseFloat(p.features.comparison_price) : undefined,
+            comparisonPrice: p.comparison_price ? parseFloat(p.comparison_price) : undefined,
             subscribers: 0 // Mock por enquanto
          }));
 

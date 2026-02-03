@@ -158,6 +158,7 @@ const LandingPage: React.FC = () => {
           maxBrokers: p.max_brokers || 0,
           storageGb: p.storage_gb || 0,
           badgeText: p.plan_badge_text || '',
+          comparisonPrice: p.comparison_price ? parseFloat(p.comparison_price) : undefined,
         })));
       }
 
@@ -490,9 +491,24 @@ const LandingPage: React.FC = () => {
                       <span className={`text-7xl font-black tracking-tighter ${isPopular ? 'text-white' : 'text-slate-900'}`}>{Math.floor(plan.price)}</span>
                       <div className="flex flex-col">
                         {plan.price % 1 !== 0 && <span className={`text-2xl font-black ${isPopular ? 'text-white' : 'text-slate-900'}`}>,{plan.price.toFixed(2).split('.')[1]}</span>}
-                        <span className={`text-xs font-black uppercase tracking-widest ${isPopular ? 'text-slate-400' : 'text-slate-500'}`}>/mês</span>
+                        <span className={`text-xs font-black uppercase tracking-widest ${isPopular ? 'text-slate-400' : 'text-slate-500'}`}>
+                          / {plan.billingCycle === 'Anual' ? 'ano' : 'mês'}
+                        </span>
                       </div>
                     </div>
+
+                    {plan.billingCycle === 'Anual' && (
+                      <div className={`mt-6 p-6 rounded-[32px] border transition-all ${isPopular ? 'bg-white/10 border-white/20' : 'bg-emerald-50/50 border-emerald-100/50'}`}>
+                        {plan.comparisonPrice && (
+                          <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-2 ${isPopular ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                            Economize R$ {((plan.comparisonPrice * 12) - plan.price).toFixed(2).replace('.', ',')} / ano
+                          </p>
+                        )}
+                        <p className={`text-sm font-bold ${isPopular ? 'text-slate-300' : 'text-slate-500'}`}>
+                          Equivale a <span className={`font-black ${isPopular ? 'text-white' : 'text-slate-900'}`}>R$ {(plan.price / 12).toFixed(2).replace('.', ',')}</span> por mês
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <ul className="space-y-6 mb-16 flex-1">
