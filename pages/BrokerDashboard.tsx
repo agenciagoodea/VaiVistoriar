@@ -1,27 +1,8 @@
-
-import FeedbackModal from '../components/FeedbackModal';
-
-const BrokerDashboard: React.FC = () => {
-  // ... existing states ...
-  const [showFeedback, setShowFeedback] = React.useState(false);
-
-  // ... rest of code ...
-
-  // Update button:
-  <button
-    onClick={() => setShowFeedback(true)}
-    className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-400 text-blue-900 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
-  >
-
-  // Add modal at end:
-
-    <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
-  </div>
-  );
-};
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Inspection } from '../types';
+import FeedbackModal from '../components/FeedbackModal';
 
 const BrokerDashboard: React.FC = () => {
   const [inspections, setInspections] = React.useState<Inspection[]>([]);
@@ -391,7 +372,7 @@ const BrokerDashboard: React.FC = () => {
             </div>
             <div className="flex gap-2 justify-center">
               <button
-                onClick={() => navigate('/feedback')}
+                onClick={() => setShowFeedback(true)}
                 className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-400 text-blue-900 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
               >
                 <span className="material-symbols-outlined text-[16px]">thumb_up</span>
@@ -433,6 +414,7 @@ const BrokerDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
     </div>
   );
 };
