@@ -54,6 +54,7 @@ const PlanConfigPage: React.FC = () => {
             storageGb: p.storage_gb || 0,
             badgeText: p.plan_badge_text || '',
             durationDays: p.duration_days || 30,
+            comparisonPrice: p.features?.comparison_price ? parseFloat(p.features.comparison_price) : undefined,
             subscribers: 0 // Mock por enquanto
          }));
 
@@ -86,7 +87,7 @@ const PlanConfigPage: React.FC = () => {
             price: form.price,
             billing_cycle: form.billingCycle,
             status: form.status,
-            features: form.features,
+            features: { ...form.features, comparison_price: form.comparisonPrice },
             plan_type: form.type,
             max_inspections: form.maxInspections,
             max_photos: form.maxPhotos,
@@ -117,7 +118,7 @@ const PlanConfigPage: React.FC = () => {
             price: form.price,
             billing_cycle: form.billingCycle,
             status: form.status,
-            features: form.features,
+            features: { ...form.features, comparison_price: form.comparisonPrice },
             plan_type: form.type,
             max_inspections: form.maxInspections,
             max_photos: form.maxPhotos,
@@ -211,6 +212,8 @@ const PlanConfigPage: React.FC = () => {
                      maxRooms: 0,
                      maxBrokers: 0,
                      storageGb: 0,
+                     badgeText: '',
+                     comparisonPrice: undefined,
                      features: { inspections: '', storage: '' }
                   });
                   setShowNewPlanModal(true);
@@ -334,14 +337,26 @@ const PlanConfigPage: React.FC = () => {
                            />
                         </div>
                      </div>
-                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Slug (Link Identificador)</label>
-                        <input
-                           type="text"
-                           value={form.slug}
-                           onChange={e => setForm({ ...form, slug: e.target.value })}
-                           className="w-full px-6 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
-                        />
+                     <div className="grid md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Slug (Link Identificador)</label>
+                           <input
+                              type="text"
+                              value={form.slug}
+                              onChange={e => setForm({ ...form, slug: e.target.value })}
+                              className="w-full px-6 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Preço Mensal Ref. (Para cálculo de economia)</label>
+                           <input
+                              type="number"
+                              value={form.comparisonPrice || ''}
+                              onChange={e => setForm({ ...form, comparisonPrice: parseFloat(e.target.value) })}
+                              className="w-full px-6 py-4 bg-amber-50/20 border border-amber-100/50 rounded-2xl text-sm font-black shadow-sm outline-none focus:ring-4 focus:ring-amber-500/5 transition-all text-amber-600"
+                              placeholder="Ex: 99.90"
+                           />
+                        </div>
                      </div>
 
                      <div className="grid md:grid-cols-4 gap-6">
@@ -468,6 +483,16 @@ const PlanConfigPage: React.FC = () => {
                                  / {form.billingCycle === 'Anual' ? 'ANO' : 'MÊS'}
                               </span>
                            </p>
+                           {form.billingCycle === 'Anual' && form.comparisonPrice && (
+                              <div className="mt-2 text-left space-y-1">
+                                 <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                                    Economia de R$ {((form.comparisonPrice * 12) - (form.price || 0)).toFixed(2).replace('.', ',')}/ano
+                                 </p>
+                                 <p className="text-[11px] font-bold text-slate-400">
+                                    Apenas R$ {((form.price || 0) / 12).toFixed(2).replace('.', ',')} / mês
+                                 </p>
+                              </div>
+                           )}
                         </div>
                         <div className="space-y-4 text-left">
                            <div className="flex items-center gap-3 text-xs font-bold text-slate-600">

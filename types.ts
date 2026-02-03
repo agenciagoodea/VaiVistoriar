@@ -46,4 +46,5 @@ export interface Plan {
   type: 'PF' | 'PJ';
   badgeText?: string;
   durationDays: number;
+  comparisonPrice?: number;
 }

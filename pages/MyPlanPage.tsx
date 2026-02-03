@@ -73,7 +73,8 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                     maxInspections: p.max_inspections || 0,
                     maxPhotos: p.max_photos || 0,
                     maxRooms: p.max_rooms || 0,
-                    storageGb: p.storage_gb || 0
+                    storageGb: p.storage_gb || 0,
+                    comparisonPrice: p.features?.comparison_price ? parseFloat(p.features.comparison_price) : undefined
                 })));
             }
 
@@ -335,11 +336,30 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                                     <div className="text-right">
                                         <span className="text-[18px] font-black text-slate-900 tracking-tighter">R$ {plan.price.toFixed(2).replace('.', ',')}</span>
                                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">/ {plan.billingCycle === 'Anual' ? 'ano' : 'mês'}</p>
+
+                                        {plan.billingCycle === 'Anual' && plan.comparisonPrice && (
+                                            <div className="mt-1">
+                                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                                                    Economize R$ {((plan.comparisonPrice * 12) - plan.price).toFixed(2).replace('.', ',')}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
                                 <h4 className="text-2xl font-black text-slate-900 mb-2 tracking-tight group-hover:text-blue-600 transition-colors uppercase">{plan.name}</h4>
-                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-8">{plan.type === 'PJ' ? 'Plano Empresarial' : 'Corretor Independente'}</p>
+                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">
+                                    {plan.type === 'PJ' ? 'Plano Empresarial' : 'Corretor Independente'}
+                                </p>
+
+                                {plan.billingCycle === 'Anual' && (
+                                    <div className="mb-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">Pagamento Único</p>
+                                        <p className="text-sm font-bold text-slate-600">
+                                            Equivale a <span className="text-blue-700 font-black">R$ {(plan.price / 12).toFixed(2).replace('.', ',')}</span> por mês
+                                        </p>
+                                    </div>
+                                )}
 
                                 <div className="space-y-4 mb-10">
                                     <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
