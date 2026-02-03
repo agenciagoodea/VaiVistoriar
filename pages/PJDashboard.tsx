@@ -217,39 +217,70 @@ const PJDashboard: React.FC = () => {
          </div>
 
          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-               <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-900">Top Performance por Corretor</h3>
-                  <button className="text-blue-600 text-xs font-bold">Ver Detalhes</button>
-               </div>
-               <div className="p-8 h-64 flex items-end justify-between gap-6">
-                  {performanceData.map((c, i) => (
-                     <div key={i} className="flex-1 flex flex-col items-center gap-3 group">
-                        <div className="w-full bg-slate-50 rounded-t-xl relative overflow-hidden h-full">
-                           <div className="absolute bottom-0 w-full bg-blue-600/20 group-hover:bg-blue-600 transition-all rounded-t-xl" style={{ height: `${c.val}%` }}></div>
+            <div className="lg:col-span-2 space-y-6">
+               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                  <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+                     <h3 className="font-bold text-slate-900">Top Performance por Corretor</h3>
+                     <button className="text-blue-600 text-xs font-bold">Ver Detalhes</button>
+                  </div>
+                  <div className="p-8 h-64 flex items-end justify-between gap-6">
+                     {performanceData.map((c, i) => (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-3 group">
+                           <div className="w-full bg-slate-50 rounded-t-xl relative overflow-hidden h-full">
+                              <div className="absolute bottom-0 w-full bg-blue-600/20 group-hover:bg-blue-600 transition-all rounded-t-xl" style={{ height: `${c.val}%` }}></div>
+                           </div>
+                           <span className="text-[10px] font-black text-slate-400 uppercase">{c.name}</span>
                         </div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase">{c.name}</span>
-                     </div>
-                  ))}
+                     ))}
+                  </div>
                </div>
             </div>
 
-            <div className="bg-slate-900 rounded-2xl p-8 text-white relative overflow-hidden group">
-               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <span className="material-symbols-outlined text-[140px]">palette</span>
-               </div>
-               <div className="relative z-10 space-y-6">
-                  <h3 className="text-xl font-bold">Padronização Visual</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">Personalize o cabeçalho e rodapé dos laudos com a marca da sua imobiliária para gerar confiança.</p>
-                  <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
-                     <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 rounded-lg bg-white/20"></div>
-                        <div className="h-2 w-24 bg-white/20 rounded"></div>
-                     </div>
-                     <div className="h-1.5 w-full bg-white/10 rounded mb-2"></div>
-                     <div className="h-1.5 w-2/3 bg-white/10 rounded"></div>
+            <div className="space-y-6">
+               {/* Feedback & Support Card */}
+               <div className="bg-gradient-to-br from-indigo-900 to-blue-900 rounded-2xl shadow-lg p-6 text-white text-center space-y-4">
+                  <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                     <span className="material-symbols-outlined text-[24px] text-yellow-400">star</span>
                   </div>
-                  <button className="w-full py-3 bg-white text-slate-900 rounded-xl font-black text-sm hover:bg-slate-100 transition-all">Editar Identidade Visual</button>
+                  <div>
+                     <h3 className="font-bold text-lg">Sua opinião importa!</h3>
+                     <p className="text-blue-200 text-xs mt-1">Ajude-nos a evoluir o sistema avaliando sua experiência.</p>
+                  </div>
+                  <div className="flex gap-2 justify-center">
+                     <button
+                        onClick={() => window.open('https://g.page/r/SeuLinkDeAvaliacao/review', '_blank')}
+                        className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-400 text-blue-900 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
+                     >
+                        <span className="material-symbols-outlined text-[16px]">thumb_up</span>
+                        Avaliar
+                     </button>
+                     <button
+                        onClick={() => window.open('https://wa.me/5511999999999', '_blank')}
+                        className="flex-1 py-2 bg-green-500 hover:bg-green-400 text-white rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
+                     >
+                        <span className="material-symbols-outlined text-[16px]">chat</span>
+                        Suporte
+                     </button>
+                  </div>
+               </div>
+
+               <div className="bg-slate-900 rounded-2xl p-8 text-white relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                     <span className="material-symbols-outlined text-[140px]">palette</span>
+                  </div>
+                  <div className="relative z-10 space-y-6">
+                     <h3 className="text-xl font-bold">Padronização Visual</h3>
+                     <p className="text-slate-400 text-sm leading-relaxed">Personalize o cabeçalho e rodapé dos laudos com a marca da sua imobiliária para gerar confiança.</p>
+                     <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center gap-3 mb-3">
+                           <div className="w-8 h-8 rounded-lg bg-white/20"></div>
+                           <div className="h-2 w-24 bg-white/20 rounded"></div>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/10 rounded mb-2"></div>
+                        <div className="h-1.5 w-2/3 bg-white/10 rounded"></div>
+                     </div>
+                     <button className="w-full py-3 bg-white text-slate-900 rounded-xl font-black text-sm hover:bg-slate-100 transition-all">Editar Identidade Visual</button>
+                  </div>
                </div>
             </div>
          </div>

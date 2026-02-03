@@ -312,6 +312,32 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
+        // TEMP: RUN MIGRATION
+        if (action === 'run_migration') {
+            if (!isOwner) return new Response(JSON.stringify({ success: false, error: 'Acesso negado. Apenas Owner.' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            const query = payload.query;
+            if (!query) throw new Error('Query required');
+
+            // WE cannot use supabaseAdmin.rpc() easily if the function doesn't exist.
+            // But we cannot run raw SQL via supabase-js unless we use a hack or if RPC exists.
+            // Actually, Supabase-js DOES NOT support raw SQL execution directly without an RPC wrapper like `exec_sql`.
+            // If `exec_sql` doesn't exist, we are stuck.
+
+            // Check if we can use Deno's Postgres driver? No, not installed.
+
+            // ALTERNATIVE: We can creating the function `exec_sql` via the SQL Editor in Dashboard (User action) OR 
+            // We can try to use `rpc('exec_sql', { query })` assuming it might exist from extensions? No.
+
+            // WAIT. If I cannot run SQL from here, this plan fails.
+            // However, `supabase-js` usually can run RPC.
+            // If I don't have `exec_sql` RPC, I can't do DDL.
+
+            // Let's assume I can't do DDL from here.
+            // I must ask the user to run the SQL in Supabase Dashboard.
+
+            return new Response(JSON.stringify({ success: false, error: 'Cannot run raw SQL from Edge Function without exec_sql RPC.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
 
         throw new Error(`Unknown Action: ${action} [SERVER_V4_DEBUG]`);
 

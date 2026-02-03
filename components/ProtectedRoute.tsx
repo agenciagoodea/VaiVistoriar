@@ -7,15 +7,30 @@ interface ProtectedRouteProps {
     allowedRoles: UserRole[];
     userRole: UserRole | null;
     isAuthenticated: boolean;
+    status: string;
+    isPlanPage?: boolean;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     allowedRoles,
     userRole,
-    isAuthenticated
+    isAuthenticated,
+    status,
+    isPlanPage = false
 }) => {
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
+    }
+
+    // Se estiver Pendente de Pagamento, bloqueia tudo EXCETO a página de Planos
+    // Status pode ser 'Pendente', 'Suspenso', 'Inativo' etc. 
+    // Vamos considerar que só 'Ativo' libera.
+    // ADMIN sempre livre.
+    const isPending = status && status !== 'Ativo';
+
+    if (userRole !== 'ADMIN' && isPending && !isPlanPage) {
+        // Redireciona para atualização de plano
+        return <Navigate to="/broker/plan" replace />; // Caminho unificado para plano
     }
 
     if (userRole && !allowedRoles.includes(userRole)) {

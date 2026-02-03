@@ -328,6 +328,33 @@ const BrokerDashboard: React.FC = () => {
             </div>
           </div>
 
+          {/* Feedback & Support Card */}
+          <div className="bg-gradient-to-br from-indigo-900 to-blue-900 rounded-xl shadow-lg p-6 text-white text-center space-y-4">
+            <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-2">
+              <span className="material-symbols-outlined text-[24px] text-yellow-400">star</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">Sua opinião importa!</h3>
+              <p className="text-blue-200 text-xs mt-1">Ajude-nos a evoluir o sistema avaliando sua experiência.</p>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => window.open('https://g.page/r/SeuLinkDeAvaliacao/review', '_blank')}
+                className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-400 text-blue-900 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[16px]">thumb_up</span>
+                Avaliar
+              </button>
+              <button
+                onClick={() => window.open('https://wa.me/5511999999999', '_blank')} // Placeholder number, user should configure
+                className="flex-1 py-2 bg-green-500 hover:bg-green-400 text-white rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[16px]">chat</span>
+                Suporte
+              </button>
+            </div>
+          </div>
+
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
             <h3 className="text-lg font-bold text-slate-900">Avisos Recentes</h3>
             <div className="space-y-4">

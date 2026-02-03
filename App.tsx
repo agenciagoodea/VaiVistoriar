@@ -50,6 +50,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<'ADMIN' | 'BROKER' | 'PJ'>('ADMIN');
+  const [status, setStatus] = useState<string>('Ativo'); // Default to Active to avoid flash of block
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,14 +59,16 @@ const App: React.FC = () => {
       if (session?.user) {
         const { data: profile } = await supabase
           .from('broker_profiles')
-          .select('role')
+          .select('role, status')
           .eq('user_id', session.user.id)
           .single();
 
-        if (profile?.role) {
-          setRole(profile.role);
+        if (profile) {
+          setRole(profile.role as any);
+          setStatus(profile.status || 'Ativo');
         } else if (session.user.user_metadata?.role) {
           setRole(session.user.user_metadata.role);
+          setStatus('Ativo'); // Fallback for new users
         }
       }
       setLoading(false);
@@ -111,7 +114,7 @@ const App: React.FC = () => {
         {/* Dashboard Routes wrapper */}
         <Route element={<DashboardLayout role={role} />}>
           {/* Admin Specific Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['ADMIN']} userRole={role} isAuthenticated={!!session} />}>
+          <Route element={<ProtectedRoute allowedRoles={['ADMIN']} userRole={role} isAuthenticated={!!session} status={status} />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
@@ -134,28 +137,36 @@ const App: React.FC = () => {
           </Route>
 
           {/* Shared Admin and PJ Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'PJ']} userRole={role} isAuthenticated={!!session} />}>
+          <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'PJ']} userRole={role} isAuthenticated={!!session} status={status} />}>
             <Route path="/users" element={<UsersPage />} />
           </Route>
 
           {/* Shared Broker and PJ Routes for Plans */}
-          <Route element={<ProtectedRoute allowedRoles={['BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} />}>
+          {/* Note: This is where we want them to go if status is Pending, so we enable it. */}
+          <Route element={<ProtectedRoute allowedRoles={['BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} status={status} isPlanPage={true} />}>
             <Route path="/broker/plan" element={<MyPlanPage role={role} />} />
+            {/* Team page might be blocked if pending? User said "impelling to do any operation on dashboard". 
+                 Usually Plan page is allowed. Team page maybe blocked. But let's keep it consistent. 
+                 Only Plan Page should be strictly accessible. */}
+          </Route>
+
+          {/* Team Page separate to block it on pending */}
+          <Route element={<ProtectedRoute allowedRoles={['BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} status={status} />}>
             <Route path="/team" element={<UsersPage />} />
           </Route>
 
           {/* Broker Specific Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['BROKER']} userRole={role} isAuthenticated={!!session} />}>
+          <Route element={<ProtectedRoute allowedRoles={['BROKER']} userRole={role} isAuthenticated={!!session} status={status} />}>
             <Route path="/broker" element={<BrokerDashboard />} />
           </Route>
 
           {/* PJ Specific Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['PJ']} userRole={role} isAuthenticated={!!session} />}>
+          <Route element={<ProtectedRoute allowedRoles={['PJ']} userRole={role} isAuthenticated={!!session} status={status} />}>
             <Route path="/pj" element={<PJDashboard />} />
           </Route>
 
           {/* Shared Protected Routes (Broker and PJ) */}
-          <Route element={<ProtectedRoute allowedRoles={['BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} />}>
+          <Route element={<ProtectedRoute allowedRoles={['BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} status={status} />}>
             <Route path="/properties" element={<PropertiesPage />} />
             <Route path="/properties/new" element={<NewPropertyPage />} />
             <Route path="/properties/edit/:id" element={<EditPropertyPage />} />
@@ -169,7 +180,7 @@ const App: React.FC = () => {
           </Route>
 
           {/* Common Protected Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} />}>
+          <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} status={status} />}>
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
