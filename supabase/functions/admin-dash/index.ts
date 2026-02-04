@@ -247,7 +247,9 @@ Deno.serve(async (req) => {
                 ...p,
                 last_sign_in_at: authMap[p.user_id]?.last_sign_in_at || null,
                 email: p.email || authMap[p.user_id]?.email,
-                avatar_url: p.avatar_url || authMap[p.user_id]?.user_metadata?.avatar_url
+                avatar_url: p.avatar_url || authMap[p.user_id]?.user_metadata?.avatar_url,
+                created_at: p.created_at,
+                updated_at: p.updated_at
             }));
             return new Response(JSON.stringify({ success: true, users: enriched }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
@@ -349,8 +351,8 @@ Deno.serve(async (req) => {
             let finalExpiresAt = expires_at;
 
             if (!finalExpiresAt) {
-                const { data: planDet } = await supabaseAdmin.from('plans').select('duration_days').eq('id', plan_id).single();
-                const days = planDet?.duration_days || 30;
+                const { data: planDet } = await supabaseAdmin.from('plans').select('duration_days, billing_cycle').eq('id', plan_id).single();
+                const days = planDet?.billing_cycle === 'Anual' ? 365 : (planDet?.duration_days || 30);
                 finalExpiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
             }
 

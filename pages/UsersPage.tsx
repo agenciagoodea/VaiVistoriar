@@ -9,6 +9,8 @@ interface UserProfile {
    status: 'Ativo' | 'Inativo' | 'Pendente';
    last_access?: string;
    avatar_url?: string;
+   created_at?: string;
+   updated_at?: string;
 }
 
 const UsersPage: React.FC = () => {
@@ -122,7 +124,9 @@ const UsersPage: React.FC = () => {
                last_access: u.last_sign_in_at
                   ? new Date(u.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                   : 'Nunca acessou',
-               avatar_url: u.avatar_url
+               avatar_url: u.avatar_url,
+               created_at: u.created_at,
+               updated_at: u.updated_at
             }));
             setUsers(mappedUsers);
          }
@@ -504,6 +508,8 @@ const UsersPage: React.FC = () => {
                      <th className="px-6 py-4">Usuário / Empresa</th>
                      <th className="px-6 py-4 text-center">Tipo</th>
                      <th className="px-6 py-4">Status</th>
+                     <th className="px-6 py-4">Cadastro</th>
+                     <th className="px-6 py-4">Ativação</th>
                      <th className="px-6 py-4">Último Acesso</th>
                      <th className="px-6 py-4 text-right">Ações</th>
                   </tr>
@@ -542,6 +548,12 @@ const UsersPage: React.FC = () => {
                                  }`}>
                                  {u.status || 'Pendente'}
                               </span>
+                           </td>
+                           <td className="px-6 py-4 text-slate-500 text-xs font-medium">
+                              {u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '--'}
+                           </td>
+                           <td className="px-6 py-4 text-slate-500 text-xs font-medium">
+                              {u.updated_at ? new Date(u.updated_at).toLocaleDateString('pt-BR') : '--'}
                            </td>
                            <td className="px-6 py-4 text-slate-500 text-xs font-medium">{u.last_access || '--'}</td>
                            <td className="px-6 py-4 text-right">

@@ -58,7 +58,7 @@ const SubscriptionsPage: React.FC = () => {
                   email: profile.email || '(Nenhum e-mail vinculado)',
                   avatar: profile.avatar_url || null,
                   plan: profile.plans?.name || 'Vistoria Free',
-                  price: profile.plans?.price ? `R$ ${parseFloat(profile.plans.price).toFixed(2).replace('.', ',')} / mês` : 'Gratuito',
+                  price: profile.plans?.price ? `R$ ${parseFloat(profile.plans.price).toFixed(2).replace('.', ',')} / ${profile.plans?.billing_cycle === 'Anual' ? 'ano' : 'mês'}` : 'Gratuito',
                   status: profile.status || 'Ativa',
                   type: type,
                   renewal: profile.subscription_expires_at
@@ -90,7 +90,8 @@ const SubscriptionsPage: React.FC = () => {
          setModalLoading(true);
 
          const plan = allPlans.find(p => p.id === newPlanId);
-         const duration = plan?.duration_days || 30; // Fallback to 30
+         // Se o plano é Anual, usamos 365 dias (1 ano), senão usamos duration_days (default 30)
+         const duration = plan?.billing_cycle === 'Anual' ? 365 : (plan?.duration_days || 30);
          const expiresAt = new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toISOString();
 
          const { data: response, error } = await supabase.functions.invoke('admin-dash', {
