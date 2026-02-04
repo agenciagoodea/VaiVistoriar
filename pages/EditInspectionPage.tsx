@@ -338,8 +338,8 @@ const EditInspectionPage: React.FC = () => {
                     <p className="text-slate-500">Ajuste os detalhes e etapas do laudo.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {[1, 2, 3, 4, 5].map(s => (
-                        <div key={s} className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${step >= s ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                    {[1, 2, 3, 4, 5, 6].map(s => (
+                        <div key={s} className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${step >= s ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-400'}`}>
                             {s}
                         </div>
                     ))}
@@ -398,57 +398,76 @@ const EditInspectionPage: React.FC = () => {
                     )}
 
                     {step === 2 && (
-                        <div className="space-y-8">
-                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Etapa 2: Partes Envolvidas</h2>
+                        <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Etapa 2: Imóvel</h2>
+                            <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 space-y-4">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Selecione o Imóvel</label>
+                                <div className="flex gap-4">
+                                    <select value={propertyId} onChange={e => setPropertyId(e.target.value)} className="flex-1 px-5 py-3.5 bg-white border border-slate-100 rounded-2xl outline-none text-sm font-bold shadow-sm">
+                                        <option value="">Selecione...</option>
+                                        {properties.map(p => <option key={p.id} value={p.id}>{p.name} - {p.address}</option>)}
+                                    </select>
+                                    <button onClick={() => setCreatingProperty(!creatingProperty)} className={`px-6 rounded-2xl border font-bold text-xs uppercase transition-all ${creatingProperty ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50'}`}>
+                                        {creatingProperty ? 'Cancelar' : 'Novo'}
+                                    </button>
+                                </div>
+
+                                {creatingProperty && (
+                                    <div className="p-6 bg-white rounded-2xl border border-slate-100 shadow-lg space-y-4 animate-in zoom-in-95">
+                                        <h4 className="font-bold text-slate-900 border-b pb-2">Cadastrar Novo Imóvel</h4>
+                                        <div className="space-y-3">
+                                            <input placeholder="Apelido do Imóvel (ex: Ap do Centro)" value={newPropertyName} onChange={e => setNewPropertyName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                            <input placeholder="Endereço Completo" value={newPropertyAddress} onChange={e => setNewPropertyAddress(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                            <select value={newPropertyType} onChange={e => setNewPropertyType(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300">
+                                                <option value="Apartamento">Apartamento</option>
+                                                <option value="Casa">Casa</option>
+                                                <option value="Comercial">Comercial</option>
+                                            </select>
+                                            <button onClick={handleCreateProperty} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-indigo-700 transition-all">Salvar Imóvel</button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Etapa 3: Configuração & Locatário</h2>
                             <div className="grid md:grid-cols-2 gap-8">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black uppercase text-slate-400">
-                                        {reportType === 'Locação' ? 'Locador (Proprietário)' : 'Vendedor (Proprietário)'}
-                                    </label>
-                                    <div className="flex gap-4">
-                                        <select value={lessorId} onChange={e => setLessorId(e.target.value)} className="flex-1 px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold">
-                                            <option value="">Selecione...</option>
-                                            {clients.filter(c => reportType === 'Locação' ? (c.profile_type === 'Proprietário' || !c.profile_type) : (c.profile_type === 'Vendedor' || !c.profile_type)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
-                                        <button onClick={() => setCreatingLessor(!creatingLessor)} className={`px-6 rounded-2xl border font-bold text-xs uppercase transition-all ${creatingLessor ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50'}`}>
-                                            {creatingLessor ? 'Cancelar' : 'Novo'}
-                                        </button>
-                                    </div>
-                                    {creatingLessor && (
-                                        <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 mt-4">
-                                            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-widest">Cadastrar Novo Proprietário</h4>
-                                            <div className="space-y-3">
-                                                <input placeholder="Nome Completo" value={newClientName} onChange={e => setNewClientName(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <input placeholder="Telefone" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
-                                                    <input placeholder="Email (Opcional)" value={newClientEmail} onChange={e => setNewClientEmail(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
-                                                </div>
-                                                <button onClick={() => handleCreateClient(reportType === 'Locação' ? 'Proprietário' : 'Vendedor')} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-indigo-700">Salvar Proprietário</button>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <label className="text-[10px] font-black uppercase text-slate-400">Data da Vistoria</label>
+                                    <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold" />
                                 </div>
                                 <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase text-slate-400">Tipo de Laudo</label>
+                                    <div className="flex gap-2">
+                                        {['Locação', 'Venda'].map(t => (
+                                            <button key={t} onClick={() => setReportType(t as any)} className={`flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase border transition-all ${reportType === t ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400'}`}>{t}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="md:col-span-2 space-y-1.5">
                                     <label className="text-[10px] font-black uppercase text-slate-400">
                                         {reportType === 'Locação' ? 'Locatário (Inquilino)' : 'Comprador'}
                                     </label>
                                     <div className="flex gap-4">
-                                        <select value={lesseeId} onChange={e => setLesseeId(e.target.value)} className="flex-1 px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold">
+                                        <select value={lesseeId} onChange={e => setLesseeId(e.target.value)} className="flex-1 px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold shadow-sm">
                                             <option value="">Selecione...</option>
                                             {clients.filter(c => reportType === 'Locação' ? (c.profile_type === 'Locatário' || !c.profile_type) : (c.profile_type === 'Comprador' || !c.profile_type)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
-                                        <button onClick={() => setCreatingLessee(!creatingLessee)} className={`px-6 rounded-2xl border font-bold text-xs uppercase transition-all ${creatingLessee ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50'}`}>
+                                        <button onClick={() => setCreatingLessee(!creatingLessee)} className={`px-6 rounded-2xl border font-bold text-xs uppercase transition-all ${creatingLessee ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50'}`}>
                                             {creatingLessee ? 'Cancelar' : 'Novo'}
                                         </button>
                                     </div>
                                     {creatingLessee && (
-                                        <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 mt-4">
-                                            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-widest">Cadastrar Novo {reportType === 'Locação' ? 'Locatário' : 'Comprador'}</h4>
+                                        <div className="p-6 bg-white rounded-2xl border border-slate-100 shadow-lg space-y-4 animate-in zoom-in-95 mt-4">
+                                            <h4 className="font-bold text-slate-900 border-b pb-2">Cadastrar Novo {reportType === 'Locação' ? 'Locatário' : 'Comprador'}</h4>
                                             <div className="space-y-3">
-                                                <input placeholder="Nome Completo" value={newClientName} onChange={e => setNewClientName(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                <input placeholder="Nome Completo" value={newClientName} onChange={e => setNewClientName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
                                                 <div className="grid grid-cols-2 gap-3">
-                                                    <input placeholder="Telefone" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
-                                                    <input placeholder="Email (Opcional)" value={newClientEmail} onChange={e => setNewClientEmail(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                    <input placeholder="Telefone" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                    <input placeholder="Email (Opcional)" value={newClientEmail} onChange={e => setNewClientEmail(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
                                                 </div>
                                                 <button onClick={() => handleCreateClient(reportType === 'Locação' ? 'Locatário' : 'Comprador')} className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-emerald-700">Salvar {reportType === 'Locação' ? 'Locatário' : 'Comprador'}</button>
                                             </div>
@@ -628,12 +647,17 @@ const EditInspectionPage: React.FC = () => {
                     )}
 
                     {/* Nav */}
-                    <div className="mt-12 pt-8 border-t border-slate-50 flex justify-between">
-                        <button onClick={() => step > 1 ? setStep(step - 1) : navigate('/inspections')} className="px-6 py-3 text-slate-400 font-bold">Voltar</button>
-                        {step < 5 ? (
-                            <button onClick={() => setStep(step + 1)} className="px-10 py-3 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px]">Próximo</button>
+                    <div className="mt-12 pt-8 border-t border-slate-50 flex justify-between gap-4">
+                        <button onClick={() => step > 1 ? setStep(step - 1) : navigate('/inspections')} className="px-8 py-3 text-slate-400 font-bold hover:bg-slate-50 rounded-2xl transition-all">
+                            {step === 1 ? 'Cancelar' : 'Voltar'}
+                        </button>
+                        {step < 6 ? (
+                            <button onClick={() => setStep(step + 1)} className="px-10 py-3 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center gap-2">
+                                Próximo Passo
+                                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                            </button>
                         ) : (
-                            <button onClick={handleSave} disabled={saving} className="px-12 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl shadow-emerald-200">
+                            <button onClick={handleSave} disabled={saving} className="px-12 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all">
                                 {saving ? 'Gravando...' : 'Salvar Vistoria'}
                             </button>
                         )}

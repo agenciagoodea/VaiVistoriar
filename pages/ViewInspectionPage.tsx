@@ -11,6 +11,7 @@ const ViewInspectionPage: React.FC = () => {
     const [inspection, setInspection] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
+    const [whatsAppLoading, setWhatsAppLoading] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
 
     // Email Modal State
@@ -335,27 +336,34 @@ const ViewInspectionPage: React.FC = () => {
     };
 
     const shareWhatsApp = async () => {
-        // Tentar usar URL do PDF salvo se existir, senão usa link da web
-        // Se quisermos forçar upload antes do whats, teria que mudar o fluxo (pode demorar).
-        // Vamos usar o link da web por padrão para agilidade, mas se tiver PDF salvo, melhor (mas o usuário quer praticidade).
-        // O ideal é mandar o link da web da vistoria, e lá dentro ele baixa o PDF.
-        // Mas o pedido diz "gerar pdf e armazenar... para incluir no link".
+        setWhatsAppLoading(true);
+        try {
+            // Forçar geração e upload do PDF para garantir link atualizado
+            let pdfUrl = inspection.pdf_url;
+            try {
+                pdfUrl = await uploadPDF();
+            } catch (err) {
+                console.error('Erro ao gerar PDF para WhatsApp, usando link web como fallback:', err);
+            }
 
-        // Vamos tentar salvar o PDF em background se não tiver?
-        // Para nao bloquear a UX, vamos abrir o whats com o link da pagina mesmo, mas marcar como enviado.
-        const url = window.location.href;
-        const text = `Confira o Laudo de Vistoria: ${inspection.property_name}\nLink: ${url}`;
+            const url = pdfUrl || window.location.href;
+            const text = `Confira o Laudo de Vistoria: ${inspection.property_name}\nLink do PDF: ${url}`;
 
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
 
-        // Atualizar status de envio whats
-        const { error } = await supabase
-            .from('inspections')
-            .update({ whatsapp_sent_at: new Date().toISOString() })
-            .eq('id', inspection.id);
+            // Atualizar status de envio whats
+            const { error } = await supabase
+                .from('inspections')
+                .update({ whatsapp_sent_at: new Date().toISOString() })
+                .eq('id', inspection.id);
 
-        if (error) {
-            alert('Atenção: O status de envio não foi salvo. Verifique se você rodou o script SQL para criar a coluna "whatsapp_sent_at".');
+            if (error) {
+                console.error('Erro ao salvar status de envio whatsapp:', error);
+            }
+        } catch (err: any) {
+            alert('Erro ao processar WhatsApp: ' + err.message);
+        } finally {
+            setWhatsAppLoading(false);
         }
     };
 
@@ -382,8 +390,17 @@ const ViewInspectionPage: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={shareWhatsApp} className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md">
-                        <span className="material-symbols-outlined text-[16px]">share</span> WhatsApp
+                    <button
+                        onClick={shareWhatsApp}
+                        disabled={whatsAppLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50"
+                    >
+                        {whatsAppLoading ? (
+                            <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                        ) : (
+                            <span className="material-symbols-outlined text-[16px]">share</span>
+                        )}
+                        WhatsApp
                     </button>
                     <button onClick={openEmailModal} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black shadow-md">
                         <span className="material-symbols-outlined text-[16px]">mail</span> E-mail
