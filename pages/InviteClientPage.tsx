@@ -10,9 +10,12 @@ const InviteClientPage: React.FC = () => {
     const [client, setClient] = useState<any>(null);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [countdown, setCountdown] = useState(15);
 
     // Form states
     const [name, setName] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState('');
+    const [uploading, setUploading] = useState(false);
     const [document, setDocument] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
@@ -38,11 +41,29 @@ const InviteClientPage: React.FC = () => {
 
             if (error) throw error;
             if (data) {
+                // Verificação de segurança: link de uso único
+                if (data.status === 'Ativo') {
+                    setError('Este link já foi utilizado e os dados já foram confirmados.');
+                    setLoading(false);
+                    return;
+                }
+
+                // Verificação de segurança: expiração de 48 horas
+                const createdAt = new Date(data.created_at).getTime();
+                const now = new Date().getTime();
+                const fortyEightHoursInMs = 48 * 60 * 60 * 1000;
+                if (now - createdAt > fortyEightHoursInMs) {
+                    setError('Este link de convite expirou (limite de 48 horas). Por favor, solicite um novo convite ao seu corretor.');
+                    setLoading(false);
+                    return;
+                }
+
                 setClient(data);
                 setName(data.name || '');
                 setEmail(data.email || '');
                 setPhone(data.phone || '');
                 setDocument(data.document_number || '');
+                setAvatarUrl(data.avatar_url || '');
             }
         } catch (err: any) {
             setError('Link inválido ou cliente não encontrado.');
@@ -67,6 +88,27 @@ const InviteClientPage: React.FC = () => {
         } catch (err) { console.error(err); }
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        setUploading(true);
+        const file = e.target.files[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        try {
+            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
+            if (uploadError) throw uploadError;
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+            setAvatarUrl(publicUrl);
+        } catch (err: any) {
+            console.error(err);
+            alert('Erro ao enviar foto.');
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
@@ -86,13 +128,24 @@ const InviteClientPage: React.FC = () => {
                     city,
                     state,
                     address: `${street}, ${number} - ${district}, ${city}/${state}`,
-                    status: 'Ativo',
-                    updated_at: new Date().toISOString()
+                    avatar_url: avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+                    status: 'Ativo'
                 })
                 .eq('id', id);
 
             if (updateError) throw updateError;
             setSuccess(true);
+
+            // Iniciar contagem regressiva para fechar
+            const timer = setInterval(() => {
+                setCountdown(prev => {
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                        window.close();
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -114,7 +167,10 @@ const InviteClientPage: React.FC = () => {
                 </div>
                 <h1 className="text-2xl font-black text-slate-900">Dados Enviados!</h1>
                 <p className="text-slate-500">Obrigado por completar suas informações. Seus dados já foram atualizados no sistema.</p>
-                <button onClick={() => window.close()} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest">Fechar Janela</button>
+                <div className="pt-4 space-y-4">
+                    <button onClick={() => window.close()} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all">Fechar Janela Agora</button>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Esta janela fechará automaticamente em <span className="text-blue-600">{countdown}</span> segundos</p>
+                </div>
             </div>
         </div>
     );
@@ -141,6 +197,26 @@ const InviteClientPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-8">
                     <div className="bg-white rounded-[40px] shadow-xl border border-slate-100 p-8 md:p-12 space-y-10">
+                        <div className="flex flex-col items-center gap-6 mb-10">
+                            <div className="relative group w-32 h-32">
+                                <div className="w-32 h-32 rounded-[32px] overflow-hidden bg-slate-100 border-4 border-white shadow-xl">
+                                    {avatarUrl ? (
+                                        <img src={avatarUrl} className="w-full h-full object-cover" alt="Perfil" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                            <span className="material-symbols-outlined text-5xl">person</span>
+                                        </div>
+                                    )}
+                                    {uploading && <div className="absolute inset-0 bg-white/60 flex items-center justify-center"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent animate-spin rounded-full" /></div>}
+                                </div>
+                                <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-600 text-white rounded-xl shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
+                                    <span className="material-symbols-outlined text-xl">add_a_photo</span>
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                </label>
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Sua Foto de Perfil</p>
+                        </div>
+
                         <div className="grid md:grid-cols-2 gap-6">
                             <div className="md:col-span-2 space-y-1.5">
                                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nome Completo</label>
