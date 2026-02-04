@@ -1,26 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { formatCpfCnpj } from '../lib/utils';
 
-const ViewInspectionPage: React.FC = () => {
+const PublicInspectionPage: React.FC = () => {
     const { id } = useParams();
-    const navigate = useNavigate();
     const [inspection, setInspection] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [whatsAppLoading, setWhatsAppLoading] = useState(false);
-    const [progressMessage, setProgressMessage] = useState('');
     const reportRef = useRef<HTMLDivElement>(null);
-
-    // Email Modal State
-    const [emailModalOpen, setEmailModalOpen] = useState(false);
-    const [emailSending, setEmailSending] = useState(false);
-    const [emailRecipients, setEmailRecipients] = useState<{ name: string; email: string; type: string; selected: boolean }[]>([]);
-    const [customEmail, setCustomEmail] = useState('');
-    const [templates, setTemplates] = useState<any[]>([]);
 
     useEffect(() => {
         fetchInspection();
@@ -80,332 +71,64 @@ const ViewInspectionPage: React.FC = () => {
         }
     };
 
-    const fetchTemplates = async () => {
-        const { data } = await supabase.from('system_configs').select('value').eq('key', 'email_templates_json').single();
-        let loadedTemplates: any[] = [];
-
-        if (data && data.value) {
-            try {
-                loadedTemplates = JSON.parse(data.value);
-            } catch (e) {
-                console.error('Erro ao parsar templates', e);
-            }
-        }
-
-        // Fallback: Ensure send_report exists
-        if (!loadedTemplates.find(t => t.id === 'send_report')) {
-            loadedTemplates.push({
-                id: 'send_report',
-                name: 'Envio de Laudo Técnico',
-                subject: 'Laudo de Vistoria Disponível - {{property_name}}',
-                html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><div style="text-align: center; margin-bottom: 30px;"><span style="background: #eff6ff; color: #2563eb; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 12px; text-transform: uppercase;">Laudo Digital</span></div><h1 style="color: #1e293b; margin-top: 0; text-align: center;">Vistoria Concluída</h1><p style="color: #64748b; line-height: 1.6; text-align: center;">Olá, <strong>{{client_name}}</strong>!</p><p style="color: #64748b; line-height: 1.6; text-align: center;">O laudo de vistoria do imóvel <strong>{{property_name}}</strong> segue anexo/linkado abaixo.</p><div style="text-align: center; margin: 40px 0;"><a href="{{report_link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Baixar Laudo PDF</a></div><p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 40px;">Em caso de dúvidas, entre em contato com o responsável.</p></div></div>`
-            });
-        }
-
-        setTemplates(loadedTemplates);
-    };
-
-    const openEmailModal = () => {
-        fetchTemplates();
-        const recips = [];
-        if (inspection.lessor?.email) {
-            recips.push({ name: inspection.lessor.name, email: inspection.lessor.email, type: inspection.report_type === 'Venda' ? 'Vendedor' : 'Locador', selected: true });
-        }
-        if (inspection.lessee?.email) {
-            recips.push({ name: inspection.lessee.name, email: inspection.lessee.email, type: inspection.report_type === 'Venda' ? 'Comprador' : 'Locatário', selected: true });
-        }
-        setEmailRecipients(recips);
-        setEmailModalOpen(true);
-    };
-
-    // --- PDF Generation Logic ---
-    const generatePDF = async (returnBlob = false): Promise<jsPDF | Blob | null> => {
-        if (!reportRef.current) return null;
-
-        try {
-            const container = reportRef.current;
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const margin = 10;
-            const contentWidth = pageWidth - (margin * 2);
-
-            // Hide iframe elements (maps) during capture and show placeholders
-            const iframes = container.querySelectorAll('iframe');
-            iframes.forEach(el => el.style.opacity = '0');
-            const mapPlaceholders = container.querySelectorAll('.map-placeholder-pdf');
-            mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'block');
-
-            // Selectors
-            const header = container.querySelector('.report-header') as HTMLElement;
-            const sections = Array.from(container.querySelectorAll('.report-section')) as HTMLElement[];
-            const footer = container.querySelector('.report-footer') as HTMLElement;
-
-            const captureElement = async (element: HTMLElement) => {
-                return await html2canvas(element, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: '#ffffff',
-                    windowWidth: 1024
-                });
-            };
-
-            let currentY = margin;
-
-            // Header
-            if (header) {
-                const canvas = await captureElement(header);
-                const imgHeight = (canvas.height * contentWidth) / canvas.width;
-                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
-                currentY += imgHeight + 2;
-            }
-
-            // Sections
-            for (const section of sections) {
-                const canvas = await captureElement(section);
-                const imgHeight = (canvas.height * contentWidth) / canvas.width;
-
-                if (currentY + imgHeight > pageHeight - margin) {
-                    pdf.addPage();
-                    currentY = margin;
-                }
-
-                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
-
-                // Links
-                const links = section.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
-                const rect = section.getBoundingClientRect();
-                links.forEach(link => {
-                    const linkRect = link.getBoundingClientRect();
-                    const scaleFactor = contentWidth / rect.width;
-                    const pdfX = margin + ((linkRect.left - rect.left) * scaleFactor);
-                    const pdfY = currentY + ((linkRect.top - rect.top) * scaleFactor);
-                    const pdfW = linkRect.width * scaleFactor;
-                    const pdfH = linkRect.height * scaleFactor;
-                    pdf.link(pdfX, pdfY, pdfW, pdfH, { url: link.href });
-                });
-
-                currentY += imgHeight + 2;
-            }
-
-            // Footer (Signatures)
-            if (footer) {
-                const canvas = await captureElement(footer);
-                const imgHeight = (canvas.height * contentWidth) / canvas.width;
-                if (currentY + imgHeight > pageHeight - margin) {
-                    pdf.addPage();
-                    currentY = margin;
-                }
-                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
-                currentY += imgHeight + 2;
-            }
-
-            // Site Footer (Legal/Official Info)
-            const siteFooter = container.querySelector('.report-site-footer') as HTMLElement;
-            if (siteFooter) {
-                const canvas = await captureElement(siteFooter);
-                const imgHeight = (canvas.height * contentWidth) / canvas.width;
-                // Always try to put at bottom if space permits, or new page
-                if (currentY + imgHeight > pageHeight - margin) {
-                    pdf.addPage();
-                    currentY = pageHeight - imgHeight - margin; // Bottom of new page
-                } else {
-                    // Start of next block or bottom of page?
-                    // Let's just append it naturally for now, or push to bottom if it's the very last thing?
-                    // "Official" often implies bottom of page.
-                    // Let's place it at currentY for flow, but if we want it at the VERY bottom of the last page:
-                    // currentY = Math.max(currentY, pageHeight - imgHeight - margin); 
-                    // But that might overlap if the previous content was close.
-                    // Let's just append it naturally to respect the flow.
-                }
-                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
-            }
-
-            // Restore visibility
-            iframes.forEach(el => el.style.opacity = '1');
-            mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'none');
-
-            return returnBlob ? pdf.output('blob') : pdf;
-        } catch (err) {
-            console.error('Erro na geração do PDF', err);
-            // Restore visibility on error
-            const container = reportRef.current;
-            if (container) {
-                container.querySelectorAll('iframe').forEach(el => el.style.opacity = '1');
-                container.querySelectorAll('.map-placeholder-pdf').forEach(el => (el as HTMLElement).style.display = 'none');
-            }
-            throw err;
-        }
-    };
-
     const downloadPDF = async () => {
+        if (!reportRef.current) return;
         setExporting(true);
+
         try {
-            const pdf = await generatePDF(false) as jsPDF;
-            if (pdf) pdf.save(`Vistoria_${inspection.property_name.replace(/\s+/g, '_')}.pdf`);
-        } catch (e) {
-            alert('Erro ao gerar PDF.');
+            // Show map placeholders and hide iframes
+            const iframes = reportRef.current.querySelectorAll('iframe');
+            const mapPlaceholders = reportRef.current.querySelectorAll('.map-placeholder-pdf');
+            iframes.forEach(iframe => (iframe as HTMLElement).style.display = 'none');
+            mapPlaceholders.forEach(placeholder => (placeholder as HTMLElement).style.display = 'flex');
+
+            const canvas = await html2canvas(reportRef.current, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+            });
+
+            // Restore iframes and hide placeholders
+            iframes.forEach(iframe => (iframe as HTMLElement).style.display = '');
+            mapPlaceholders.forEach(placeholder => (placeholder as HTMLElement).style.display = 'none');
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`Laudo_${inspection.property_name || 'Vistoria'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
+        } catch (err) {
+            console.error('Erro ao gerar PDF:', err);
+            alert('Erro ao gerar PDF. Tente novamente.');
         } finally {
             setExporting(false);
         }
     };
 
-    const uploadPDF = async () => {
-        const blob = await generatePDF(true) as Blob;
-        if (!blob) throw new Error('Falha ao gerar Blob do PDF');
-
-        const fileName = `laudos/Vistoria_${inspection.id}_${Date.now()}.pdf`;
-        const { data, error } = await supabase.storage
-            .from('reports') // Bucket name must exist
-            .upload(fileName, blob, {
-                contentType: 'application/pdf',
-                upsert: true
-            });
-
-        if (error) throw error;
-
-        const { data: { publicUrl } } = supabase.storage.from('reports').getPublicUrl(fileName);
-
-        // Salvar URL no banco para referência futura
-        const { error: updateError } = await supabase
-            .from('inspections')
-            .update({ pdf_url: publicUrl })
-            .eq('id', inspection.id);
-
-        if (updateError) console.error('Erro ao salvar URL do PDF no banco', updateError);
-
-        setProgressMessage('PDF Armazenado!');
-        return publicUrl;
-    };
-
-    const handleSendEmail = async () => {
-        setEmailSending(true);
-        try {
-            const targets = emailRecipients.filter(r => r.selected);
-            if (customEmail) targets.push({ name: 'Destinatário', email: customEmail, type: 'Extra', selected: true });
-            if (targets.length === 0) throw new Error('Selecione ao menos um destinatário.');
-
-            // 1. Generate and Upload PDF
-            setProgressMessage('Gerando Laudo PDF...');
-            let pdfUrl = inspection.pdf_url;
-            try {
-                pdfUrl = await uploadPDF();
-            } catch (uploadErr) {
-                console.error('Erro ao fazer upload do PDF, usando link web:', uploadErr);
-            }
-
-            // 2. Send Emails
-            setProgressMessage('Enviando E-mails...');
-
-            // Gerar link público para o cliente
-            const publicUrl = `${window.location.origin}${window.location.pathname.includes('#') ? '/#' : ''}/public/inspection/${inspection.id}`;
-            const reportLink = pdfUrl || publicUrl;
-
-            for (const target of targets) {
-                const { error } = await supabase.functions.invoke('send-email', {
-                    body: {
-                        to: target.email,
-                        templateId: 'send_report',
-                        origin: window.location.origin,
-                        variables: {
-                            client_name: target.name,
-                            property_name: inspection.property_name || inspection.property?.name,
-                            report_link: reportLink
-                        }
-                    }
-                });
-                if (error) throw error;
-            }
-
-            // Atualizar status de envio de email e status da vistoria
-            const { error: updateStatusErr } = await supabase
-                .from('inspections')
-                .update({
-                    email_sent_at: new Date().toISOString(),
-                    status: 'Enviado por e-mail'
-                })
-                .eq('id', inspection.id);
-
-            if (updateStatusErr) {
-                console.error('Erro ao atualizar status de email', updateStatusErr);
-                alert('Atenção: O status de envio não foi salvo. Verifique se você rodou o script SQL para criar a coluna "email_sent_at".');
-            } else {
-                alert('E-mails enviados com sucesso com o link do PDF!');
-            }
-            setEmailModalOpen(false);
-            // Atualizar estado local para refletir na UI se tivéssemos listener, mas reload resolve ou mudança de página.
-        } catch (err: any) {
-            alert('Erro ao enviar: ' + err.message);
-        } finally {
-            setEmailSending(false);
-            setProgressMessage('');
-        }
-    };
-
-    const shareWhatsApp = async () => {
-        // Abrir janela em branco imediatamente para evitar bloqueio de popup disparado após async (html2canvas demora)
-        const win = window.open('', '_blank');
-        if (!win) {
-            alert('O Bloqueador de Pop-ups está ativo. Por favor, libere para enviar pelo WhatsApp.');
-            return;
-        }
-        win.document.write('Gerando link do WhatsApp... Por favor, não feche esta janela.');
-
+    const shareWhatsApp = () => {
         setWhatsAppLoading(true);
-        try {
-            // Forçar geração e upload do PDF para garantir link atualizado
-            setProgressMessage('Gerando PDF...');
-            let pdfUrl = '';
-            try {
-                pdfUrl = await uploadPDF();
-            } catch (err) {
-                console.error('Erro ao gerar PDF para WhatsApp, usando link web como fallback:', err);
-            }
-
-            // Gerar link público para o cliente
-            const publicUrl = `${window.location.origin}${window.location.pathname.includes('#') ? '/#' : ''}/public/inspection/${inspection.id}`;
-            const url = pdfUrl || publicUrl;
-            const text = `Confira o Laudo de Vistoria: ${inspection.property_name}\nLink do PDF: ${url}`;
-            const whatsAppLink = `https://wa.me/?text=${encodeURIComponent(text)}`;
-
-            // Redirecionar a janela que já foi aberta
-            win.location.href = whatsAppLink;
-
-            // Atualizar status de envio whats
-            await supabase
-                .from('inspections')
-                .update({ whatsapp_sent_at: new Date().toISOString() })
-                .eq('id', inspection.id);
-
-        } catch (err: any) {
-            win.close(); // Fechar a janela se der erro
-            alert('Erro ao processar WhatsApp: ' + err.message);
-        } finally {
-            setWhatsAppLoading(true); // Manter true um pouco para evitar clicks rápidos ou resetar conforme UX
-            setTimeout(() => {
-                setWhatsAppLoading(false);
-                setProgressMessage('');
-            }, 1000);
-        }
+        const url = window.location.href;
+        const text = `Confira o Laudo de Vistoria: ${inspection.property_name}\nLink: ${url}`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        setTimeout(() => setWhatsAppLoading(false), 1000);
     };
 
-    if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Gerando Documento...</div>;
-    if (!inspection) return <div className="p-20 text-center font-bold text-rose-500 uppercase tracking-widest">Erro: Vistoria não encontrada.</div>;
+    if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Carregando Laudo...</div>;
+    if (!inspection) return <div className="p-20 text-center font-bold text-rose-500 uppercase tracking-widest">Erro: Laudo não encontrado.</div>;
 
     const mapSearchQuery = encodeURIComponent(
         inspection.property ? `${inspection.property.address}, ${inspection.property.number}, ${inspection.property.city}` : inspection.address
     );
     const mapLink = `https://www.google.com/maps/search/?api=1&query=${mapSearchQuery}`;
 
-    // --- RENDER ---
     return (
         <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 pb-32 animate-in fade-in duration-500">
-            {/* Action Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white/90 backdrop-blur-xl p-4 rounded-2xl border border-slate-200 shadow-lg sticky top-4 z-50">
+            {/* Action Bar - Simplified for Public */}
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white/90 backdrop-blur-xl p-4 rounded-2xl border border-slate-200 shadow-lg sticky top-4 z-50 print:hidden">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/inspections')} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all text-slate-400 group">
-                        <span className="material-symbols-outlined text-xl group-hover:-translate-x-1 transition-transform">arrow_back</span>
-                    </button>
                     <div>
                         <h1 className="text-sm font-black text-slate-900 leading-tight uppercase">Laudo Digital</h1>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{inspection.report_type}</p>
@@ -418,25 +141,22 @@ const ViewInspectionPage: React.FC = () => {
                         className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50"
                     >
                         {whatsAppLoading ? (
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-                                <span className="text-[8px] animate-pulse">{progressMessage || 'Gerando...'}</span>
-                            </div>
+                            <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" />
                         ) : (
                             <span className="material-symbols-outlined text-[16px]">share</span>
                         )}
                         WhatsApp
                     </button>
-                    <button onClick={openEmailModal} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black shadow-md">
-                        <span className="material-symbols-outlined text-[16px]">mail</span> E-mail
-                    </button>
                     <button onClick={downloadPDF} disabled={exporting} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-md disabled:opacity-50">
                         {exporting ? <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> : <span className="material-symbols-outlined text-[16px]">download</span>} PDF
+                    </button>
+                    <button onClick={() => window.print()} className="hidden md:flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-md">
+                        <span className="material-symbols-outlined text-[16px]">print</span> Imprimir
                     </button>
                 </div>
             </div>
 
-            {/* Document Container - COMPACT LAYOUT */}
+            {/* Document Container - Same as ViewInspectionPage */}
             <div id="inspection-report" ref={reportRef} className="bg-white border border-slate-200 shadow-xl rounded-[2px] overflow-hidden font-['Inter'] text-xs">
 
                 {/* Compact Header (2-Row Layout) */}
@@ -478,7 +198,6 @@ const ViewInspectionPage: React.FC = () => {
                                 </div>
                             </div>
                         ) : (
-                            /* Spacer if no company hidden, to keep alignment if needed, or just nothing */
                             <div />
                         )}
 
@@ -499,7 +218,7 @@ const ViewInspectionPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Row 2: Bottom bar with Report Info (Single organized line) */}
+                    {/* Row 2: Bottom bar with Report Info */}
                     <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                             <div className="px-3 py-1 bg-slate-900 text-white rounded-lg font-black text-[9px] uppercase tracking-[0.1em]">
@@ -535,7 +254,7 @@ const ViewInspectionPage: React.FC = () => {
                     {/* BLOCO 1: Imóvel (Foto + Dados) e Partes */}
                     <div className="report-section grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50 p-4 rounded-xl border border-slate-100 items-start">
 
-                        {/* Coluna 1: Foto e Dados do Imóvel (Empilhados, ocupando 2 colunas) */}
+                        {/* Coluna 1: Foto e Dados do Imóvel */}
                         <div className="md:col-span-2 space-y-4">
                             {/* Foto */}
                             <div className="aspect-[21/9] w-full rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white group relative">
@@ -583,7 +302,7 @@ const ViewInspectionPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Coluna 2: Partes (Locador e Locatário Empilhados) - Ocupando 1 coluna */}
+                        {/* Coluna 2: Partes */}
                         <div className="space-y-4">
                             <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm">
                                 <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-1">{inspection.report_type === 'Venda' ? 'Vendedor' : 'Locador'}</h3>
@@ -606,7 +325,7 @@ const ViewInspectionPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* BLOCO 2: Chaves (Esq) e Mapa (Dir) */}
+                    {/* BLOCO 2: Chaves e Mapa */}
                     <div className="report-section grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-6 items-stretch">
 
                         {/* Chaves */}
@@ -648,7 +367,7 @@ const ViewInspectionPage: React.FC = () => {
                                         className="h-full w-full absolute inset-0"
                                         src={`https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                                     ></iframe>
-                                    {/* Placeholder para PDF - Mostrado apenas quando gerando PDF */}
+                                    {/* Placeholder para PDF */}
                                     <a
                                         href={mapLink}
                                         target="_blank"
@@ -765,44 +484,8 @@ const ViewInspectionPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-
-            {/* Email Modal */}
-            {emailModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-900">Enviar Laudo (PDF)</h3>
-                            <button onClick={() => setEmailModalOpen(false)}><span className="material-symbols-outlined text-slate-400">close</span></button>
-                        </div>
-                        <div className="space-y-2">
-                            {emailRecipients.map((r, i) => (
-                                <label key={i} className="flex items-center gap-3 p-3 rounded border border-slate-100 bg-slate-50 cursor-pointer">
-                                    <input type="checkbox" checked={r.selected} onChange={e => {
-                                        const newR = [...emailRecipients];
-                                        newR[i].selected = e.target.checked;
-                                        setEmailRecipients(newR);
-                                    }} className="rounded text-blue-600" />
-                                    <div>
-                                        <p className="text-xs font-bold text-slate-900">{r.name}</p>
-                                        <p className="text-[10px] text-slate-500">{r.email}</p>
-                                    </div>
-                                </label>
-                            ))}
-                            <input type="email" value={customEmail} onChange={e => setCustomEmail(e.target.value)} placeholder="Outro e-mail..." className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded text-xs" />
-                        </div>
-                        <button onClick={handleSendEmail} disabled={emailSending} className="w-full py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-md disabled:opacity-50">
-                            {emailSending ? (
-                                <div className="flex items-center justify-center gap-3">
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-                                    <span>{progressMessage || 'Enviando...'}</span>
-                                </div>
-                            ) : 'Enviar PDF Agora'}
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
 
-export default ViewInspectionPage;
+export default PublicInspectionPage;

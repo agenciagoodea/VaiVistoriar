@@ -46,6 +46,7 @@ import MyPlanPage from './pages/MyPlanPage';
 import ReportsPage from './pages/ReportsPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import InviteClientPage from './pages/InviteClientPage';
+import PublicInspectionPage from './pages/PublicInspectionPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
@@ -109,9 +110,8 @@ const App: React.FC = () => {
         <Route path="/checkout/failure" element={<CheckoutFailure />} />
         <Route path="/checkout/pending" element={<CheckoutPending />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/client-registration/:id" element={<InviteClientPage />} />
-        <Route path="/inspections/view/:id" element={<ViewInspectionPage />} />
+        <Route path="/public/inspection/:id" element={<PublicInspectionPage />} />
         <Route path="/login" element={!session ? <LoginPage /> : <Navigate to={role === 'ADMIN' ? '/admin' : role === 'BROKER' ? '/broker' : '/pj'} replace />} />
         <Route path="/register" element={!session ? <LoginPage isRegisterMode={true} /> : <Navigate to={role === 'ADMIN' ? '/admin' : role === 'BROKER' ? '/broker' : '/pj'} replace />} />
 
@@ -177,6 +177,7 @@ const App: React.FC = () => {
             <Route path="/inspections" element={<InspectionsPage />} />
             <Route path="/inspections/new" element={<NewInspectionPage />} />
             <Route path="/inspections/edit/:id" element={<EditInspectionPage />} />
+            <Route path="/inspections/view/:id" element={<ViewInspectionPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/clients/new" element={<NewClientPage />} />
             <Route path="/clients/edit/:id" element={<EditClientPage />} />
