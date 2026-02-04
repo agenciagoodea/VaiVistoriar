@@ -35,6 +35,17 @@ const EditInspectionPage: React.FC = () => {
     const [properties, setProperties] = useState<any[]>([]);
     const [uploading, setUploading] = useState<string | null>(null);
 
+    // Quick Create State
+    const [creatingLessor, setCreatingLessor] = useState(false);
+    const [creatingLessee, setCreatingLessee] = useState(false);
+    const [creatingProperty, setCreatingProperty] = useState(false);
+    const [newClientName, setNewClientName] = useState('');
+    const [newClientPhone, setNewClientPhone] = useState('');
+    const [newClientEmail, setNewClientEmail] = useState('');
+    const [newPropertyName, setNewPropertyName] = useState('');
+    const [newPropertyAddress, setNewPropertyAddress] = useState('');
+    const [newPropertyType, setNewPropertyType] = useState('Apartamento');
+
     // Form State
     const [date, setDate] = useState('');
     const [reportType, setReportType] = useState<'Locação' | 'Venda'>('Locação');
@@ -100,6 +111,56 @@ const EditInspectionPage: React.FC = () => {
             console.error('Erro ao carregar dados:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Quick Create Functions
+    const handleCreateClient = async (type: 'Proprietário' | 'Locatário' | 'Vendedor' | 'Comprador') => {
+        if (!newClientName) return alert('Nome obrigatório');
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data, error } = await supabase.from('clients').insert([{
+                user_id: user?.id,
+                name: newClientName,
+                phone: newClientPhone,
+                email: newClientEmail,
+                profile_type: type,
+                avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(newClientName)}&background=random`
+            }]).select().single();
+
+            if (error) throw error;
+            setClients([...clients, data]);
+            if (type === 'Proprietário' || type === 'Vendedor') setLessorId(data.id);
+            else setLesseeId(data.id);
+
+            setCreatingLessor(false);
+            setCreatingLessee(false);
+            setNewClientName(''); setNewClientPhone(''); setNewClientEmail('');
+        } catch (err: any) {
+            alert('Erro ao criar cliente: ' + err.message);
+        }
+    };
+
+    const handleCreateProperty = async () => {
+        if (!newPropertyName || !newPropertyAddress) return alert('Nome e Endereço obrigatórios');
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data, error } = await supabase.from('properties').insert([{
+                user_id: user?.id,
+                name: newPropertyName,
+                address: newPropertyAddress,
+                type: newPropertyType,
+                owner_id: lessorId || null,
+                owner: clients.find(c => c.id === lessorId)?.name || ''
+            }]).select().single();
+
+            if (error) throw error;
+            setProperties([...properties, data]);
+            setPropertyId(data.id);
+            setCreatingProperty(false);
+            setNewPropertyName(''); setNewPropertyAddress('');
+        } catch (err: any) {
+            alert('Erro ao criar imóvel: ' + err.message);
         }
     };
 
@@ -284,10 +345,31 @@ const EditInspectionPage: React.FC = () => {
                                 </div>
                                 <div className="md:col-span-2 space-y-1.5">
                                     <label className="text-[10px] font-black uppercase text-slate-400">Imóvel</label>
-                                    <select value={propertyId} onChange={e => setPropertyId(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold">
-                                        <option value="">Selecione...</option>
-                                        {properties.map(p => <option key={p.id} value={p.id}>{p.name} - {p.address}</option>)}
-                                    </select>
+                                    <div className="flex gap-4">
+                                        <select value={propertyId} onChange={e => setPropertyId(e.target.value)} className="flex-1 px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold">
+                                            <option value="">Selecione...</option>
+                                            {properties.map(p => <option key={p.id} value={p.id}>{p.name} - {p.address}</option>)}
+                                        </select>
+                                        <button onClick={() => setCreatingProperty(!creatingProperty)} className={`px-6 rounded-2xl border font-bold text-xs uppercase transition-all ${creatingProperty ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50'}`}>
+                                            {creatingProperty ? 'Cancelar' : 'Novo'}
+                                        </button>
+                                    </div>
+
+                                    {creatingProperty && (
+                                        <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-4 animate-in zoom-in-95">
+                                            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-widest">Cadastrar Novo Imóvel</h4>
+                                            <div className="space-y-3">
+                                                <input placeholder="Apelido do Imóvel (ex: Ap do Centro)" value={newPropertyName} onChange={e => setNewPropertyName(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                <input placeholder="Endereço Completo" value={newPropertyAddress} onChange={e => setNewPropertyAddress(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                <select value={newPropertyType} onChange={e => setNewPropertyType(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300">
+                                                    <option value="Apartamento">Apartamento</option>
+                                                    <option value="Casa">Casa</option>
+                                                    <option value="Comercial">Comercial</option>
+                                                </select>
+                                                <button onClick={handleCreateProperty} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-indigo-700 transition-all">Salvar Imóvel</button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -301,19 +383,55 @@ const EditInspectionPage: React.FC = () => {
                                     <label className="text-[10px] font-black uppercase text-slate-400">
                                         {reportType === 'Locação' ? 'Locador (Proprietário)' : 'Vendedor (Proprietário)'}
                                     </label>
-                                    <select value={lessorId} onChange={e => setLessorId(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold">
-                                        <option value="">Selecione...</option>
-                                        {clients.filter(c => reportType === 'Locação' ? c.profile_type === 'Proprietário' : c.profile_type === 'Vendedor').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
+                                    <div className="flex gap-4">
+                                        <select value={lessorId} onChange={e => setLessorId(e.target.value)} className="flex-1 px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold">
+                                            <option value="">Selecione...</option>
+                                            {clients.filter(c => reportType === 'Locação' ? (c.profile_type === 'Proprietário' || !c.profile_type) : (c.profile_type === 'Vendedor' || !c.profile_type)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                        <button onClick={() => setCreatingLessor(!creatingLessor)} className={`px-6 rounded-2xl border font-bold text-xs uppercase transition-all ${creatingLessor ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50'}`}>
+                                            {creatingLessor ? 'Cancelar' : 'Novo'}
+                                        </button>
+                                    </div>
+                                    {creatingLessor && (
+                                        <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 mt-4">
+                                            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-widest">Cadastrar Novo Proprietário</h4>
+                                            <div className="space-y-3">
+                                                <input placeholder="Nome Completo" value={newClientName} onChange={e => setNewClientName(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <input placeholder="Telefone" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                    <input placeholder="Email (Opcional)" value={newClientEmail} onChange={e => setNewClientEmail(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                </div>
+                                                <button onClick={() => handleCreateClient(reportType === 'Locação' ? 'Proprietário' : 'Vendedor')} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-indigo-700">Salvar Proprietário</button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase text-slate-400">
                                         {reportType === 'Locação' ? 'Locatário (Inquilino)' : 'Comprador'}
                                     </label>
-                                    <select value={lesseeId} onChange={e => setLesseeId(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold">
-                                        <option value="">Selecione...</option>
-                                        {clients.filter(c => reportType === 'Locação' ? c.profile_type === 'Locatário' : c.profile_type === 'Comprador').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
+                                    <div className="flex gap-4">
+                                        <select value={lesseeId} onChange={e => setLesseeId(e.target.value)} className="flex-1 px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-sm font-bold">
+                                            <option value="">Selecione...</option>
+                                            {clients.filter(c => reportType === 'Locação' ? (c.profile_type === 'Locatário' || !c.profile_type) : (c.profile_type === 'Comprador' || !c.profile_type)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                        <button onClick={() => setCreatingLessee(!creatingLessee)} className={`px-6 rounded-2xl border font-bold text-xs uppercase transition-all ${creatingLessee ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50'}`}>
+                                            {creatingLessee ? 'Cancelar' : 'Novo'}
+                                        </button>
+                                    </div>
+                                    {creatingLessee && (
+                                        <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 mt-4">
+                                            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-widest">Cadastrar Novo {reportType === 'Locação' ? 'Locatário' : 'Comprador'}</h4>
+                                            <div className="space-y-3">
+                                                <input placeholder="Nome Completo" value={newClientName} onChange={e => setNewClientName(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <input placeholder="Telefone" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                    <input placeholder="Email (Opcional)" value={newClientEmail} onChange={e => setNewClientEmail(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-300" />
+                                                </div>
+                                                <button onClick={() => handleCreateClient(reportType === 'Locação' ? 'Locatário' : 'Comprador')} className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-emerald-700">Salvar {reportType === 'Locação' ? 'Locatário' : 'Comprador'}</button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

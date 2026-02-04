@@ -14,7 +14,10 @@ const BrokerDashboard: React.FC = () => {
     expiry: '',
     maxPhotos: 0,
     maxBrokers: 0,
-    type: 'PF'
+    maxRooms: 0,
+    maxProperties: 0,
+    type: 'PF',
+    isLimitReached: false
   });
   const [userProfile, setUserProfile] = useState<{ full_name: string, role: string, company_name?: string } | null>(null);
   const [whatsappSupport, setWhatsappSupport] = useState('');
@@ -68,7 +71,10 @@ const BrokerDashboard: React.FC = () => {
           expiry: profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR') : 'Sem expiração',
           maxPhotos: plan?.max_photos || 30,
           maxBrokers: plan?.max_brokers || 0,
-          type: plan?.plan_type || 'PF'
+          maxRooms: plan?.max_rooms || 0,
+          maxProperties: plan?.max_properties || 0,
+          type: plan?.plan_type || 'PF',
+          isLimitReached: false // Updated below
         });
       }
 
@@ -113,7 +119,11 @@ const BrokerDashboard: React.FC = () => {
         brokersCount
       });
 
-      setPlanUsage(prev => ({ ...prev, current: monthCount || 0 }));
+      setPlanUsage(prev => {
+        const isReached = (prev.max > 0 && (monthCount || 0) >= prev.max) ||
+          (prev.maxProperties > 0 && (propertiesCount || 0) >= prev.maxProperties);
+        return { ...prev, current: monthCount || 0, isLimitReached: isReached };
+      });
 
       // 3. Recent Inspections
       const { data: dbData } = await supabase
@@ -166,6 +176,23 @@ const BrokerDashboard: React.FC = () => {
           </div>
           <Link to="/broker/plan" className="px-10 py-4 bg-white text-orange-600 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg hover:bg-slate-50 transition-all active:scale-95">
             Renovar Agora
+          </Link>
+        </div>
+      )}
+
+      {planUsage.isLimitReached && (
+        <div className="p-6 bg-gradient-to-r from-rose-600 to-red-700 rounded-[32px] text-white shadow-xl shadow-red-200 flex flex-col md:flex-row items-center justify-between gap-6 transform hover:scale-[1.01] transition-all border-none">
+          <div className="flex items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+              <span className="material-symbols-outlined text-3xl font-bold">rocket_launch</span>
+            </div>
+            <div>
+              <h3 className="text-xl font-black tracking-tight">Limite Atingido!</h3>
+              <p className="text-white/80 text-sm font-bold">Você atingiu 100% do limite do seu plano. Faça um upgrade agora para continuar crescendo.</p>
+            </div>
+          </div>
+          <Link to="/broker/plan" className="px-10 py-4 bg-white text-red-600 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg hover:bg-slate-50 transition-all active:scale-95">
+            Fazer Upgrade
           </Link>
         </div>
       )}
@@ -323,27 +350,46 @@ const BrokerDashboard: React.FC = () => {
                 <p className="text-lg font-black text-slate-900">{planUsage.maxPhotos}</p>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase">Max Corretores</p>
-                <p className="text-lg font-black text-slate-900">{planUsage.maxBrokers || '--'}</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase">Max Cômodos</p>
+                <p className="text-lg font-black text-slate-900">{planUsage.maxRooms || '--'}</p>
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-50">
-              <button onClick={() => setShowFeedback(true)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-slate-200 hover:bg-black transition-all active:scale-95">Sugestões ou Erros?</button>
+            <div className="pt-2">
+              <Link to="/broker/plan" className="w-full h-14 flex items-center justify-center bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
+                Atualizar Plano
+              </Link>
             </div>
           </div>
 
-          <div className="bg-blue-600 p-8 rounded-[32px] text-white shadow-xl shadow-blue-100 space-y-6 relative overflow-hidden group">
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-            <div className="relative z-10 space-y-4">
-              <span className="material-symbols-outlined text-4xl">support_agent</span>
-              <h4 className="text-lg font-black leading-tight">Precisa de ajuda especializada?</h4>
-              <p className="text-white/80 text-xs font-medium">Nosso time está pronto para te ajudar com qualquer dúvida.</p>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="bg-blue-600 p-8 rounded-[32px] text-white shadow-xl shadow-blue-50 space-y-6 relative overflow-hidden group min-h-[220px] flex flex-col justify-between">
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+              <div className="relative z-10 space-y-3">
+                <span className="material-symbols-outlined text-4xl">support_agent</span>
+                <h4 className="text-lg font-black leading-tight">Suporte Técnico</h4>
+                <p className="text-white/80 text-[10px] font-medium leading-relaxed">Nosso time está pronto para te ajudar com qualquer dúvida.</p>
+              </div>
               <button
                 onClick={() => window.open(`https://wa.me/${whatsappSupport.replace(/\D/g, '')}`, '_blank')}
-                className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-700/20 hover:bg-slate-50 transition-all"
+                className="relative z-10 w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-[9px] uppercase tracking-widest shadow-xl shadow-blue-700/20 hover:bg-slate-50 transition-all"
               >
                 Chamar no WhatsApp
+              </button>
+            </div>
+
+            <div className="bg-slate-900 p-8 rounded-[32px] text-white shadow-xl shadow-slate-200 space-y-6 relative overflow-hidden group min-h-[220px] flex flex-col justify-between">
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+              <div className="relative z-10 space-y-3">
+                <span className="material-symbols-outlined text-4xl text-amber-500">star</span>
+                <h4 className="text-lg font-black leading-tight">Avaliação</h4>
+                <p className="text-white/80 text-[10px] font-medium leading-relaxed">Sua opinião é fundamental para evoluirmos o VaiVistoriar.</p>
+              </div>
+              <button
+                onClick={() => setShowFeedback(true)}
+                className="relative z-10 w-full py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-white/20 transition-all"
+              >
+                Dar meu feedback
               </button>
             </div>
           </div>
