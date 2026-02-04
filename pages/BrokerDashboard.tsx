@@ -206,7 +206,7 @@ const BrokerDashboard: React.FC = () => {
         return 'bg-rose-50 text-rose-600';
       case 'Rascunho':
       case 'Enviada':
-      case 'Enviado por e-mail':
+      case 'Enviado':
         return 'bg-slate-50 text-slate-500';
       default:
         return 'bg-blue-50 text-blue-600';

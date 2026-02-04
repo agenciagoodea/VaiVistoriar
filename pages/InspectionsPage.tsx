@@ -205,7 +205,7 @@ const InspectionsPage: React.FC = () => {
                 .filter(i => {
                   if (activeFilter === 'Todos') return true;
                   if (activeFilter === 'Pendentes') return i.status === 'Agendada' || i.status === 'Pendente' || i.status === 'Editando';
-                  if (activeFilter === 'Finalizadas') return i.status === 'Finalizada' || i.status === 'Concluída' || i.status === 'Enviado por e-mail';
+                  if (activeFilter === 'Finalizadas') return i.status === 'Finalizada' || i.status === 'Concluída' || i.status === 'Enviado';
                   if (activeFilter === 'Canceladas') return i.status === 'Cancelada';
                   return true;
                 })
@@ -253,7 +253,7 @@ const InspectionsPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-center hidden xl:table-cell">
                         <div className="flex items-center justify-center gap-2">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center border ${inspection.email_sent_at ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-slate-50 border-slate-100 text-slate-300'}`} title={inspection.email_sent_at ? `Enviado por Email em ${new Date(inspection.email_sent_at).toLocaleDateString()}` : 'Não enviado por email'}>
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center border ${inspection.email_sent_at ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-slate-50 border-slate-100 text-slate-300'}`} title={inspection.email_sent_at ? `Enviado em ${new Date(inspection.email_sent_at).toLocaleDateString()}` : 'Não enviado por email'}>
                             <span className="material-symbols-outlined text-[14px]">mail</span>
                           </div>
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center border ${inspection.whatsapp_sent_at ? 'bg-green-50 border-green-100 text-green-600' : 'bg-slate-50 border-slate-100 text-slate-300'}`} title={inspection.whatsapp_sent_at ? `Enviado por WhatsApp em ${new Date(inspection.whatsapp_sent_at).toLocaleDateString()}` : 'Não enviado por WhatsApp'}>
@@ -272,11 +272,11 @@ const InspectionsPage: React.FC = () => {
                         {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : '--'}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Enviado por e-mail' ? 'bg-blue-50 text-blue-600' :
-                            inspection.status === 'Finalizada' || inspection.status === 'Concluída' ? 'bg-emerald-50 text-emerald-600' :
-                              inspection.status === 'Editando' ? 'bg-amber-50 text-amber-600' :
-                                inspection.status === 'Agendada' ? 'bg-indigo-50 text-indigo-600' :
-                                  'bg-slate-100 text-slate-500'
+                        <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Enviado' ? 'bg-blue-50 text-blue-600' :
+                          inspection.status === 'Finalizada' || inspection.status === 'Concluída' ? 'bg-emerald-50 text-emerald-600' :
+                            inspection.status === 'Editando' ? 'bg-amber-50 text-amber-600' :
+                              inspection.status === 'Agendada' ? 'bg-indigo-50 text-indigo-600' :
+                                'bg-slate-100 text-slate-500'
                           }`}>
                           {inspection.status}
                         </span>

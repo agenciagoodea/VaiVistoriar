@@ -242,7 +242,7 @@ const PublicInspectionPage: React.FC = () => {
                                 </span>
                             </div>
                             <div className="flex items-center gap-1.5 pl-2 border-l border-slate-100">
-                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${inspection.status === 'Enviado por e-mail' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${inspection.status === 'Enviado' ? 'bg-blue-500' : 'bg-green-500'}`} />
                                 <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">{inspection.status || 'Finalizado'}</span>
                             </div>
                         </div>

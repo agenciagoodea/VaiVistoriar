@@ -332,26 +332,35 @@ const EditInspectionPage: React.FC = () => {
 
     return (
         <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
+            {/* Header & Stepper */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900">Editar Vistoria</h1>
                     <p className="text-slate-500">Ajuste os detalhes e etapas do laudo.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {[1, 2, 3, 4, 5, 6].map(s => (
-                        <div key={s} className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${step >= s ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-400'}`}>
-                            {s}
-                        </div>
-                    ))}
+                    <div className="flex items-center gap-2">
+                        {[1, 2, 3, 4, 5, 6].map(s => (
+                            <div key={s} className="flex items-center">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all ${step >= s ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-slate-100 text-slate-400'}`}>
+                                    {s}
+                                </div>
+                                {s < 6 && <div className={`w-6 h-0.5 ${step > s ? 'bg-blue-600' : 'bg-slate-100'}`} />}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
             <div className="bg-white rounded-[40px] border border-slate-200 shadow-2xl overflow-hidden">
-                <div className="p-5 md:p-12">
+                <div className="p-8 md:p-12">
 
                     {step === 1 && (
-                        <div className="space-y-8">
-                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Etapa 1: Dados Básicos</h2>
+                        <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                            <div className="flex items-center gap-3 text-blue-600">
+                                <span className="material-symbols-outlined text-3xl font-bold">person</span>
+                                <h2 className="text-xl font-black tracking-tight uppercase">Passo 1: Proprietário</h2>
+                            </div>
                             <div className="grid md:grid-cols-2 gap-8">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase text-slate-400">Data da Vistoria</label>
@@ -399,7 +408,10 @@ const EditInspectionPage: React.FC = () => {
 
                     {step === 2 && (
                         <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
-                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Etapa 2: Imóvel</h2>
+                            <div className="flex items-center gap-3 text-indigo-600">
+                                <span className="material-symbols-outlined text-3xl font-bold">apartment</span>
+                                <h2 className="text-xl font-black tracking-tight uppercase">Passo 2: Imóvel</h2>
+                            </div>
                             <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 space-y-4">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Selecione o Imóvel</label>
                                 <div className="flex gap-4">
@@ -433,7 +445,10 @@ const EditInspectionPage: React.FC = () => {
 
                     {step === 3 && (
                         <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
-                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Etapa 3: Configuração & Locatário</h2>
+                            <div className="flex items-center gap-3 text-purple-600">
+                                <span className="material-symbols-outlined text-3xl font-bold">settings</span>
+                                <h2 className="text-xl font-black tracking-tight uppercase">Passo 3: Configuração da Vistoria</h2>
+                            </div>
                             <div className="grid md:grid-cols-2 gap-8">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase text-slate-400">Data da Vistoria</label>
@@ -478,9 +493,12 @@ const EditInspectionPage: React.FC = () => {
                         </div>
                     )}
 
-                    {step === 3 && (
-                        <div className="space-y-8">
-                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Etapa 3: Chaves & Mobília</h2>
+                    {step === 4 && (
+                        <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                            <div className="flex items-center gap-3 text-amber-500">
+                                <span className="material-symbols-outlined text-3xl font-bold">vpn_key</span>
+                                <h2 className="text-xl font-black tracking-tight uppercase">Passo 4: Chaves & Mobília</h2>
+                            </div>
                             <div className="grid md:grid-cols-2 gap-12">
                                 <div className="space-y-6">
                                     <div className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center">
@@ -519,11 +537,17 @@ const EditInspectionPage: React.FC = () => {
                         </div>
                     )}
 
-                    {step === 4 && (
-                        <div className="space-y-8">
+                    {step === 5 && (
+                        <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
                             <div className="flex justify-between items-center">
-                                <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Etapa 4: Ambientes</h2>
-                                <button onClick={addRoom} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase">Adicionar Ambiente</button>
+                                <div className="flex items-center gap-3 text-emerald-600">
+                                    <span className="material-symbols-outlined text-3xl font-bold">meeting_room</span>
+                                    <h2 className="text-xl font-black tracking-tight uppercase">Passo 5: Ambientes</h2>
+                                </div>
+                                <button onClick={addRoom} className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all transform active:scale-95">
+                                    <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                                    Adicionar Ambiente
+                                </button>
                             </div>
                             <div className="space-y-4">
                                 {rooms.map((room, idx) => (
@@ -608,9 +632,12 @@ const EditInspectionPage: React.FC = () => {
                         </div>
                     )}
 
-                    {step === 5 && (
-                        <div className="space-y-8">
-                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Etapa 5: Finalização</h2>
+                    {step === 6 && (
+                        <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                            <div className="flex items-center gap-3 text-rose-500">
+                                <span className="material-symbols-outlined text-3xl font-bold">receipt_long</span>
+                                <h2 className="text-xl font-black tracking-tight uppercase">Passo 6: Observações & Extras</h2>
+                            </div>
                             <div className="space-y-6">
                                 <div className="relative">
                                     <textarea value={generalObservations} onChange={e => setGeneralObservations(e.target.value)} className="w-full p-6 bg-slate-50 border border-slate-100 rounded-[32px] outline-none text-sm resize-none pr-14" rows={6} placeholder="Observações gerais do laudo..." />
