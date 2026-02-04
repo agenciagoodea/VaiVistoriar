@@ -123,6 +123,28 @@ const ClientsPage: React.FC = () => {
     }
   };
 
+  const handleResendInvite = async (client: any) => {
+    try {
+      const inviteLink = `${window.location.origin}/#/client-registration/${client.id}`;
+      const { error: emailError } = await supabase.functions.invoke('send-email', {
+        body: {
+          to: client.email,
+          templateId: 'client_invite',
+          variables: {
+            broker_name: profile?.full_name || 'Seu Corretor',
+            client_type: client.profile_type,
+            invite_link: inviteLink
+          }
+        }
+      });
+
+      if (emailError) throw emailError;
+      alert('Convite reenviado com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao reenviar: ' + err.message);
+    }
+  };
+
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -255,6 +277,15 @@ const ClientsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center gap-2">
+                      {client.status === 'Pendente' && (
+                        <button
+                          onClick={() => handleResendInvite(client)}
+                          title="Reenviar Convite"
+                          className="p-2 text-amber-500 hover:text-amber-600 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">forward_to_inbox</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => navigate(`/clients/edit/${client.id}`)}
                         className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
