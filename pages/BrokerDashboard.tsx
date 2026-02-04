@@ -82,22 +82,36 @@ const BrokerDashboard: React.FC = () => {
         });
       }
 
-      // 2. Monthly Stats
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+      // 2. Cycle Stats (Dynamic based on duration)
+      let startOfCycle = new Date();
+      if (profile.subscription_expires_at && profile.plans?.duration_days) {
+        const expiry = new Date(profile.subscription_expires_at);
+        const duration = profile.plans.duration_days;
+        const today = new Date();
+
+        // Calcular o início do ciclo atual retroativamente a partir da expiração
+        let cycleStart = new Date(expiry);
+        while (cycleStart > today) {
+          cycleStart.setDate(cycleStart.getDate() - duration);
+        }
+        startOfCycle = cycleStart;
+      } else {
+        startOfCycle.setDate(1);
+        startOfCycle.setHours(0, 0, 0, 0);
+      }
 
       const { count: monthCount } = await supabase
         .from('inspections')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .gte('created_at', startOfMonth.toISOString());
+        .gte('created_at', startOfCycle.toISOString());
 
       const { count: pendingCount } = await supabase
         .from('inspections')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .neq('status', 'Concluída');
+        .neq('status', 'Concluída')
+        .neq('status', 'Finalizada');
 
       const { count: propertiesCount } = await supabase
         .from('properties')
@@ -141,8 +155,8 @@ const BrokerDashboard: React.FC = () => {
         let totalPhotos = 0;
         let totalRooms = 0;
 
-        // Calculate usage for current month vistorias
-        dbData.filter(i => new Date(i.created_at) >= startOfMonth).forEach((item: any) => {
+        // Calculate usage for current cycle vistorias
+        dbData.filter(i => new Date(i.created_at) >= startOfCycle).forEach((item: any) => {
           const rooms = Array.isArray(item.rooms) ? item.rooms : [];
           totalRooms += rooms.length;
           rooms.forEach((r: any) => {
@@ -153,7 +167,10 @@ const BrokerDashboard: React.FC = () => {
         setPlanUsage(prev => ({
           ...prev,
           currentPhotos: totalPhotos,
-          currentRooms: totalRooms
+          currentRooms: totalRooms,
+          expiry: profile.subscription_expires_at
+            ? `${new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR')} (${profile.plans?.billing_cycle || 'Mensal'})`
+            : 'Sem expiração'
         }));
 
         const formattedData: Inspection[] = dbData.map((item: any) => ({
@@ -172,6 +189,27 @@ const BrokerDashboard: React.FC = () => {
       console.error('Erro ao carregar dashboard:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getStatusStyles = (status: string) => {
+    switch (status) {
+      case 'Concluída':
+      case 'Finalizada':
+        return 'bg-green-50 text-green-600';
+      case 'Agendada':
+      case 'Em andamento':
+      case 'Pendente':
+      case 'Editando':
+        return 'bg-amber-50 text-amber-600';
+      case 'Cancelada':
+        return 'bg-rose-50 text-rose-600';
+      case 'Rascunho':
+      case 'Enviada':
+      case 'Enviado por e-mail':
+        return 'bg-slate-50 text-slate-500';
+      default:
+        return 'bg-blue-50 text-blue-600';
     }
   };
 
@@ -343,8 +381,7 @@ const BrokerDashboard: React.FC = () => {
                       <span className="text-[10px] font-bold text-slate-500">{inspection.date}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className={`inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${inspection.status === 'Concluída' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
-                        }`}>
+                      <div className={`inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${getStatusStyles(inspection.status)}`}>
                         {inspection.status}
                       </div>
                     </td>
@@ -379,7 +416,7 @@ const BrokerDashboard: React.FC = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status Mensal</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status do Ciclo</p>
                 <h4 className="text-xl font-black text-slate-900 mt-1">{planUsage.current} / {planUsage.max}</h4>
               </div>
               <div className="text-right">
@@ -454,7 +491,7 @@ const BrokerDashboard: React.FC = () => {
         onClose={() => setShowFeedback(false)}
         userEmail={userProfile?.company_name || ''}
       />
-    </div>
+    </div >
   );
 };
 
