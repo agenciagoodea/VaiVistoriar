@@ -10,7 +10,6 @@ const PublicInspectionPage: React.FC = () => {
     const [inspection, setInspection] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
-    const [whatsAppLoading, setWhatsAppLoading] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -108,13 +107,7 @@ const PublicInspectionPage: React.FC = () => {
         }
     };
 
-    const shareWhatsApp = () => {
-        setWhatsAppLoading(true);
-        const url = window.location.href;
-        const text = `Confira o Laudo de Vistoria: ${inspection.property_name}\nLink: ${url}`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-        setTimeout(() => setWhatsAppLoading(false), 1000);
-    };
+
 
     if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest">Carregando Laudo...</div>;
     if (!inspection) return <div className="p-20 text-center font-bold text-rose-500 uppercase tracking-widest">Erro: Laudo não encontrado.</div>;
@@ -135,23 +128,8 @@ const PublicInspectionPage: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={shareWhatsApp}
-                        disabled={whatsAppLoading}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50"
-                    >
-                        {whatsAppLoading ? (
-                            <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-                        ) : (
-                            <span className="material-symbols-outlined text-[16px]">share</span>
-                        )}
-                        WhatsApp
-                    </button>
                     <button onClick={downloadPDF} disabled={exporting} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-md disabled:opacity-50">
                         {exporting ? <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> : <span className="material-symbols-outlined text-[16px]">download</span>} PDF
-                    </button>
-                    <button onClick={() => window.print()} className="hidden md:flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-md">
-                        <span className="material-symbols-outlined text-[16px]">print</span> Imprimir
                     </button>
                 </div>
             </div>
@@ -281,9 +259,15 @@ const PublicInspectionPage: React.FC = () => {
                                 <div>
                                     <h3 className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">Imóvel</h3>
                                     <p className="text-lg font-black text-slate-900 uppercase leading-tight">{inspection.property?.name || inspection.property_name}</p>
-                                    <p className="text-xs text-slate-600 mt-1 leading-normal">
+                                    <a
+                                        href={mapLink}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-xs text-blue-600 hover:text-blue-700 mt-1 leading-normal inline-flex items-center gap-1 hover:underline transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">location_on</span>
                                         {inspection.property ? `${inspection.property.address}, ${inspection.property.number} - ${inspection.property.neighborhood}, ${inspection.property.city}/${inspection.property.state}` : inspection.address}
-                                    </p>
+                                    </a>
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-3">
                                     <div className="px-2 py-1 bg-slate-50 rounded border border-slate-200">
@@ -356,7 +340,7 @@ const PublicInspectionPage: React.FC = () => {
                         </div>
 
                         {/* Mapa */}
-                        <div className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 aspect-square md:aspect-auto md:h-full min-h-[160px]">
+                        <div className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 aspect-square md:aspect-auto md:h-full min-h-[160px] group">
                             {(inspection.property?.address || inspection.address) && (
                                 <>
                                     <iframe
@@ -364,9 +348,21 @@ const PublicInspectionPage: React.FC = () => {
                                         height="100%"
                                         frameBorder="0"
                                         scrolling="no"
-                                        className="h-full w-full absolute inset-0"
+                                        className="h-full w-full absolute inset-0 pointer-events-none"
                                         src={`https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                                     ></iframe>
+                                    {/* Overlay clicável */}
+                                    <a
+                                        href={mapLink}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="absolute inset-0 z-10 flex items-center justify-center bg-black/0 hover:bg-black/10 transition-colors cursor-pointer"
+                                        title="Abrir no Google Maps"
+                                    >
+                                        <div className="bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <span className="material-symbols-outlined text-blue-600 text-xl">open_in_new</span>
+                                        </div>
+                                    </a>
                                     {/* Placeholder para PDF */}
                                     <a
                                         href={mapLink}
