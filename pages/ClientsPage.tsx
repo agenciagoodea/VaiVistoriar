@@ -6,7 +6,16 @@ import { supabase } from '../lib/supabase';
 const ClientsPage: React.FC = () => {
   const [clients, setClients] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [profile, setProfile] = React.useState<any>(null);
   const navigate = useNavigate();
+
+  // Modal de Convite
+  const [showInviteModal, setShowInviteModal] = React.useState(false);
+  const [inviteEmail, setInviteEmail] = React.useState('');
+  const [inviteType, setInviteType] = React.useState<'Locatário' | 'Proprietário' | 'Vendedor' | 'Comprador'>('Locatário');
+  const [inviting, setInviting] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     fetchClients();
@@ -18,13 +27,14 @@ const ClientsPage: React.FC = () => {
       if (!user) return;
 
       // Buscar perfil para saber cargo e empresa
-      const { data: profile } = await supabase
+      const { data: profileData } = await supabase
         .from('broker_profiles')
         .select('role, full_name, company_name')
         .eq('user_id', user.id)
         .single();
 
-      const role = profile?.role || 'BROKER';
+      setProfile(profileData);
+      const role = profileData?.role || 'BROKER';
       const myCompany = (profile?.company_name || (role === 'PJ' ? profile?.full_name : ''))?.trim() || '';
       let query = supabase.from('clients').select('*');
 
@@ -51,6 +61,116 @@ const ClientsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteClient = async (id: string, name: string) => {
+    if (!window.confirm(`Deseja realmente excluir o cliente "${name}"? Esta ação não pode ser desfeita.`)) return;
+    try {
+      const { error } = await supabase.from('clients').delete().eq('id', id);
+      if (error) throw error;
+      setClients(clients.filter(c => c.id !== id));
+    } catch (err: any) {
+      alert('Erro ao excluir: ' + err.message);
+    }
+  };
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Criar o cliente pendente
+      const { data: newClient, error: clientError } = await supabase
+        .from('clients')
+        .insert([{
+          user_id: user.id,
+          name: 'Cliente Convidado',
+          email: inviteEmail,
+          profile_type: inviteType,
+          status: 'Pendente'
+        }])
+        .select()
+        .single();
+
+      if (clientError) throw clientError;
+
+      // 2. Enviar e-mail de convite
+      const inviteLink = `${window.location.origin}/#/client-registration/${newClient.id}`;
+      const { error: emailError } = await supabase.functions.invoke('send-email', {
+        body: {
+          to: inviteEmail,
+          templateId: 'client_invite',
+          variables: {
+            broker_name: profile?.full_name || 'Seu Corretor',
+            client_type: inviteType,
+            invite_link: inviteLink
+          }
+        }
+      });
+
+      if (emailError) throw emailError;
+
+      alert('Convite enviado com sucesso!');
+      setShowInviteModal(false);
+      setInviteEmail('');
+      fetchClients();
+    } catch (err: any) {
+      alert('Erro ao enviar convite: ' + err.message);
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n');
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+
+        const clientData = lines.slice(1).filter(line => line.trim() !== '').map(line => {
+          const values = line.split(',').map(v => v.trim());
+          const obj: any = {};
+          headers.forEach((header, i) => {
+            obj[header] = values[i];
+          });
+          return obj;
+        });
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const inserts = clientData.map(c => ({
+          user_id: user.id,
+          name: c.nome || c.name || 'Sem Nome',
+          email: c.email || '',
+          phone: c.telefone || c.phone || '',
+          document_number: c.documento || c.cpf || c.cnpj || '',
+          profile_type: c.perfil || c.type || 'Locatário'
+        }));
+
+        const { error } = await supabase.from('clients').insert(inserts);
+        if (error) throw error;
+
+        alert(`${inserts.length} clientes importados com sucesso!`);
+        fetchClients();
+      } catch (err: any) {
+        alert('Erro na importação: ' + err.message);
+      } finally {
+        setImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+
+    reader.readAsText(file);
   };
 
   return (
@@ -136,7 +256,10 @@ const ClientsPage: React.FC = () => {
                       >
                         <span className="material-symbols-outlined text-[20px]">edit</span>
                       </button>
-                      <button className="p-2 text-slate-400 hover:text-rose-600 transition-colors">
+                      <button
+                        onClick={() => handleDeleteClient(client.id, client.name)}
+                        className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                      >
                         <span className="material-symbols-outlined text-[20px]">delete</span>
                       </button>
                     </div>
@@ -157,7 +280,12 @@ const ClientsPage: React.FC = () => {
             <h3 className="text-xl font-bold">Convide seus Clientes</h3>
             <p className="text-blue-100 text-sm mt-1">Automatize o envio dos laudos e colha assinaturas digitais mais rápido.</p>
           </div>
-          <button className="px-6 py-3 bg-white text-blue-700 rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-blue-50 transition-all">Enviar Convites</button>
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="px-6 py-3 bg-white text-blue-700 rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-blue-50 transition-all font-sans"
+          >
+            Enviar Convites
+          </button>
         </div>
 
         <div className="p-6 bg-white border border-slate-200 rounded-3xl space-y-4 shadow-sm">
@@ -168,9 +296,75 @@ const ClientsPage: React.FC = () => {
             <h3 className="text-xl font-bold text-slate-900">Importar Clientes</h3>
             <p className="text-slate-400 text-sm mt-1">Já tem uma lista? Importe seus clientes via planilha Excel ou CSV.</p>
           </div>
-          <button className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-slate-800 transition-all">Importar Agora</button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-slate-800 transition-all font-sans disabled:opacity-50"
+          >
+            {importing ? 'Importando...' : 'Importar Agora'}
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportCSV}
+            accept=".csv"
+            className="hidden"
+          />
         </div>
       </div>
+
+      {/* Modal de Convite */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl p-10 space-y-8 animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900">Convidar Cliente</h2>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Envie o formulário de cadastro</p>
+              </div>
+              <button onClick={() => setShowInviteModal(false)} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><span className="material-symbols-outlined">close</span></button>
+            </div>
+
+            <form onSubmit={handleInviteSubmit} className="space-y-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">E-mail do Cliente</label>
+                <input
+                  required
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="exemplo@email.com"
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 font-bold"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Selecione o Perfil</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {['Locatário', 'Proprietário', 'Vendedor', 'Comprador'].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setInviteType(type as any)}
+                      className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all border ${inviteType === type ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/20' : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                disabled={inviting}
+                className="w-full py-5 bg-blue-600 text-white rounded-3xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+              >
+                {inviting ? 'Enviando convite...' : 'Enviar por E-mail'}
+                {!inviting && <span className="material-symbols-outlined text-[18px]">send</span>}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -50,6 +50,12 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
         name: 'Recuperação de Senha',
         subject: 'Recuperação de sua Senha - VaiVistoriar',
         html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; bg-color: #fff; padding: 40px; border-radius: 20px;"><div style="text-align: center; margin-bottom: 30px;"><div style="width: 60px; hieght: 60px; background: #fef2f2; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; color: #ef4444;"><span style="font-size: 32px;">🔑</span></div></div><h1 style="color: #1e293b; margin-top: 0; text-align: center;">Recuperar Senha</h1><p style="color: #64748b; line-height: 1.6; text-align: center;">Olá! Você solicitou a recuperação de senha para sua conta no VaiVistoriar. Clique no botão abaixo para criar uma nova senha.</p><div style="text-align: center; margin: 40px 0;"><a href="{{link}}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);">Definir Nova Senha</a></div><p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 40px;">Este link expira em 24 horas. Se você não solicitou esta alteração, pode ignorar este e-mail com segurança.</p></div></div>`
+    },
+    {
+        id: 'client_invite',
+        name: 'Convite para Preenchimento de Dados (Cliente)',
+        subject: 'Solicitação de Dados para Laudo Técnico - {{broker_name}}',
+        html: `<div style="font-family: sans-serif; padding: 40px; background: #f8fafc;"><div style="max-width: 600px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 28px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;"><div style="margin-bottom: 32px;"><img src="https://www.vaivistoriar.com.br/logo.png" alt="VaiVistoriar" style="height: 32px;" /></div><h1 style="color: #0f172a; font-size: 24px; font-weight: 800; margin-bottom: 16px; letter-spacing: -0.025em;">Olá!</h1><p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">O corretor <strong>{{broker_name}}</strong> solicitou o preenchimento dos seus dados como <strong>{{client_type}}</strong> para a elaboração do laudo técnico de vistoria.</p><div style="background: #eff6ff; border-radius: 20px; padding: 24px; margin-bottom: 32px; text-align: center;"><p style="color: #1e40af; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px;">Acesse o formulário seguro</p><a href="{{invite_link}}" style="display: inline-block; background: #2563eb; color: #ffffff; padding: 16px 32px; border-radius: 16px; text-decoration: none; font-weight: 800; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Completar meus Dados</a></div><p style="color: #64748b; font-size: 13px; line-height: 1.6;">O preenchimento correto é fundamental para garantir a validade jurídica do seu laudo.</p><hr style="border: none; border-top: 1px solid #f1f5f9; margin: 32px 0;" /><p style="color: #94a3b8; font-size: 11px; text-align: center;">VaiVistoriar © 2026 - Tecnologia para Vistorias Imobiliárias</p></div></div>`
     }
 ];
 
@@ -57,7 +63,8 @@ const TEMPLATE_VARIABLES: Record<string, string[]> = {
     invite: ['{{user_name}}', '{{link}}'],
     payment_success: ['{{plan_name}}', '{{amount}}', '{{date}}'],
     send_report: ['{{client_name}}', '{{property_name}}', '{{report_link}}'],
-    password_reset: ['{{user_name}}', '{{link}}']
+    password_reset: ['{{user_name}}', '{{link}}'],
+    client_invite: ['{{broker_name}}', '{{client_type}}', '{{invite_link}}']
 };
 
 const SNIPPETS = [
