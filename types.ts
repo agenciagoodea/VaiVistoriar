@@ -8,7 +8,7 @@ export interface Inspection {
   client: string;
   type: 'Entrada' | 'Saída';
   date: string;
-  status: 'Concluída' | 'Pendente' | 'Em andamento' | 'Rascunho' | 'Agendada' | 'Finalizada' | 'Cancelada' | 'Enviada';
+  status: 'Concluída' | 'Pendente' | 'Em andamento' | 'Rascunho' | 'Agendada' | 'Finalizada' | 'Cancelada' | 'Enviada' | 'Editando' | 'Enviado por e-mail';
   image: string;
   pdf_url?: string;
   email_sent_at?: string;

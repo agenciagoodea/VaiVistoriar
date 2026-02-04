@@ -204,8 +204,8 @@ const InspectionsPage: React.FC = () => {
               ) : inspections
                 .filter(i => {
                   if (activeFilter === 'Todos') return true;
-                  if (activeFilter === 'Pendentes') return i.status === 'Agendada' || i.status === 'Pendente';
-                  if (activeFilter === 'Finalizadas') return i.status === 'Finalizada' || i.status === 'Concluída';
+                  if (activeFilter === 'Pendentes') return i.status === 'Agendada' || i.status === 'Pendente' || i.status === 'Editando';
+                  if (activeFilter === 'Finalizadas') return i.status === 'Finalizada' || i.status === 'Concluída' || i.status === 'Enviado por e-mail';
                   if (activeFilter === 'Canceladas') return i.status === 'Cancelada';
                   return true;
                 })
@@ -272,9 +272,11 @@ const InspectionsPage: React.FC = () => {
                         {inspection.scheduled_date ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR') : '--'}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Finalizada' ? 'bg-emerald-50 text-emerald-600' :
-                          inspection.status === 'Agendada' ? 'bg-blue-50 text-blue-600' :
-                            'bg-slate-100 text-slate-500'
+                        <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${inspection.status === 'Enviado por e-mail' ? 'bg-blue-50 text-blue-600' :
+                            inspection.status === 'Finalizada' || inspection.status === 'Concluída' ? 'bg-emerald-50 text-emerald-600' :
+                              inspection.status === 'Editando' ? 'bg-amber-50 text-amber-600' :
+                                inspection.status === 'Agendada' ? 'bg-indigo-50 text-indigo-600' :
+                                  'bg-slate-100 text-slate-500'
                           }`}>
                           {inspection.status}
                         </span>

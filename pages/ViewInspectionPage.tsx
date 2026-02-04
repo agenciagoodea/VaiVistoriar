@@ -310,10 +310,13 @@ const ViewInspectionPage: React.FC = () => {
                 if (error) throw error;
             }
 
-            // Atualizar status de envio de email
+            // Atualizar status de envio de email e status da vistoria
             const { error: updateStatusErr } = await supabase
                 .from('inspections')
-                .update({ email_sent_at: new Date().toISOString() })
+                .update({
+                    email_sent_at: new Date().toISOString(),
+                    status: 'Enviado por e-mail'
+                })
                 .eq('id', inspection.id);
 
             if (updateStatusErr) {
@@ -478,8 +481,8 @@ const ViewInspectionPage: React.FC = () => {
                                 </span>
                             </div>
                             <div className="flex items-center gap-1.5 pl-2 border-l border-slate-100">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">Finalizado</span>
+                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${inspection.status === 'Enviado por e-mail' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">{inspection.status || 'Finalizado'}</span>
                             </div>
                         </div>
                     </div>

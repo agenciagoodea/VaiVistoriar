@@ -232,6 +232,7 @@ const EditInspectionPage: React.FC = () => {
                 rooms: rooms.map(r => ({ id: r.id, name: r.name, condition: r.condition, observations: r.observations, photos: r.photos })),
                 extra_costs: costs,
                 general_observations: generalObservations,
+                status: 'Finalizada',
                 broker_data: profile || {} // Salvar snapshot do corretor
             }).eq('id', id);
 

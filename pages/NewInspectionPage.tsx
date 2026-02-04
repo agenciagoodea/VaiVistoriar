@@ -322,7 +322,7 @@ const NewInspectionPage: React.FC = () => {
                 client_name: reportType === 'Locação' ? (clients.find(c => c.id === lesseeId)?.name || 'N/A') : 'Venda',
                 type: 'Entrada', // Pode ser dinâmico depois
                 report_type: reportType,
-                status: 'Agendada',
+                status: 'Finalizada',
                 scheduled_date: date,
                 lessor_id: lessorId || null,
                 lessee_id: lesseeId || null,
