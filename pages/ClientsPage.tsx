@@ -232,7 +232,12 @@ const ClientsPage: React.FC = () => {
                         )}
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors uppercase text-xs">{client.name}</p>
+                        <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors uppercase text-xs">
+                          {client.name}
+                          {client.status === 'Pendente' && (
+                            <span className="ml-2 px-1.5 py-0.5 bg-amber-50 text-amber-500 text-[8px] font-black rounded border border-amber-100 uppercase tracking-tighter">Pendente</span>
+                          )}
+                        </p>
                         <p className="text-[10px] text-slate-400 font-medium">{client.email || client.phone || 'Sem contato'}</p>
                       </div>
                     </div>

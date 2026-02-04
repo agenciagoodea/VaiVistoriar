@@ -86,6 +86,7 @@ const InviteClientPage: React.FC = () => {
                     city,
                     state,
                     address: `${street}, ${number} - ${district}, ${city}/${state}`,
+                    status: 'Ativo',
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', id);
