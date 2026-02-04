@@ -13,8 +13,10 @@ const BrokerDashboard: React.FC = () => {
     max: 0,
     expiry: '',
     maxPhotos: 0,
+    currentPhotos: 0,
     maxBrokers: 0,
     maxRooms: 0,
+    currentRooms: 0,
     maxProperties: 0,
     type: 'PF',
     isLimitReached: false
@@ -70,8 +72,10 @@ const BrokerDashboard: React.FC = () => {
           max: plan?.max_inspections || 5,
           expiry: profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR') : 'Sem expiração',
           maxPhotos: plan?.max_photos || 30,
+          currentPhotos: 0,
           maxBrokers: plan?.max_brokers || 0,
           maxRooms: plan?.max_rooms || 0,
+          currentRooms: 0,
           maxProperties: plan?.max_properties || 0,
           type: plan?.plan_type || 'PF',
           isLimitReached: false // Updated below
@@ -125,15 +129,33 @@ const BrokerDashboard: React.FC = () => {
         return { ...prev, current: monthCount || 0, isLimitReached: isReached };
       });
 
-      // 3. Recent Inspections
+      // 3. Recent Inspections (Now limit 10)
       const { data: dbData } = await supabase
         .from('inspections')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(3);
+        .limit(10);
 
       if (dbData) {
+        let totalPhotos = 0;
+        let totalRooms = 0;
+
+        // Calculate usage for current month vistorias
+        dbData.filter(i => new Date(i.created_at) >= startOfMonth).forEach((item: any) => {
+          const rooms = Array.isArray(item.rooms) ? item.rooms : [];
+          totalRooms += rooms.length;
+          rooms.forEach((r: any) => {
+            totalPhotos += (r.photos?.length || 0);
+          });
+        });
+
+        setPlanUsage(prev => ({
+          ...prev,
+          currentPhotos: totalPhotos,
+          currentRooms: totalRooms
+        }));
+
         const formattedData: Inspection[] = dbData.map((item: any) => ({
           id: item.id,
           property: item.property_name,
@@ -285,27 +307,57 @@ const BrokerDashboard: React.FC = () => {
           <Link to="/inspections" className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest">Ver Todas</Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {inspections.map((inspection) => (
-            <div key={inspection.id} onClick={() => navigate(`/inspections/edit/${inspection.id}`)} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer flex items-center gap-4 group">
-              <img src={inspection.image} className="w-16 h-16 rounded-xl object-cover" alt={inspection.property} />
-              <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-slate-900 truncate">{inspection.property}</h4>
-                <p className="text-xs text-slate-500 truncate">{inspection.address}</p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase">{inspection.type}</span>
-                  <span className="text-[10px] font-bold text-slate-400">{inspection.date}</span>
-                </div>
-              </div>
-              <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${inspection.status === 'Concluída' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
-                }`}>
-                {inspection.status}
-              </div>
-              <span className="material-symbols-outlined text-slate-300 group-hover:text-blue-600 transition-colors">chevron_right</span>
-            </div>
-          ))}
+        <div className="bg-white overflow-hidden rounded-2xl border border-slate-100 shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Imóvel</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:table-cell">Endereço</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {inspections.map((inspection) => (
+                  <tr
+                    key={inspection.id}
+                    onClick={() => navigate(`/inspections/edit/${inspection.id}`)}
+                    className="hover:bg-blue-50/30 transition-colors cursor-pointer group"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <img src={inspection.image} className="w-10 h-10 rounded-lg object-cover" alt={inspection.property} />
+                        <span className="font-bold text-slate-900 truncate max-w-[150px]">{inspection.property}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 hidden md:table-cell">
+                      <span className="text-xs text-slate-500 truncate max-w-[200px] block">{inspection.address}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase">{inspection.type}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-[10px] font-bold text-slate-500">{inspection.date}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className={`inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${inspection.status === 'Concluída' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
+                        }`}>
+                        {inspection.status}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="material-symbols-outlined text-slate-300 group-hover:text-blue-600 transition-colors">chevron_right</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {inspections.length === 0 && (
-            <div className="col-span-full bg-slate-50/50 border-2 border-dashed border-slate-100 rounded-[32px] p-12 text-center space-y-4">
+            <div className="bg-slate-50/50 p-12 text-center space-y-4">
               <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto text-slate-200">
                 <span className="material-symbols-outlined text-3xl">assignment_add</span>
               </div>
@@ -342,12 +394,20 @@ const BrokerDashboard: React.FC = () => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 bg-slate-50 rounded-xl">
-                <p className="text-[8px] font-black text-slate-400 uppercase">Max Fotos</p>
-                <p className="text-sm font-black text-slate-900">{planUsage.maxPhotos}</p>
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-[8px] font-black text-slate-400 uppercase">Max Fotos</p>
+                  <p className="text-[8px] font-black text-blue-600 uppercase">Limite: {planUsage.maxPhotos}</p>
+                </div>
+                <p className="text-[10px] font-bold text-slate-600">Usadas: <span className="text-slate-900">{planUsage.currentPhotos}</span></p>
+                <p className="text-[10px] font-bold text-slate-600">Faltam: <span className="text-blue-600">{Math.max(planUsage.maxPhotos - planUsage.currentPhotos, 0)}</span></p>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl">
-                <p className="text-[8px] font-black text-slate-400 uppercase">Max Cômodos</p>
-                <p className="text-sm font-black text-slate-900">{planUsage.maxRooms || '--'}</p>
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-[8px] font-black text-slate-400 uppercase">Max Cômodos</p>
+                  <p className="text-[8px] font-black text-blue-600 uppercase">Limite: {planUsage.maxRooms || '--'}</p>
+                </div>
+                <p className="text-[10px] font-bold text-slate-600">Usados: <span className="text-slate-900">{planUsage.currentRooms}</span></p>
+                <p className="text-[10px] font-bold text-slate-600">Faltam: <span className="text-blue-600">{planUsage.maxRooms ? Math.max(planUsage.maxRooms - planUsage.currentRooms, 0) : '--'}</span></p>
               </div>
             </div>
           </div>
