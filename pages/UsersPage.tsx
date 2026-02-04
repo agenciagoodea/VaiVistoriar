@@ -341,7 +341,6 @@ const UsersPage: React.FC = () => {
          const { data, error } = await supabase.functions.invoke('admin-dash', {
             body: {
                action: 'delete_user',
-               user_id: user_id,
                payload: { user_id }
             }
          });

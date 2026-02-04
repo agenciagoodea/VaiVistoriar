@@ -288,7 +288,8 @@ Deno.serve(async (req) => {
 
         if (action === 'delete_user') {
             if (!isAdmin) return new Response(JSON.stringify({ success: false, error: 'Acesso negado.' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            const user_id = payload?.user_id || payload?.userId;
+            const user_id = payload?.user_id || payload?.userId || requestData.user_id || requestData.userId;
+            console.log(`🗑️ [delete_user] Target ID: ${user_id}`);
             if (!user_id) throw new Error('ID obrigatório');
 
             // 1. Clean up dependent tables (Order matters)

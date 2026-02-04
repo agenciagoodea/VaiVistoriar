@@ -279,120 +279,113 @@ const BrokerDashboard: React.FC = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex justify-between items-center px-1">
-            <h3 className="text-lg font-black text-slate-900 tracking-tight">Vistorias Recentes</h3>
-            <Link to="/inspections" className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest">Ver Todas</Link>
-          </div>
-
-          <div className="space-y-4">
-            {inspections.map((inspection) => (
-              <div key={inspection.id} onClick={() => navigate(`/inspections/edit/${inspection.id}`)} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer flex items-center gap-4 group">
-                <img src={inspection.image} className="w-16 h-16 rounded-xl object-cover" alt={inspection.property} />
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-slate-900 truncate">{inspection.property}</h4>
-                  <p className="text-xs text-slate-500 truncate">{inspection.address}</p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase">{inspection.type}</span>
-                    <span className="text-[10px] font-bold text-slate-400">{inspection.date}</span>
-                  </div>
-                </div>
-                <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${inspection.status === 'Concluída' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
-                  }`}>
-                  {inspection.status}
-                </div>
-                <span className="material-symbols-outlined text-slate-300 group-hover:text-blue-600 transition-colors">chevron_right</span>
-              </div>
-            ))}
-            {inspections.length === 0 && (
-              <div className="bg-slate-50/50 border-2 border-dashed border-slate-100 rounded-[32px] p-12 text-center space-y-4">
-                <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto text-slate-200">
-                  <span className="material-symbols-outlined text-3xl">assignment_add</span>
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">Nenhuma vistoria ainda</h4>
-                  <p className="text-sm text-slate-500 max-w-[200px] mx-auto">Comece agora criando sua primeira vistoria profissional.</p>
-                </div>
-                <Link to="/inspections/new" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all">
-                  Nova Vistoria
-                </Link>
-              </div>
-            )}
-          </div>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center px-1">
+          <h3 className="text-lg font-black text-slate-900 tracking-tight">Vistorias Recentes</h3>
+          <Link to="/inspections" className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest">Ver Todas</Link>
         </div>
 
-        <div className="space-y-6">
-          <h3 className="text-lg font-black text-slate-900 tracking-tight px-1">Uso do Plano</h3>
-          <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-8">
-            <div className="space-y-4">
-              <div className="flex justify-between items-end">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status Mensal</p>
-                  <h4 className="text-xl font-black text-slate-900 mt-1">{planUsage.current} / {planUsage.max}</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {inspections.map((inspection) => (
+            <div key={inspection.id} onClick={() => navigate(`/inspections/edit/${inspection.id}`)} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer flex items-center gap-4 group">
+              <img src={inspection.image} className="w-16 h-16 rounded-xl object-cover" alt={inspection.property} />
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-slate-900 truncate">{inspection.property}</h4>
+                <p className="text-xs text-slate-500 truncate">{inspection.address}</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase">{inspection.type}</span>
+                  <span className="text-[10px] font-bold text-slate-400">{inspection.date}</span>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest">{planUsage.name}</span>
-                </div>
               </div>
-              <div className="h-3 bg-slate-100 rounded-full overflow-hidden flex">
-                <div
-                  className="h-full bg-blue-600 transition-all duration-1000"
-                  style={{ width: `${Math.min((planUsage.current / planUsage.max) * 100, 100)}%` }}
-                />
+              <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${inspection.status === 'Concluída' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
+                }`}>
+                {inspection.status}
               </div>
-              <p className="text-[11px] font-bold text-slate-400 italic">Você utilizou {Math.round((planUsage.current / planUsage.max) * 100)}% das suas vistorias mensais.</p>
+              <span className="material-symbols-outlined text-slate-300 group-hover:text-blue-600 transition-colors">chevron_right</span>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase">Max Fotos</p>
-                <p className="text-lg font-black text-slate-900">{planUsage.maxPhotos}</p>
+          ))}
+          {inspections.length === 0 && (
+            <div className="col-span-full bg-slate-50/50 border-2 border-dashed border-slate-100 rounded-[32px] p-12 text-center space-y-4">
+              <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto text-slate-200">
+                <span className="material-symbols-outlined text-3xl">assignment_add</span>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase">Max Cômodos</p>
-                <p className="text-lg font-black text-slate-900">{planUsage.maxRooms || '--'}</p>
+              <div>
+                <h4 className="font-bold text-slate-900">Nenhuma vistoria ainda</h4>
+                <p className="text-sm text-slate-500 max-w-[200px] mx-auto">Comece agora criando sua primeira vistoria profissional.</p>
               </div>
-            </div>
-
-            <div className="pt-2">
-              <Link to="/broker/plan" className="w-full h-14 flex items-center justify-center bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
-                Atualizar Plano
+              <Link to="/inspections/new" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all">
+                Nova Vistoria
               </Link>
             </div>
-          </div>
+          )}
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div className="bg-blue-600 p-8 rounded-[32px] text-white shadow-xl shadow-blue-50 space-y-6 relative overflow-hidden group min-h-[220px] flex flex-col justify-between">
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-              <div className="relative z-10 space-y-3">
-                <span className="material-symbols-outlined text-4xl">support_agent</span>
-                <h4 className="text-lg font-black leading-tight">Suporte Técnico</h4>
-                <p className="text-white/80 text-[10px] font-medium leading-relaxed">Nosso time está pronto para te ajudar com qualquer dúvida.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Uso do Plano */}
+        <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col justify-between space-y-6">
+          <div className="space-y-4">
+            <div className="flex justify-between items-end">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status Mensal</p>
+                <h4 className="text-xl font-black text-slate-900 mt-1">{planUsage.current} / {planUsage.max}</h4>
               </div>
-              <button
-                onClick={() => window.open(`https://wa.me/${whatsappSupport.replace(/\D/g, '')}`, '_blank')}
-                className="relative z-10 w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-[9px] uppercase tracking-widest shadow-xl shadow-blue-700/20 hover:bg-slate-50 transition-all"
-              >
-                Chamar no WhatsApp
-              </button>
+              <div className="text-right">
+                <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest">{planUsage.name}</span>
+              </div>
             </div>
-
-            <div className="bg-slate-900 p-8 rounded-[32px] text-white shadow-xl shadow-slate-200 space-y-6 relative overflow-hidden group min-h-[220px] flex flex-col justify-between">
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-              <div className="relative z-10 space-y-3">
-                <span className="material-symbols-outlined text-4xl text-amber-500">star</span>
-                <h4 className="text-lg font-black leading-tight">Avaliação</h4>
-                <p className="text-white/80 text-[10px] font-medium leading-relaxed">Sua opinião é fundamental para evoluirmos o VaiVistoriar.</p>
+            <div className="h-3 bg-slate-100 rounded-full overflow-hidden flex">
+              <div
+                className="h-full bg-blue-600 transition-all duration-1000"
+                style={{ width: `${Math.min((planUsage.current / planUsage.max) * 100, 100)}%` }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-slate-50 rounded-xl">
+                <p className="text-[8px] font-black text-slate-400 uppercase">Max Fotos</p>
+                <p className="text-sm font-black text-slate-900">{planUsage.maxPhotos}</p>
               </div>
-              <button
-                onClick={() => setShowFeedback(true)}
-                className="relative z-10 w-full py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-white/20 transition-all"
-              >
-                Dar meu feedback
-              </button>
+              <div className="p-3 bg-slate-50 rounded-xl">
+                <p className="text-[8px] font-black text-slate-400 uppercase">Max Cômodos</p>
+                <p className="text-sm font-black text-slate-900">{planUsage.maxRooms || '--'}</p>
+              </div>
             </div>
           </div>
+          <Link to="/broker/plan" className="w-full h-12 flex items-center justify-center bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
+            Atualizar Plano
+          </Link>
+        </div>
+
+        {/* Avaliação */}
+        <div className="bg-slate-900 p-8 rounded-[32px] text-white shadow-xl shadow-slate-200 flex flex-col justify-between relative overflow-hidden group min-h-[240px]">
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="relative z-10 space-y-3">
+            <span className="material-symbols-outlined text-4xl text-amber-500">star</span>
+            <h4 className="text-lg font-black leading-tight">Avaliação</h4>
+            <p className="text-white/80 text-[10px] font-medium leading-relaxed">Sua opinião é fundamental para evoluirmos o VaiVistoriar.</p>
+          </div>
+          <button
+            onClick={() => setShowFeedback(true)}
+            className="relative z-10 w-full py-4 bg-white/10 text-white border border-white/20 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white/20 transition-all shadow-sm"
+          >
+            Dar meu feedback
+          </button>
+        </div>
+
+        {/* Suporte Técnico */}
+        <div className="bg-blue-600 p-8 rounded-[32px] text-white shadow-xl shadow-blue-50 flex flex-col justify-between relative overflow-hidden group min-h-[240px]">
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="relative z-10 space-y-3">
+            <span className="material-symbols-outlined text-4xl">support_agent</span>
+            <h4 className="text-lg font-black leading-tight">Suporte Técnico</h4>
+            <p className="text-white/80 text-[10px] font-medium leading-relaxed">Nosso time está pronto para te ajudar com qualquer dúvida.</p>
+          </div>
+          <button
+            onClick={() => window.open(`https://wa.me/${whatsappSupport.replace(/\D/g, '')}`, '_blank')}
+            className="relative z-10 w-full py-4 bg-white text-blue-600 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl shadow-blue-700/20 hover:bg-slate-50 transition-all"
+          >
+            Chamar no WhatsApp
+          </button>
         </div>
       </div>
 
