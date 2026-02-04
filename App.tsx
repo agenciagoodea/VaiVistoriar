@@ -111,6 +111,7 @@ const App: React.FC = () => {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/client-registration/:id" element={<InviteClientPage />} />
+        <Route path="/inspections/view/:id" element={<ViewInspectionPage />} />
         <Route path="/login" element={!session ? <LoginPage /> : <Navigate to={role === 'ADMIN' ? '/admin' : role === 'BROKER' ? '/broker' : '/pj'} replace />} />
         <Route path="/register" element={!session ? <LoginPage isRegisterMode={true} /> : <Navigate to={role === 'ADMIN' ? '/admin' : role === 'BROKER' ? '/broker' : '/pj'} replace />} />
 
@@ -176,7 +177,6 @@ const App: React.FC = () => {
             <Route path="/inspections" element={<InspectionsPage />} />
             <Route path="/inspections/new" element={<NewInspectionPage />} />
             <Route path="/inspections/edit/:id" element={<EditInspectionPage />} />
-            <Route path="/inspections/view/:id" element={<ViewInspectionPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/clients/new" element={<NewClientPage />} />
             <Route path="/clients/edit/:id" element={<EditClientPage />} />

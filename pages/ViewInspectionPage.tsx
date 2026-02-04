@@ -12,7 +12,15 @@ const ViewInspectionPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [whatsAppLoading, setWhatsAppLoading] = useState(false);
+    const [progressMessage, setProgressMessage] = useState('');
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setIsLoggedIn(!!session);
+        });
+    }, []);
 
     // Email Modal State
     const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -273,6 +281,7 @@ const ViewInspectionPage: React.FC = () => {
 
         if (updateError) console.error('Erro ao salvar URL do PDF no banco', updateError);
 
+        setProgressMessage('PDF Armazenado!');
         return publicUrl;
     };
 
@@ -284,17 +293,16 @@ const ViewInspectionPage: React.FC = () => {
             if (targets.length === 0) throw new Error('Selecione ao menos um destinatário.');
 
             // 1. Generate and Upload PDF
-            let pdfUrl = inspection.pdf_url; // Tentar usar existente primeiro?
-            // Melhor sempre gerar novo para garantir atualização, ou só se não existir?
-            // Vamos regenerar para garantir que seja a versão mais atual.
+            setProgressMessage('Gerando Laudo PDF...');
+            let pdfUrl = inspection.pdf_url;
             try {
                 pdfUrl = await uploadPDF();
-                // PDF Uploaded log removed for production
             } catch (uploadErr) {
                 console.error('Erro ao fazer upload do PDF, usando link web:', uploadErr);
             }
 
             // 2. Send Emails
+            setProgressMessage('Enviando E-mails...');
             for (const target of targets) {
                 const { error } = await supabase.functions.invoke('send-email', {
                     body: {
@@ -332,38 +340,59 @@ const ViewInspectionPage: React.FC = () => {
             alert('Erro ao enviar: ' + err.message);
         } finally {
             setEmailSending(false);
+            setProgressMessage('');
         }
     };
 
     const shareWhatsApp = async () => {
+        // Abrir janela em branco imediatamente para evitar bloqueio de popup disparado após async (html2canvas demora)
+        const win = window.open('', '_blank');
+        if (!win) {
+            alert('O Bloqueador de Pop-ups está ativo. Por favor, libere para enviar pelo WhatsApp.');
+            return;
+        }
+        win.document.write('Gerando link do WhatsApp... Por favor, não feche esta janela.');
+
         setWhatsAppLoading(true);
         try {
-            // Forçar geração e upload do PDF para garantir link atualizado
-            let pdfUrl = inspection.pdf_url;
-            try {
-                pdfUrl = await uploadPDF();
-            } catch (err) {
-                console.error('Erro ao gerar PDF para WhatsApp, usando link web como fallback:', err);
+            // Se o usuário não está logado (é um cliente), enviamos o link da página web
+            // Já que ele não tem permissão para fazer upload do PDF no storage.
+            let url = window.location.href;
+            let text = `Confira o Laudo de Vistoria: ${inspection.property_name}\nLink: ${url}`;
+
+            if (isLoggedIn) {
+                setProgressMessage('Gerando PDF...');
+                try {
+                    const pdfUrl = await uploadPDF();
+                    if (pdfUrl) {
+                        url = pdfUrl;
+                        text = `Confira o Laudo de Vistoria: ${inspection.property_name}\nLink do PDF: ${url}`;
+                    }
+                } catch (err) {
+                    console.error('Erro ao gerar PDF para WhatsApp, usando link web como fallback:', err);
+                }
             }
 
-            const url = pdfUrl || window.location.href;
-            const text = `Confira o Laudo de Vistoria: ${inspection.property_name}\nLink do PDF: ${url}`;
+            const whatsAppLink = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            win.location.href = whatsAppLink;
 
-            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-
-            // Atualizar status de envio whats
-            const { error } = await supabase
-                .from('inspections')
-                .update({ whatsapp_sent_at: new Date().toISOString() })
-                .eq('id', inspection.id);
-
-            if (error) {
-                console.error('Erro ao salvar status de envio whatsapp:', error);
+            if (isLoggedIn) {
+                // Atualizar status de envio whats apenas se for o corretor
+                await supabase
+                    .from('inspections')
+                    .update({ whatsapp_sent_at: new Date().toISOString() })
+                    .eq('id', inspection.id);
             }
+
         } catch (err: any) {
+            win.close(); // Fechar a janela se der erro
             alert('Erro ao processar WhatsApp: ' + err.message);
         } finally {
-            setWhatsAppLoading(false);
+            setWhatsAppLoading(true); // Manter true um pouco para evitar clicks rápidos ou resetar conforme UX
+            setTimeout(() => {
+                setWhatsAppLoading(false);
+                setProgressMessage('');
+            }, 1000);
         }
     };
 
@@ -379,11 +408,13 @@ const ViewInspectionPage: React.FC = () => {
     return (
         <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 pb-32 animate-in fade-in duration-500">
             {/* Action Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white/90 backdrop-blur-xl p-4 rounded-2xl border border-slate-200 shadow-lg sticky top-4 z-50">
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white/90 backdrop-blur-xl p-4 rounded-2xl border border-slate-200 shadow-lg sticky top-4 z-50 print:hidden">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/inspections')} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all text-slate-400 group">
-                        <span className="material-symbols-outlined text-xl group-hover:-translate-x-1 transition-transform">arrow_back</span>
-                    </button>
+                    {isLoggedIn && (
+                        <button onClick={() => navigate('/inspections')} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all text-slate-400 group">
+                            <span className="material-symbols-outlined text-xl group-hover:-translate-x-1 transition-transform">arrow_back</span>
+                        </button>
+                    )}
                     <div>
                         <h1 className="text-sm font-black text-slate-900 leading-tight uppercase">Laudo Digital</h1>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{inspection.report_type}</p>
@@ -396,17 +427,25 @@ const ViewInspectionPage: React.FC = () => {
                         className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50"
                     >
                         {whatsAppLoading ? (
-                            <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                                <span className="text-[8px] animate-pulse">{progressMessage || 'Gerando...'}</span>
+                            </div>
                         ) : (
                             <span className="material-symbols-outlined text-[16px]">share</span>
                         )}
                         WhatsApp
                     </button>
-                    <button onClick={openEmailModal} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black shadow-md">
-                        <span className="material-symbols-outlined text-[16px]">mail</span> E-mail
-                    </button>
+                    {isLoggedIn && (
+                        <button onClick={openEmailModal} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black shadow-md">
+                            <span className="material-symbols-outlined text-[16px]">mail</span> E-mail
+                        </button>
+                    )}
                     <button onClick={downloadPDF} disabled={exporting} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-md disabled:opacity-50">
                         {exporting ? <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> : <span className="material-symbols-outlined text-[16px]">download</span>} PDF
+                    </button>
+                    <button onClick={() => window.print()} className="hidden md:flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-md">
+                        <span className="material-symbols-outlined text-[16px]">print</span> Imprimir
                     </button>
                 </div>
             </div>
@@ -766,7 +805,12 @@ const ViewInspectionPage: React.FC = () => {
                             <input type="email" value={customEmail} onChange={e => setCustomEmail(e.target.value)} placeholder="Outro e-mail..." className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded text-xs" />
                         </div>
                         <button onClick={handleSendEmail} disabled={emailSending} className="w-full py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-md disabled:opacity-50">
-                            {emailSending ? 'Gerando PDF e Enviando...' : 'Enviar PDF Agora'}
+                            {emailSending ? (
+                                <div className="flex items-center justify-center gap-3">
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                                    <span>{progressMessage || 'Enviando...'}</span>
+                                </div>
+                            ) : 'Enviar PDF Agora'}
                         </button>
                     </div>
                 </div>
