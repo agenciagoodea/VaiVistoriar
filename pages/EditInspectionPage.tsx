@@ -73,7 +73,23 @@ const EditInspectionPage: React.FC = () => {
 
             setClients(clientsData || []);
             setProperties(propertiesData || []);
-            if (tipsData) setInspectionTips(tipsData.value);
+
+            if (tipsData?.value) {
+                try {
+                    const parsedTips = JSON.parse(tipsData.value);
+                    const validTips = Array.isArray(parsedTips)
+                        ? parsedTips.filter((t: any) => typeof t === 'string' && t.trim() !== '')
+                        : (typeof parsedTips === 'string' && parsedTips.trim() !== '' ? [parsedTips] : []);
+                    setInspectionTips(validTips);
+                } catch (e) {
+                    console.warn('Dicas no banco não são JSON válido, tentando recuperar como string:', e);
+                    if (typeof tipsData.value === 'string' && tipsData.value.trim() !== '') {
+                        setInspectionTips([tipsData.value.trim()]);
+                    } else {
+                        setInspectionTips([]);
+                    }
+                }
+            }
 
             const { data: inspection, error } = await supabase
                 .from('inspections')
@@ -102,8 +118,14 @@ const EditInspectionPage: React.FC = () => {
                 setKeysPhotoUrl(inspection.keys_data?.photo_url || '');
                 setKeysDescription(inspection.keys_data?.description || '');
                 setIsFurnished(inspection.is_furnished || false);
-                setRooms(inspection.rooms?.map((r: any) => ({ ...r, isOpen: false })) || []);
-                setCosts(inspection.extra_costs || []);
+
+                // Defensive array handling
+                const rawRooms = Array.isArray(inspection.rooms) ? inspection.rooms : [];
+                setRooms(rawRooms.map((r: any) => ({ ...r, isOpen: false })));
+
+                const rawCosts = Array.isArray(inspection.extra_costs) ? inspection.extra_costs : [];
+                setCosts(rawCosts);
+
                 setGeneralObservations(inspection.general_observations || '');
             }
 
