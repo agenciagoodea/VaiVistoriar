@@ -240,11 +240,12 @@ async function handlePaymentActivation(latestPayment: any, latestStatus: string,
             // A. Ativar plano no banco
             const { data: planDetails } = await supabaseAdmin
                 .from('plans')
-                .select('duration_days')
+                .select('duration_days, billing_cycle')
                 .eq('id', finalPlanId)
                 .single();
 
-            const durationDays = planDetails?.duration_days || 30;
+            // Lógica: Se o ciclo é Anual, usamos 365 dias. Senão, usamos duration_days (default 30).
+            const durationDays = planDetails?.billing_cycle === 'Anual' ? 365 : (planDetails?.duration_days || 30);
             const expiresAt = new Date();
             expiresAt.setDate(expiresAt.getDate() + durationDays);
 

@@ -263,7 +263,9 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                             <h2 className="text-3xl font-black text-slate-900 tracking-tight">{currentPlan?.name || 'Assinatura Ativa'}</h2>
                             <div className="flex items-baseline gap-1 mt-2">
                                 <span className="text-2xl font-black text-slate-900">R$ {(currentPlan?.price ? parseFloat(currentPlan.price) : 0).toFixed(2).replace('.', ',')}</span>
-                                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">/ mês</span>
+                                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                                    / {currentPlan?.billing_cycle === 'Anual' ? 'ano' : 'mês'}
+                                </span>
                             </div>
                         </div>
 

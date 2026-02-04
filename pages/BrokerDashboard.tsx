@@ -263,7 +263,16 @@ const BrokerDashboard: React.FC = () => {
           <p className="text-slate-500 mt-1">Aqui está o resumo das suas atividades hoje.</p>
         </div>
         <div className="flex gap-3">
-          <Link to="/inspections/new" className="h-10 flex items-center gap-2 px-6 rounded-lg bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all transform active:scale-95">
+          <Link
+            to={planUsage.isLimitReached ? "#" : "/inspections/new"}
+            onClick={(e) => {
+              if (planUsage.isLimitReached) {
+                e.preventDefault();
+                alert('Limite do plano atingido! Faça um upgrade para realizar novas vistorias.');
+              }
+            }}
+            className={`h-10 flex items-center gap-2 px-6 rounded-lg bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all transform active:scale-95 ${planUsage.isLimitReached ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+          >
             <span className="material-symbols-outlined text-[20px]">add_circle</span>
             Nova Vistoria
           </Link>
