@@ -742,7 +742,7 @@ const ViewInspectionPage: React.FC = () => {
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
                         <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-900">Enviar Laudo (PDF)</h3>
+                            <h3 className="text-lg font-bold text-slate-900">Enviar Link do Laudo</h3>
                             <button onClick={() => setEmailModalOpen(false)}><span className="material-symbols-outlined text-slate-400">close</span></button>
                         </div>
                         <div className="space-y-2">
