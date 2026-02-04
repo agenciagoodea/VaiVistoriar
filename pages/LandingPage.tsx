@@ -520,7 +520,8 @@ const LandingPage: React.FC = () => {
                       `${plan.maxPhotos >= 999999 ? 'Fotos Ilimitadas' : `${plan.maxPhotos} Fotos por Vistoria`}`,
                       `Até ${plan.maxRooms} cômodos`,
                       `${plan.storageGb} GB de Armazenamento`,
-                      ...(plan.type === 'PJ' ? [`Até ${plan.maxBrokers} Corretores`] : ['Suporte Individual'])
+                      ...(plan.type === 'PJ' ? [`Até ${plan.maxBrokers} Corretores`] : []),
+                      'Suporte Individual'
                     ].map((feature, fidx) => (
                       <li key={fidx} className="flex items-start gap-5 text-base font-bold">
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${isPopular ? 'bg-white/10 text-white' : 'bg-emerald-50 text-emerald-600'}`}>

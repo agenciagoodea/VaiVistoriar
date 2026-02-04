@@ -378,6 +378,10 @@ const MyPlanPage: React.FC<MyPlanPageProps> = ({ role: propRole }) => {
                                         <span className="material-symbols-outlined text-emerald-500 text-[18px] font-black">check_circle</span>
                                         {plan.storageGb} GB Armazenamento
                                     </div>
+                                    <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
+                                        <span className="material-symbols-outlined text-emerald-500 text-[18px] font-black">check_circle</span>
+                                        Suporte Individual
+                                    </div>
                                 </div>
 
                                 <button

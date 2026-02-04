@@ -529,6 +529,10 @@ const PlanConfigPage: React.FC = () => {
                               <span className="material-symbols-outlined text-emerald-500 text-[20px]">check_circle</span>
                               {form.storageGb} GB de Espaço
                            </div>
+                           <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
+                              <span className="material-symbols-outlined text-emerald-500 text-[20px]">check_circle</span>
+                              Suporte Individual
+                           </div>
                         </div>
                         <button className="w-full py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-blue-200">
                            ASSINAR PLANO
