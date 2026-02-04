@@ -34,8 +34,8 @@ import EditClientPage from './pages/EditClientPage';
 import EditPropertyPage from './pages/EditPropertyPage';
 import EditInspectionPage from './pages/EditInspectionPage';
 import ViewInspectionPage from './pages/ViewInspectionPage';
-import TermsPage from './pages/TermsPage';
-import PrivacyPage from './pages/PrivacyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import CookieConsent from './components/CookieConsent';
 import CheckoutSuccess from './pages/CheckoutSuccess';
 import CheckoutFailure from './pages/CheckoutFailure';
@@ -102,8 +102,8 @@ const App: React.FC = () => {
     <HashRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
 
         {/* Checkout Routes */}
         <Route path="/checkout/success" element={<CheckoutSuccess />} />

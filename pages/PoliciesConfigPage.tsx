@@ -18,8 +18,8 @@ const PoliciesConfigPage: React.FC = () => {
         try {
             const { data } = await supabase.from('system_configs').select('*');
             if (data) {
-                const termsConfig = data.find(c => c.key === 'terms_content');
-                const privacyConfig = data.find(c => c.key === 'privacy_content');
+                const termsConfig = data.find(c => c.key === 'legal_terms');
+                const privacyConfig = data.find(c => c.key === 'legal_privacy');
                 const cookieConfig = data.find(c => c.key === 'cookie_consent_text');
 
                 if (termsConfig) setTerms(termsConfig.value);
@@ -29,9 +29,9 @@ const PoliciesConfigPage: React.FC = () => {
 
             const { data: consentData } = await supabase
                 .from('cookie_consents')
-                .select('id, accepted_at, user_id, session_id')
-                .order('accepted_at', { ascending: false })
-                .limit(10);
+                .select('id, created_at, user_id, session_id')
+                .order('created_at', { ascending: false })
+                .limit(50);
             if (consentData) setConsents(consentData);
         } catch (err) {
             console.error('Erro ao buscar configurações:', err);
@@ -44,8 +44,8 @@ const PoliciesConfigPage: React.FC = () => {
         setSaving(true);
         try {
             const updates = [
-                { key: 'terms_content', value: terms, updated_at: new Date() },
-                { key: 'privacy_content', value: privacy, updated_at: new Date() },
+                { key: 'legal_terms', value: terms, updated_at: new Date() },
+                { key: 'legal_privacy', value: privacy, updated_at: new Date() },
                 { key: 'cookie_consent_text', value: cookieText, updated_at: new Date() }
             ];
 
@@ -135,7 +135,7 @@ const PoliciesConfigPage: React.FC = () => {
                             <tbody className="divide-y divide-slate-50">
                                 {consents.map(c => (
                                     <tr key={c.id}>
-                                        <td className="px-8 py-4 font-medium">{new Date(c.accepted_at).toLocaleString('pt-BR')}</td>
+                                        <td className="px-8 py-4 font-medium">{new Date(c.created_at).toLocaleString('pt-BR')}</td>
                                         <td className="px-8 py-4 text-xs font-mono text-slate-500">{c.user_id || 'Visitante'}</td>
                                         <td className="px-8 py-4 text-xs font-mono text-slate-500 truncate max-w-[100px]">{c.session_id}</td>
                                     </tr>
