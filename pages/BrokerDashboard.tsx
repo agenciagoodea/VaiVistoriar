@@ -184,9 +184,9 @@ const BrokerDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+        <Link to="/inspections" className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4 hover:border-blue-200 hover:shadow-md transition-all group">
           <div className="flex justify-between items-start">
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+            <div className="p-2 bg-blue-50 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
               <span className="material-symbols-outlined">assignment</span>
             </div>
             <span className="text-[10px] font-black px-2 py-1 bg-green-50 text-green-700 rounded-full">ESTE MÊS</span>
@@ -195,7 +195,7 @@ const BrokerDashboard: React.FC = () => {
             <p className="text-2xl font-black text-slate-900">{stats.monthCount}</p>
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Vistorias Realizadas</p>
           </div>
-        </div>
+        </Link>
 
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
           <div className="flex justify-between items-start">
@@ -261,7 +261,7 @@ const BrokerDashboard: React.FC = () => {
 
           <div className="space-y-4">
             {inspections.map((inspection) => (
-              <div key={inspection.id} onClick={() => navigate(`/inspections/${inspection.id}`)} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer flex items-center gap-4 group">
+              <div key={inspection.id} onClick={() => navigate(`/inspections/edit/${inspection.id}`)} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer flex items-center gap-4 group">
                 <img src={inspection.image} className="w-16 h-16 rounded-xl object-cover" alt={inspection.property} />
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-slate-900 truncate">{inspection.property}</h4>
