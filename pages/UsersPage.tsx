@@ -122,7 +122,7 @@ const UsersPage: React.FC = () => {
                status: u.status,
                company_name: u.company_name,
                last_access: u.last_sign_in_at
-                  ? new Date(u.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  ? new Date(u.last_sign_in_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                   : 'Nunca acessou',
                avatar_url: u.avatar_url,
                created_at: u.created_at,
@@ -557,14 +557,14 @@ const UsersPage: React.FC = () => {
                            </td>
                            <td className="px-6 py-4 text-slate-500 text-xs font-medium">{u.last_access || '--'}</td>
                            <td className="px-6 py-4 text-right">
-                              <div className="flex justify-end gap-1 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex justify-end gap-1 opacity-100 transition-opacity">
                                  {u.status === 'Pendente' && (
-                                    <button onClick={() => handleResendInvite(u)} title="Reenviar Convite" className="p-2 text-amber-500 hover:scale-110 transition-transform"><span className="material-symbols-outlined text-[20px]">forward_to_inbox</span></button>
+                                    <button onClick={() => handleResendInvite(u)} title="Reenviar Convite" className="p-2 text-slate-400 hover:text-amber-500 hover:scale-110 transition-all"><span className="material-symbols-outlined text-[20px]">forward_to_inbox</span></button>
                                  )}
                                  <button
                                     onClick={() => handleToggleStatus(u)}
                                     title={u.status === 'Ativo' ? 'Desativar Usuário' : 'Ativar Usuário'}
-                                    className={`p-2 transition-colors ${u.status === 'Ativo' ? 'text-slate-400 hover:text-amber-500' : 'text-slate-400 hover:text-green-500'}`}
+                                    className={`p-2 transition-all ${u.status === 'Ativo' ? 'text-slate-400 hover:text-amber-500 hover:scale-110' : 'text-slate-400 hover:text-green-500 hover:scale-110'}`}
                                  >
                                     <span className="material-symbols-outlined text-[20px]">
                                        {u.status === 'Ativo' ? 'person_off' : 'person_check'}
@@ -574,14 +574,14 @@ const UsersPage: React.FC = () => {
                                     <button
                                        onClick={() => handleUnlinkUser(u)}
                                        title="Desvincular da Equipe"
-                                       className="p-2 text-slate-400 hover:text-purple-600 transition-colors"
+                                       className="p-2 text-slate-400 hover:text-purple-600 hover:scale-110 transition-all"
                                     >
                                        <span className="material-symbols-outlined text-[20px]">link_off</span>
                                     </button>
                                  )}
-                                 <button onClick={() => handleEditClick(u)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                 <button onClick={() => handleEditClick(u)} title="Editar Usuário" className="p-2 text-slate-400 hover:text-blue-600 hover:scale-110 transition-all"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                  {!isCurrentUser && (
-                                    <button onClick={() => handleDeleteUser(u.user_id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                                    <button onClick={() => handleDeleteUser(u.user_id)} title="Excluir Usuário" className="p-2 text-slate-400 hover:text-red-500 hover:scale-110 transition-all"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                                  )}
                               </div>
                            </td>

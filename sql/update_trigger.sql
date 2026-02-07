@@ -4,6 +4,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user_trial_insert()
 RETURNS TRIGGER AS $$
 DECLARE
     default_plan_id UUID;
+    duration integer;
 BEGIN
     -- Determinar o plano padrão baseado na role (PJ ou BROKER/PF)
     IF NEW.role = 'PJ' THEN
@@ -22,9 +23,18 @@ BEGIN
         NEW.status := 'Ativo';
     END IF;
 
-    -- Definir uma data de expiração longa (10 anos) para o plano inicial
+    -- Buscar a duração definida no plano
+    SELECT 
+        CASE 
+            WHEN billing_cycle = 'Anual' THEN 365 
+            ELSE COALESCE(duration_days, 30) 
+        END INTO duration
+    FROM public.plans 
+    WHERE id = NEW.subscription_plan_id;
+
+    -- Definir a data de expiração baseada no plano (ou fallback de 30 dias)
     IF NEW.subscription_expires_at IS NULL THEN
-        NEW.subscription_expires_at := now() + interval '10 years';
+        NEW.subscription_expires_at := now() + (COALESCE(duration, 30) || ' days')::interval;
     END IF;
 
     RETURN NEW;
