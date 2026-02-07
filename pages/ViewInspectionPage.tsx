@@ -148,14 +148,29 @@ const ViewInspectionPage: React.FC = () => {
                 element.style.maxWidth = '1024px';
 
                 try {
-                    const rect = element.getBoundingClientRect(); // Capture rect WHILE at 1024px
                     const canvas = await html2canvas(element, {
                         scale: 2,
                         useCORS: true,
                         backgroundColor: '#ffffff',
                         windowWidth: 1024
                     });
-                    return { canvas, rect };
+
+                    const linkData: { href: string; x: number; y: number; w: number; h: number }[] = [];
+                    const rect = element.getBoundingClientRect();
+                    const links = element.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
+
+                    links.forEach(link => {
+                        const lRect = link.getBoundingClientRect();
+                        linkData.push({
+                            href: link.href,
+                            x: lRect.left - rect.left,
+                            y: lRect.top - rect.top,
+                            w: lRect.width,
+                            h: lRect.height
+                        });
+                    });
+
+                    return { canvas, linkData };
                 } finally {
                     element.style.width = originalWidth;
                     element.style.maxWidth = originalMaxWidth;
@@ -174,7 +189,7 @@ const ViewInspectionPage: React.FC = () => {
 
             // Sections
             for (const section of sections) {
-                const { canvas, rect } = await captureElement(section);
+                const { canvas, linkData } = await captureElement(section);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
 
                 if (currentY + imgHeight > pageHeight - margin) {
@@ -184,17 +199,16 @@ const ViewInspectionPage: React.FC = () => {
 
                 pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
 
-                // Links
-                const links = section.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
-                links.forEach(link => {
-                    const linkRect = link.getBoundingClientRect();
-                    // IMPORTANT: rect here is 1024px wide. linkRect might not be! 
-                    // Actually, if we use captureElement, we should capture linkRect inside it too.
-                    // For now, let's just make sure rect used for scaleFactor is the one from 1024px.
-                    const scaleFactor = contentWidth / 1024; // Fixed 1024px base
-
-                    // We need the link's relative position TO THE SECTION at 1024px
-                    // This is tricky because link.getBoundingClientRect() depends on current browser width.
+                // Add links to PDF
+                const pdfScaleFactor = contentWidth / 1024;
+                linkData.forEach(ld => {
+                    pdf.link(
+                        margin + (ld.x * pdfScaleFactor),
+                        currentY + (ld.y * pdfScaleFactor),
+                        ld.w * pdfScaleFactor,
+                        ld.h * pdfScaleFactor,
+                        { url: ld.href }
+                    );
                 });
 
                 currentY += imgHeight + 2;
@@ -202,7 +216,7 @@ const ViewInspectionPage: React.FC = () => {
 
             // Footer (Signatures)
             if (footer) {
-                const canvas = await captureElement(footer);
+                const { canvas } = await captureElement(footer);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
                 if (currentY + imgHeight > pageHeight - margin) {
                     pdf.addPage();
@@ -215,20 +229,11 @@ const ViewInspectionPage: React.FC = () => {
             // Site Footer (Legal/Official Info)
             const siteFooter = container.querySelector('.report-site-footer') as HTMLElement;
             if (siteFooter) {
-                const canvas = await captureElement(siteFooter);
+                const { canvas } = await captureElement(siteFooter);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
-                // Always try to put at bottom if space permits, or new page
                 if (currentY + imgHeight > pageHeight - margin) {
                     pdf.addPage();
-                    currentY = pageHeight - imgHeight - margin; // Bottom of new page
-                } else {
-                    // Start of next block or bottom of page?
-                    // Let's just append it naturally for now, or push to bottom if it's the very last thing?
-                    // "Official" often implies bottom of page.
-                    // Let's place it at currentY for flow, but if we want it at the VERY bottom of the last page:
-                    // currentY = Math.max(currentY, pageHeight - imgHeight - margin); 
-                    // But that might overlap if the previous content was close.
-                    // Let's just append it naturally to respect the flow.
+                    currentY = margin;
                 }
                 pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
             }

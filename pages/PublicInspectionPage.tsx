@@ -95,7 +95,6 @@ const PublicInspectionPage: React.FC = () => {
             const siteFooter = container.querySelector('.report-site-footer') as HTMLElement;
 
             const captureElement = async (element: HTMLElement) => {
-                // Force a fixed width during capture session
                 const originalWidth = element.style.width;
                 const originalMaxWidth = element.style.maxWidth;
                 element.style.width = '1024px';
@@ -106,9 +105,25 @@ const PublicInspectionPage: React.FC = () => {
                         scale: 2,
                         useCORS: true,
                         backgroundColor: '#ffffff',
-                        windowWidth: 1024 // Ensure consistent rendering
+                        windowWidth: 1024
                     });
-                    return canvas;
+
+                    const linkData: { href: string; x: number; y: number; w: number; h: number }[] = [];
+                    const rect = element.getBoundingClientRect();
+                    const links = element.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
+
+                    links.forEach(link => {
+                        const lRect = link.getBoundingClientRect();
+                        linkData.push({
+                            href: link.href,
+                            x: lRect.left - rect.left,
+                            y: lRect.top - rect.top,
+                            w: lRect.width,
+                            h: lRect.height
+                        });
+                    });
+
+                    return { canvas, linkData };
                 } finally {
                     element.style.width = originalWidth;
                     element.style.maxWidth = originalMaxWidth;
@@ -119,7 +134,7 @@ const PublicInspectionPage: React.FC = () => {
 
             // Header
             if (header) {
-                const canvas = await captureElement(header);
+                const { canvas } = await captureElement(header);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
                 pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
                 currentY += imgHeight + 2;
@@ -127,7 +142,7 @@ const PublicInspectionPage: React.FC = () => {
 
             // Sections
             for (const section of sections) {
-                const canvas = await captureElement(section);
+                const { canvas, linkData } = await captureElement(section);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
 
                 if (currentY + imgHeight > pageHeight - margin) {
@@ -137,17 +152,16 @@ const PublicInspectionPage: React.FC = () => {
 
                 pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
 
-                // Links within section
-                const links = section.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
-                const rect = section.getBoundingClientRect();
-                links.forEach(link => {
-                    const linkRect = link.getBoundingClientRect();
-                    const scaleFactor = contentWidth / rect.width;
-                    const pdfX = margin + ((linkRect.left - rect.left) * scaleFactor);
-                    const pdfY = currentY + ((linkRect.top - rect.top) * scaleFactor);
-                    const pdfW = linkRect.width * scaleFactor;
-                    const pdfH = linkRect.height * scaleFactor;
-                    pdf.link(pdfX, pdfY, pdfW, pdfH, { url: link.href });
+                // Add links to PDF
+                const pdfScaleFactor = contentWidth / 1024;
+                linkData.forEach(ld => {
+                    pdf.link(
+                        margin + (ld.x * pdfScaleFactor),
+                        currentY + (ld.y * pdfScaleFactor),
+                        ld.w * pdfScaleFactor,
+                        ld.h * pdfScaleFactor,
+                        { url: ld.href }
+                    );
                 });
 
                 currentY += imgHeight + 2;
@@ -155,7 +169,7 @@ const PublicInspectionPage: React.FC = () => {
 
             // Footer (Signatures)
             if (footer) {
-                const canvas = await captureElement(footer);
+                const { canvas } = await captureElement(footer);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
                 if (currentY + imgHeight > pageHeight - margin) {
                     pdf.addPage();
@@ -167,7 +181,7 @@ const PublicInspectionPage: React.FC = () => {
 
             // Site Footer
             if (siteFooter) {
-                const canvas = await captureElement(siteFooter);
+                const { canvas } = await captureElement(siteFooter);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
                 if (currentY + imgHeight > pageHeight - margin) {
                     pdf.addPage();
