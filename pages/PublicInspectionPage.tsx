@@ -75,39 +75,120 @@ const PublicInspectionPage: React.FC = () => {
         setExporting(true);
 
         try {
-            // Show map placeholders and hide iframes
-            const iframes = reportRef.current.querySelectorAll('iframe');
-            const mapPlaceholders = reportRef.current.querySelectorAll('.map-placeholder-pdf');
-            iframes.forEach(iframe => (iframe as HTMLElement).style.display = 'none');
-            mapPlaceholders.forEach(placeholder => (placeholder as HTMLElement).style.display = 'flex');
-
-            // Set fixed width for better PDF rendering (prevents cropping)
-            const originalWidth = reportRef.current.style.width;
-            reportRef.current.style.width = '1024px';
-
-            const canvas = await html2canvas(reportRef.current, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff',
-                windowWidth: 1024 // Force fixed width view
-            });
-
-            // Restore original style
-            reportRef.current.style.width = originalWidth;
-            iframes.forEach(iframe => (iframe as HTMLElement).style.display = '');
-            mapPlaceholders.forEach(placeholder => (placeholder as HTMLElement).style.display = 'none');
-
-            const imgData = canvas.toDataURL('image/png');
+            const container = reportRef.current;
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 10;
+            const contentWidth = pageWidth - (margin * 2);
 
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            // Hide iframe elements (maps) during capture and show placeholders
+            const iframes = container.querySelectorAll('iframe');
+            iframes.forEach(el => (el as HTMLElement).style.opacity = '0');
+            const mapPlaceholders = container.querySelectorAll('.map-placeholder-pdf');
+            mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'block');
+
+            // Selectors
+            const header = container.querySelector('.report-header') as HTMLElement;
+            const sections = Array.from(container.querySelectorAll('.report-section')) as HTMLElement[];
+            const footer = container.querySelector('.report-footer') as HTMLElement;
+            const siteFooter = container.querySelector('.report-site-footer') as HTMLElement;
+
+            const captureElement = async (element: HTMLElement) => {
+                // Force a fixed width during capture session
+                const originalWidth = element.style.width;
+                const originalMaxWidth = element.style.maxWidth;
+                element.style.width = '1024px';
+                element.style.maxWidth = '1024px';
+
+                try {
+                    const canvas = await html2canvas(element, {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        windowWidth: 1024 // Ensure consistent rendering
+                    });
+                    return canvas;
+                } finally {
+                    element.style.width = originalWidth;
+                    element.style.maxWidth = originalMaxWidth;
+                }
+            };
+
+            let currentY = margin;
+
+            // Header
+            if (header) {
+                const canvas = await captureElement(header);
+                const imgHeight = (canvas.height * contentWidth) / canvas.width;
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
+                currentY += imgHeight + 2;
+            }
+
+            // Sections
+            for (const section of sections) {
+                const canvas = await captureElement(section);
+                const imgHeight = (canvas.height * contentWidth) / canvas.width;
+
+                if (currentY + imgHeight > pageHeight - margin) {
+                    pdf.addPage();
+                    currentY = margin;
+                }
+
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
+
+                // Links within section
+                const links = section.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
+                const rect = section.getBoundingClientRect();
+                links.forEach(link => {
+                    const linkRect = link.getBoundingClientRect();
+                    const scaleFactor = contentWidth / rect.width;
+                    const pdfX = margin + ((linkRect.left - rect.left) * scaleFactor);
+                    const pdfY = currentY + ((linkRect.top - rect.top) * scaleFactor);
+                    const pdfW = linkRect.width * scaleFactor;
+                    const pdfH = linkRect.height * scaleFactor;
+                    pdf.link(pdfX, pdfY, pdfW, pdfH, { url: link.href });
+                });
+
+                currentY += imgHeight + 2;
+            }
+
+            // Footer (Signatures)
+            if (footer) {
+                const canvas = await captureElement(footer);
+                const imgHeight = (canvas.height * contentWidth) / canvas.width;
+                if (currentY + imgHeight > pageHeight - margin) {
+                    pdf.addPage();
+                    currentY = margin;
+                }
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
+                currentY += imgHeight + 2;
+            }
+
+            // Site Footer
+            if (siteFooter) {
+                const canvas = await captureElement(siteFooter);
+                const imgHeight = (canvas.height * contentWidth) / canvas.width;
+                if (currentY + imgHeight > pageHeight - margin) {
+                    pdf.addPage();
+                    currentY = margin;
+                }
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
+            }
+
+            // Restore visibility
+            iframes.forEach(el => (el as HTMLElement).style.opacity = '1');
+            mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'none');
+
             pdf.save(`Laudo_${inspection.property?.name || inspection.property_name || 'Vistoria'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
         } catch (err) {
             console.error('Erro ao gerar PDF:', err);
             alert('Erro ao gerar PDF. Tente novamente.');
+            // Restore visibility on error
+            if (reportRef.current) {
+                reportRef.current.querySelectorAll('iframe').forEach(el => (el as HTMLElement).style.opacity = '1');
+                reportRef.current.querySelectorAll('.map-placeholder-pdf').forEach(el => (el as HTMLElement).style.display = 'none');
+            }
         } finally {
             setExporting(false);
         }
@@ -205,12 +286,12 @@ const PublicInspectionPage: React.FC = () => {
                     {/* Row 2: Bottom bar with Report Info */}
                     <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1">
-                                <div className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center justify-center min-w-[100px]">
+                            <div className="flex items-center gap-1.5">
+                                <div className="px-3 py-1 bg-slate-900 text-white rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center justify-center min-w-[90px] h-7 leading-none">
                                     {inspection.report_type}
                                 </div>
-                                <div className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-black text-[10px] uppercase italic border border-blue-100 flex items-center gap-1.5 ml-1">
-                                    <span className="text-[8px] font-bold text-blue-400 invisible sm:visible uppercase tracking-tighter">TIPO:</span>
+                                <div className="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg font-black text-[10px] border border-blue-100 flex items-center justify-center gap-1.5 h-7 leading-none">
+                                    <span className="text-[8px] font-bold text-blue-400 invisible sm:visible uppercase tracking-tighter leading-none">TIPO:</span>
                                     {inspection.type}
                                 </div>
                             </div>
@@ -397,12 +478,12 @@ const PublicInspectionPage: React.FC = () => {
                             <div key={idx} className="report-section break-inside-avoid border-t border-slate-100 pt-4">
                                 <div className="flex items-center justify-between mb-4 bg-slate-50/50 p-2 rounded-lg border border-slate-100">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-7 h-7 bg-slate-900 text-white text-xs font-black flex items-center justify-center rounded-lg shadow-sm">
+                                        <div className="w-6 h-6 bg-slate-900 text-white text-[11px] font-black flex items-center justify-center rounded-md shadow-sm leading-none">
                                             {idx + 1}
                                         </div>
-                                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">{room.name}</h4>
+                                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none">{room.name}</h4>
                                     </div>
-                                    <div className={`text-[10px] font-black px-3 py-1.5 rounded-lg uppercase border shadow-sm ${room.condition === 'Novo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                    <div className={`text-[10px] font-black px-3 py-1 rounded-lg border shadow-sm flex items-center justify-center h-7 leading-none ${room.condition === 'Novo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                                         room.condition === 'Bom' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'
                                         }`}>
                                         {room.condition}

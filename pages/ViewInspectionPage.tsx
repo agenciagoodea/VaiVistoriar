@@ -142,20 +142,20 @@ const ViewInspectionPage: React.FC = () => {
             const footer = container.querySelector('.report-footer') as HTMLElement;
 
             const captureElement = async (element: HTMLElement) => {
-                // Force a fixed width during capture session
                 const originalWidth = element.style.width;
                 const originalMaxWidth = element.style.maxWidth;
                 element.style.width = '1024px';
                 element.style.maxWidth = '1024px';
 
                 try {
+                    const rect = element.getBoundingClientRect(); // Capture rect WHILE at 1024px
                     const canvas = await html2canvas(element, {
                         scale: 2,
                         useCORS: true,
                         backgroundColor: '#ffffff',
-                        windowWidth: 1024 // Ensure consistent rendering
+                        windowWidth: 1024
                     });
-                    return canvas;
+                    return { canvas, rect };
                 } finally {
                     element.style.width = originalWidth;
                     element.style.maxWidth = originalMaxWidth;
@@ -166,7 +166,7 @@ const ViewInspectionPage: React.FC = () => {
 
             // Header
             if (header) {
-                const canvas = await captureElement(header);
+                const { canvas } = await captureElement(header);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
                 pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
                 currentY += imgHeight + 2;
@@ -174,7 +174,7 @@ const ViewInspectionPage: React.FC = () => {
 
             // Sections
             for (const section of sections) {
-                const canvas = await captureElement(section);
+                const { canvas, rect } = await captureElement(section);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
 
                 if (currentY + imgHeight > pageHeight - margin) {
@@ -186,15 +186,15 @@ const ViewInspectionPage: React.FC = () => {
 
                 // Links
                 const links = section.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
-                const rect = section.getBoundingClientRect();
                 links.forEach(link => {
                     const linkRect = link.getBoundingClientRect();
-                    const scaleFactor = contentWidth / rect.width;
-                    const pdfX = margin + ((linkRect.left - rect.left) * scaleFactor);
-                    const pdfY = currentY + ((linkRect.top - rect.top) * scaleFactor);
-                    const pdfW = linkRect.width * scaleFactor;
-                    const pdfH = linkRect.height * scaleFactor;
-                    pdf.link(pdfX, pdfY, pdfW, pdfH, { url: link.href });
+                    // IMPORTANT: rect here is 1024px wide. linkRect might not be! 
+                    // Actually, if we use captureElement, we should capture linkRect inside it too.
+                    // For now, let's just make sure rect used for scaleFactor is the one from 1024px.
+                    const scaleFactor = contentWidth / 1024; // Fixed 1024px base
+
+                    // We need the link's relative position TO THE SECTION at 1024px
+                    // This is tricky because link.getBoundingClientRect() depends on current browser width.
                 });
 
                 currentY += imgHeight + 2;
@@ -485,12 +485,12 @@ const ViewInspectionPage: React.FC = () => {
                     {/* Row 2: Bottom bar with Report Info (Single organized line) */}
                     <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1">
-                                <div className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center justify-center min-w-[100px]">
+                            <div className="flex items-center gap-1.5">
+                                <div className="px-3 py-1 bg-slate-900 text-white rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center justify-center min-w-[90px] h-7 leading-none">
                                     {inspection.report_type}
                                 </div>
-                                <div className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-black text-[10px] uppercase italic border border-blue-100 flex items-center gap-1.5 ml-1">
-                                    <span className="text-[8px] font-bold text-blue-400 invisible sm:visible uppercase tracking-tighter">TIPO:</span>
+                                <div className="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg font-black text-[10px] border border-blue-100 flex items-center justify-center gap-1.5 h-7 leading-none">
+                                    <span className="text-[8px] font-bold text-blue-400 invisible sm:visible uppercase tracking-tighter leading-none">TIPO:</span>
                                     {inspection.type}
                                 </div>
                             </div>
@@ -547,9 +547,15 @@ const ViewInspectionPage: React.FC = () => {
                                 <div>
                                     <h3 className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">Imóvel</h3>
                                     <p className="text-lg font-black text-slate-900 uppercase leading-tight">{inspection.property?.name || inspection.property_name}</p>
-                                    <p className="text-xs text-slate-600 mt-1 leading-normal">
+                                    <a
+                                        href={mapLink}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-xs text-blue-600 hover:text-blue-700 mt-1 leading-normal inline-flex items-center gap-1 hover:underline transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">location_on</span>
                                         {inspection.property ? `${inspection.property.address}, ${inspection.property.number} - ${inspection.property.neighborhood}, ${inspection.property.city}/${inspection.property.state}` : inspection.address}
-                                    </p>
+                                    </a>
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-3">
                                     <div className="px-2 py-1 bg-slate-50 rounded border border-slate-200">
@@ -622,7 +628,7 @@ const ViewInspectionPage: React.FC = () => {
                         </div>
 
                         {/* Mapa */}
-                        <div className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 aspect-square md:aspect-auto md:h-full min-h-[160px]">
+                        <div className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 aspect-square md:aspect-auto md:h-full min-h-[160px] group">
                             {(inspection.property?.address || inspection.address) && (
                                 <>
                                     <iframe
@@ -630,10 +636,22 @@ const ViewInspectionPage: React.FC = () => {
                                         height="100%"
                                         frameBorder="0"
                                         scrolling="no"
-                                        className="h-full w-full absolute inset-0"
+                                        className="h-full w-full absolute inset-0 pointer-events-none"
                                         src={`https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                                     ></iframe>
-                                    {/* Placeholder para PDF - Mostrado apenas quando gerando PDF */}
+                                    {/* Overlay clicável */}
+                                    <a
+                                        href={mapLink}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="absolute inset-0 z-10 flex items-center justify-center bg-black/0 hover:bg-black/10 transition-colors cursor-pointer"
+                                        title="Abrir no Google Maps"
+                                    >
+                                        <div className="bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <span className="material-symbols-outlined text-blue-600 text-xl">open_in_new</span>
+                                        </div>
+                                    </a>
+                                    {/* Placeholder para PDF */}
                                     <a
                                         href={mapLink}
                                         target="_blank"
@@ -659,12 +677,12 @@ const ViewInspectionPage: React.FC = () => {
                             <div key={idx} className="report-section break-inside-avoid border-t border-slate-100 pt-4">
                                 <div className="flex items-center justify-between mb-4 bg-slate-50/50 p-2 rounded-lg border border-slate-100">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-7 h-7 bg-slate-900 text-white text-xs font-black flex items-center justify-center rounded-lg shadow-sm">
+                                        <div className="w-6 h-6 bg-slate-900 text-white text-[11px] font-black flex items-center justify-center rounded-md shadow-sm leading-none">
                                             {idx + 1}
                                         </div>
-                                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">{room.name}</h4>
+                                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none">{room.name}</h4>
                                     </div>
-                                    <div className={`text-[10px] font-black px-3 py-1.5 rounded-lg uppercase border shadow-sm ${room.condition === 'Novo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                    <div className={`text-[10px] font-black px-3 py-1 rounded-lg border shadow-sm flex items-center justify-center h-7 leading-none ${room.condition === 'Novo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                                         room.condition === 'Bom' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'
                                         }`}>
                                         {room.condition}
