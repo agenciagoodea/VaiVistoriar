@@ -98,8 +98,9 @@ const LandingPage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [features, setFeatures] = useState<Feature[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
-  const [faq, setFaq] = useState<FAQItem[]>([]);
+  const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [realReviews, setRealReviews] = useState<SystemReview[]>([]);
+  const [plansMessage, setPlansMessage] = useState('Todos os planos incluem 7 dias de teste grátis • Cancele quando quiser');
   const [heroText, setHeroText] = useState<HeroTextConfig>({
     title: 'Tecnologia que',
     highlight: 'gera valor',
@@ -188,10 +189,13 @@ const LandingPage: React.FC = () => {
         if (st) setSteps(JSON.parse(st));
 
         const fa = find('home_faq_json');
-        if (fa) setFaq(JSON.parse(fa));
+        if (fa) setFaqs(JSON.parse(fa));
 
         const ht = find('home_hero_text_json');
         if (ht) setHeroText(JSON.parse(ht));
+
+        const pm = find('home_plans_msg');
+        if (pm) setPlansMessage(pm);
       }
 
       const { data: revs, error: revError } = await supabase
@@ -545,7 +549,7 @@ const LandingPage: React.FC = () => {
           </div>
 
           <div className="mt-20 text-center">
-            <p className="text-slate-500 font-medium text-lg">Todos os planos incluem <span className="font-black text-slate-900">7 dias de teste grátis</span> • Cancele quando quiser</p>
+            <p className="text-slate-500 font-medium text-lg">{plansMessage}</p>
           </div>
         </div>
       </section>

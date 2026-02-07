@@ -9,6 +9,7 @@ const PlanConfigPage: React.FC = () => {
    const [saving, setSaving] = useState(false);
    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
    const [showNewPlanModal, setShowNewPlanModal] = useState(false);
+   const [plansMessage, setPlansMessage] = useState('Todos os planos incluem 7 dias de teste grátis • Cancele quando quiser');
 
 
    const [form, setForm] = useState<Partial<Plan>>({
@@ -30,7 +31,17 @@ const PlanConfigPage: React.FC = () => {
 
    useEffect(() => {
       fetchPlans();
+      fetchConfigs();
    }, []);
+
+   const fetchConfigs = async () => {
+      try {
+         const { data } = await supabase.from('system_configs').select('*').eq('key', 'home_plans_msg').maybeSingle();
+         if (data?.value) setPlansMessage(data.value);
+      } catch (err) {
+         console.error('Erro ao buscar configs:', err);
+      }
+   };
 
    const fetchPlans = async () => {
       try {
@@ -199,6 +210,23 @@ const PlanConfigPage: React.FC = () => {
 
    const selectedPlan = plans.find(p => p.id === selectedPlanId);
 
+   const handleSavePlansMessage = async () => {
+      setSaving(true);
+      try {
+         const { error } = await supabase.from('system_configs').upsert({
+            key: 'home_plans_msg',
+            value: plansMessage,
+            updated_at: new Date().toISOString()
+         });
+         if (error) throw error;
+         alert('Mensagem atualizada!');
+      } catch (err: any) {
+         alert('Erro ao salvar mensagem: ' + err.message);
+      } finally {
+         setSaving(false);
+      }
+   };
+
    if (loading) return <div className="p-20 text-center font-black text-slate-400 uppercase tracking-widest animate-pulse">Carregando Ofertas...</div>;
 
    return (
@@ -233,6 +261,35 @@ const PlanConfigPage: React.FC = () => {
                <span className="material-symbols-outlined text-[20px]">add</span>
                Adicionar Novo Plano
             </button>
+         </div>
+
+         {/* MENSAGEM DO RODAPÉ DOS PLANOS */}
+         <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+            <div className="flex items-center gap-4">
+               <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[28px]">chat_bubble_outline</span>
+               </div>
+               <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">Mensagem da Landing Page</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Texto exibido abaixo da lista de planos</p>
+               </div>
+            </div>
+            <div className="flex flex-col md:flex-row gap-4">
+               <input
+                  type="text"
+                  value={plansMessage}
+                  onChange={e => setPlansMessage(e.target.value)}
+                  className="flex-1 px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold shadow-inner outline-none focus:ring-4 focus:ring-blue-500/5"
+                  placeholder="Ex: Todos os planos incluem 7 dias de teste grátis..."
+               />
+               <button
+                  onClick={handleSavePlansMessage}
+                  disabled={saving}
+                  className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl hover:scale-105 transition-all disabled:opacity-50"
+               >
+                  {saving ? 'Salvando...' : 'Aplicar Mensagem'}
+               </button>
+            </div>
          </div>
 
 
