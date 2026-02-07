@@ -16,6 +16,12 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose }) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSending(true);
+        if (!comment.trim()) {
+            alert('Por favor, escreva algo sobre sua experiência.');
+            setSending(false);
+            return;
+        }
+
         try {
             const { error } = await supabase.from('system_reviews').insert({
                 rating,
@@ -69,13 +75,14 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose }) => {
                             onChange={(e) => setComment(e.target.value)}
                             rows={3}
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none text-sm"
-                            placeholder="Deixe seu comentário (opcional)..."
+                            placeholder="Conte-nos como foi sua experiência..."
+                            required
                         ></textarea>
                     </div>
 
                     <div className="flex gap-3 pt-2">
                         <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 text-sm">Cancelar</button>
-                        <button type="submit" disabled={sending || rating === 0} className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 text-sm">
+                        <button type="submit" disabled={sending || rating === 0 || !comment.trim()} className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 text-sm">
                             {sending ? 'Enviando...' : 'Enviar'}
                         </button>
                     </div>

@@ -48,3 +48,24 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- CREATE TRIGGER on_broker_profile_created
 --   BEFORE INSERT ON public.broker_profiles
 --   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_trial_insert();
+
+-- ==========================================================
+-- SCRIPT DE CORREÇÃO PARA USUÁRIOS EXISTENTES (PLANO GRATUITO)
+-- ==========================================================
+-- Este script corrige as datas de expiração que ficaram fixadas em 2036.
+-- Ele recalcula a expiração baseada na data de criação do usuário + duração do plano.
+
+UPDATE public.broker_profiles bp
+SET subscription_expires_at = bp.created_at + (COALESCE(p.duration_days, 30) || ' days')::interval
+FROM public.plans p
+WHERE bp.subscription_plan_id = p.id
+AND (p.name ILIKE '%GRATIS%' OR p.name ILIKE '%FREE%')
+AND bp.subscription_expires_at > '2030-01-01'; -- Somente os que estão com a data "infinita" antiga
+
+-- Caso algum usuário fique com data vencida mas você queira dar mais 30 dias a partir de hoje:
+-- UPDATE public.broker_profiles bp
+-- SET subscription_expires_at = now() + (COALESCE(p.duration_days, 30) || ' days')::interval
+-- FROM public.plans p
+-- WHERE bp.subscription_plan_id = p.id
+-- AND (p.name ILIKE '%GRATIS%' OR p.name ILIKE '%FREE%')
+-- AND bp.subscription_expires_at > '2030-01-01';
