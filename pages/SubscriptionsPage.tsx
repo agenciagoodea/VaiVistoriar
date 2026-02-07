@@ -64,6 +64,7 @@ const SubscriptionsPage: React.FC = () => {
                   renewal: profile.subscription_expires_at
                      ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR')
                      : 'Permanente',
+                  rawRenewal: profile.subscription_expires_at || null,
                   lastVal: lastPayment ? `R$ ${parseFloat(lastPayment.amount).toFixed(2).replace('.', ',')}` : '--',
                   lastDate: lastPayment ? new Date(lastPayment.created_at).toLocaleDateString('pt-BR') : '--'
                };
@@ -206,7 +207,37 @@ const SubscriptionsPage: React.FC = () => {
                               {s.status}
                            </span>
                         </td>
-                        <td className="px-6 py-4 text-slate-500 text-xs font-bold">{s.renewal}</td>
+                        <td className="px-6 py-4">
+                           {s.rawRenewal ? (() => {
+                              const expiryDate = new Date(s.rawRenewal);
+                              const now = new Date();
+                              const diffTime = expiryDate.getTime() - now.getTime();
+                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                              const isExpired = diffTime < 0;
+
+                              if (isExpired) {
+                                 return (
+                                    <div className="space-y-0.5">
+                                       <p className="text-red-600 font-black text-xs">{s.renewal}</p>
+                                       <p className="text-[9px] font-bold text-red-400 uppercase tracking-tighter">Vencido</p>
+                                    </div>
+                                 );
+                              }
+
+                              if (diffDays <= 7) {
+                                 return (
+                                    <div className="space-y-0.5">
+                                       <p className="text-amber-600 font-black text-xs">{s.renewal}</p>
+                                       <p className="text-[9px] font-bold text-amber-500 uppercase tracking-tighter">Vence em {diffDays} {diffDays === 1 ? 'dia' : 'dias'}</p>
+                                    </div>
+                                 );
+                              }
+
+                              return <p className="text-slate-500 text-xs font-bold">{s.renewal}</p>;
+                           })() : (
+                              <p className="text-slate-400 text-xs font-bold italic">Permanente</p>
+                           )}
+                        </td>
                         <td className="px-6 py-4 text-right">
                            <button
                               onClick={() => {
