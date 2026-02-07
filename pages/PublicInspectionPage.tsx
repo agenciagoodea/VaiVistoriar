@@ -81,14 +81,20 @@ const PublicInspectionPage: React.FC = () => {
             iframes.forEach(iframe => (iframe as HTMLElement).style.display = 'none');
             mapPlaceholders.forEach(placeholder => (placeholder as HTMLElement).style.display = 'flex');
 
+            // Set fixed width for better PDF rendering (prevents cropping)
+            const originalWidth = reportRef.current.style.width;
+            reportRef.current.style.width = '1024px';
+
             const canvas = await html2canvas(reportRef.current, {
                 scale: 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
+                windowWidth: 1024 // Force fixed width view
             });
 
-            // Restore iframes and hide placeholders
+            // Restore original style
+            reportRef.current.style.width = originalWidth;
             iframes.forEach(iframe => (iframe as HTMLElement).style.display = '');
             mapPlaceholders.forEach(placeholder => (placeholder as HTMLElement).style.display = 'none');
 
@@ -98,7 +104,7 @@ const PublicInspectionPage: React.FC = () => {
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Laudo_${inspection.property_name || 'Vistoria'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
+            pdf.save(`Laudo_${inspection.property?.name || inspection.property_name || 'Vistoria'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
         } catch (err) {
             console.error('Erro ao gerar PDF:', err);
             alert('Erro ao gerar PDF. Tente novamente.');
@@ -199,12 +205,14 @@ const PublicInspectionPage: React.FC = () => {
                     {/* Row 2: Bottom bar with Report Info */}
                     <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
-                            <div className="px-3 py-1 bg-slate-900 text-white rounded-lg font-black text-[9px] uppercase tracking-[0.1em]">
-                                {inspection.report_type}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Tipo:</span>
-                                <span className="text-[9px] font-black text-blue-600 uppercase italic">{inspection.type}</span>
+                            <div className="flex items-center gap-1">
+                                <div className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center justify-center min-w-[100px]">
+                                    {inspection.report_type}
+                                </div>
+                                <div className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-black text-[10px] uppercase italic border border-blue-100 flex items-center gap-1.5 ml-1">
+                                    <span className="text-[8px] font-bold text-blue-400 invisible sm:visible uppercase tracking-tighter">TIPO:</span>
+                                    {inspection.type}
+                                </div>
                             </div>
                         </div>
 
@@ -387,16 +395,18 @@ const PublicInspectionPage: React.FC = () => {
                     <div className="space-y-6">
                         {inspection.rooms?.map((room: any, idx: number) => (
                             <div key={idx} className="report-section break-inside-avoid border-t border-slate-100 pt-4">
-                                <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center justify-between mb-4 bg-slate-50/50 p-2 rounded-lg border border-slate-100">
                                     <div className="flex items-center gap-3">
-                                        <span className="bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded">{idx + 1}</span>
-                                        <h4 className="text-sm font-black text-slate-900 uppercase">{room.name}</h4>
+                                        <div className="w-7 h-7 bg-slate-900 text-white text-xs font-black flex items-center justify-center rounded-lg shadow-sm">
+                                            {idx + 1}
+                                        </div>
+                                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">{room.name}</h4>
                                     </div>
-                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase border ${room.condition === 'Novo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                    <div className={`text-[10px] font-black px-3 py-1.5 rounded-lg uppercase border shadow-sm ${room.condition === 'Novo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                                         room.condition === 'Bom' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'
                                         }`}>
                                         {room.condition}
-                                    </span>
+                                    </div>
                                 </div>
 
                                 {room.observations && (
