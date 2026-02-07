@@ -169,8 +169,8 @@ const BrokerDashboard: React.FC = () => {
           currentPhotos: totalPhotos,
           currentRooms: totalRooms,
           expiry: profile.subscription_expires_at
-            ? `${new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR')} (${profile.plans?.billing_cycle || 'Mensal'})`
-            : 'Sem expiração'
+            ? `${new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR')} ${new Date(profile.subscription_expires_at) < new Date() ? '(VENCIDO)' : `(${profile.plans?.billing_cycle || 'Mensal'})`}`
+            : 'Permanente'
         }));
 
         const formattedData: Inspection[] = dbData.map((item: any) => ({
@@ -342,7 +342,9 @@ const BrokerDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-2xl font-black text-slate-900">{planUsage.name}</p>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Expira em: {planUsage.expiry}</p>
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">
+                {planUsage.expiry === 'Permanente' ? 'Assinatura Permanente' : `Expira em: ${planUsage.expiry}`}
+              </p>
             </div>
           </div>
         )}
