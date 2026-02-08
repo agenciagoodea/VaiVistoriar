@@ -122,59 +122,64 @@ const ViewInspectionPage: React.FC = () => {
     const generatePDF = async (returnBlob = false): Promise<jsPDF | Blob | null> => {
         if (!reportRef.current) return null;
 
-        try {
-            const container = reportRef.current;
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const margin = 10;
-            const contentWidth = pageWidth - (margin * 2);
+        const container = reportRef.current;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+        const contentWidth = pageWidth - (margin * 2);
 
-            // Hide iframe elements (maps) during capture and show placeholders
-            const iframes = container.querySelectorAll('iframe');
-            iframes.forEach(el => el.style.opacity = '0');
-            const mapPlaceholders = container.querySelectorAll('.map-placeholder-pdf');
+        // CLONE SILENCIOSO: Cria uma cópia do laudo fora da tela para captura
+        const cloneContainer = document.createElement('div');
+        cloneContainer.style.position = 'fixed';
+        cloneContainer.style.left = '-9999px';
+        cloneContainer.style.top = '0';
+        cloneContainer.style.width = '1024px';
+        cloneContainer.style.backgroundColor = 'white';
+
+        const clone = container.cloneNode(true) as HTMLElement;
+        clone.style.width = '1024px';
+        clone.style.maxWidth = '1024px';
+        cloneContainer.appendChild(clone);
+        document.body.appendChild(cloneContainer);
+
+        try {
+            // Hide iframe elements in the CLONE and show placeholders
+            const iframes = clone.querySelectorAll('iframe');
+            iframes.forEach(el => (el as HTMLElement).style.opacity = '0');
+            const mapPlaceholders = clone.querySelectorAll('.map-placeholder-pdf');
             mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'block');
 
-            // Selectors
-            const header = container.querySelector('.report-header') as HTMLElement;
-            const sections = Array.from(container.querySelectorAll('.report-section')) as HTMLElement[];
-            const footer = container.querySelector('.report-footer') as HTMLElement;
+            // Selectors from CLONE
+            const header = clone.querySelector('.report-header') as HTMLElement;
+            const sections = Array.from(clone.querySelectorAll('.report-section')) as HTMLElement[];
+            const footer = clone.querySelector('.report-footer') as HTMLElement;
+            const siteFooter = clone.querySelector('.report-site-footer') as HTMLElement;
 
             const captureElement = async (element: HTMLElement) => {
-                const originalWidth = element.style.width;
-                const originalMaxWidth = element.style.maxWidth;
-                element.style.width = '1024px';
-                element.style.maxWidth = '1024px';
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    windowWidth: 1024
+                });
 
-                try {
-                    const canvas = await html2canvas(element, {
-                        scale: 2,
-                        useCORS: true,
-                        backgroundColor: '#ffffff',
-                        windowWidth: 1024
+                const linkData: { href: string; x: number; y: number; w: number; h: number }[] = [];
+                const rect = element.getBoundingClientRect();
+                const links = element.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
+
+                links.forEach(link => {
+                    const lRect = link.getBoundingClientRect();
+                    linkData.push({
+                        href: link.href,
+                        x: lRect.left - rect.left,
+                        y: lRect.top - rect.top,
+                        w: lRect.width,
+                        h: lRect.height
                     });
+                });
 
-                    const linkData: { href: string; x: number; y: number; w: number; h: number }[] = [];
-                    const rect = element.getBoundingClientRect();
-                    const links = element.querySelectorAll('a.photo-link') as NodeListOf<HTMLAnchorElement>;
-
-                    links.forEach(link => {
-                        const lRect = link.getBoundingClientRect();
-                        linkData.push({
-                            href: link.href,
-                            x: lRect.left - rect.left,
-                            y: lRect.top - rect.top,
-                            w: lRect.width,
-                            h: lRect.height
-                        });
-                    });
-
-                    return { canvas, linkData };
-                } finally {
-                    element.style.width = originalWidth;
-                    element.style.maxWidth = originalMaxWidth;
-                }
+                return { canvas, linkData };
             };
 
             let currentY = margin;
@@ -226,8 +231,7 @@ const ViewInspectionPage: React.FC = () => {
                 currentY += imgHeight + 2;
             }
 
-            // Site Footer (Legal/Official Info)
-            const siteFooter = container.querySelector('.report-site-footer') as HTMLElement;
+            // Site Footer
             if (siteFooter) {
                 const { canvas } = await captureElement(siteFooter);
                 const imgHeight = (canvas.height * contentWidth) / canvas.width;
@@ -238,20 +242,15 @@ const ViewInspectionPage: React.FC = () => {
                 pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
             }
 
-            // Restore visibility
-            iframes.forEach(el => el.style.opacity = '1');
-            mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'none');
-
             return returnBlob ? pdf.output('blob') : pdf;
         } catch (err) {
             console.error('Erro na geração do PDF', err);
-            // Restore visibility on error
-            const container = reportRef.current;
-            if (container) {
-                container.querySelectorAll('iframe').forEach(el => el.style.opacity = '1');
-                container.querySelectorAll('.map-placeholder-pdf').forEach(el => (el as HTMLElement).style.display = 'none');
+            return null;
+        } finally {
+            // Cleanup clone
+            if (document.body.contains(cloneContainer)) {
+                document.body.removeChild(cloneContainer);
             }
-            throw err;
         }
     };
 
@@ -260,8 +259,11 @@ const ViewInspectionPage: React.FC = () => {
         document.body.style.overflowX = 'hidden';
         try {
             const pdf = await generatePDF(false) as jsPDF;
-            if (pdf) pdf.save(`Vistoria_${inspection.property_name.replace(/\s+/g, '_')}.pdf`);
+            if (pdf) {
+                pdf.save(`Vistoria_${inspection.property_name.replace(/\s+/g, '_')}.pdf`);
+            }
         } catch (e) {
+            console.error(e);
             alert('Erro ao gerar PDF.');
         } finally {
             setExporting(false);

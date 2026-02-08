@@ -83,24 +83,33 @@ const PublicInspectionPage: React.FC = () => {
             const margin = 10;
             const contentWidth = pageWidth - (margin * 2);
 
-            // Hide iframe elements (maps) during capture and show placeholders
-            const iframes = container.querySelectorAll('iframe');
+            // CLONE SILENCIOSO: Cria uma cópia do laudo fora da tela para captura
+            const cloneContainer = document.createElement('div');
+            cloneContainer.style.position = 'fixed';
+            cloneContainer.style.left = '-9999px';
+            cloneContainer.style.top = '0';
+            cloneContainer.style.width = '1024px';
+            cloneContainer.style.backgroundColor = 'white';
+
+            const clone = container.cloneNode(true) as HTMLElement;
+            clone.style.width = '1024px';
+            clone.style.maxWidth = '1024px';
+            cloneContainer.appendChild(clone);
+            document.body.appendChild(cloneContainer);
+
+            // Hide iframe elements in the CLONE and show placeholders
+            const iframes = clone.querySelectorAll('iframe');
             iframes.forEach(el => (el as HTMLElement).style.opacity = '0');
-            const mapPlaceholders = container.querySelectorAll('.map-placeholder-pdf');
+            const mapPlaceholders = clone.querySelectorAll('.map-placeholder-pdf');
             mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'block');
 
-            // Selectors
-            const header = container.querySelector('.report-header') as HTMLElement;
-            const sections = Array.from(container.querySelectorAll('.report-section')) as HTMLElement[];
-            const footer = container.querySelector('.report-footer') as HTMLElement;
-            const siteFooter = container.querySelector('.report-site-footer') as HTMLElement;
+            // Selectors from CLONE
+            const header = clone.querySelector('.report-header') as HTMLElement;
+            const sections = Array.from(clone.querySelectorAll('.report-section')) as HTMLElement[];
+            const footer = clone.querySelector('.report-footer') as HTMLElement;
+            const siteFooter = clone.querySelector('.report-site-footer') as HTMLElement;
 
             const captureElement = async (element: HTMLElement) => {
-                const originalWidth = element.style.width;
-                const originalMaxWidth = element.style.maxWidth;
-                element.style.width = '1024px';
-                element.style.maxWidth = '1024px';
-
                 try {
                     const canvas = await html2canvas(element, {
                         scale: 2,
@@ -126,8 +135,7 @@ const PublicInspectionPage: React.FC = () => {
 
                     return { canvas, linkData };
                 } finally {
-                    element.style.width = originalWidth;
-                    element.style.maxWidth = originalMaxWidth;
+                    // No need to restore width on clone
                 }
             };
 
@@ -191,19 +199,13 @@ const PublicInspectionPage: React.FC = () => {
                 pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, imgHeight);
             }
 
-            // Restore visibility
-            iframes.forEach(el => (el as HTMLElement).style.opacity = '1');
-            mapPlaceholders.forEach(el => (el as HTMLElement).style.display = 'none');
-
             pdf.save(`Laudo_${inspection.property?.name || inspection.property_name || 'Vistoria'}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
+
+            // Cleanup clone
+            document.body.removeChild(cloneContainer);
         } catch (err) {
             console.error('Erro ao gerar PDF:', err);
             alert('Erro ao gerar PDF. Tente novamente.');
-            // Restore visibility on error
-            if (reportRef.current) {
-                reportRef.current.querySelectorAll('iframe').forEach(el => (el as HTMLElement).style.opacity = '1');
-                reportRef.current.querySelectorAll('.map-placeholder-pdf').forEach(el => (el as HTMLElement).style.display = 'none');
-            }
         } finally {
             setExporting(false);
             document.body.style.overflowX = '';
