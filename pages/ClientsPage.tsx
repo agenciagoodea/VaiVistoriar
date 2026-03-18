@@ -2,12 +2,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/authContext';
 
 const ClientsPage: React.FC = () => {
   const [clients, setClients] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [profile, setProfile] = React.useState<any>(null);
   const navigate = useNavigate();
+  const { session } = useAuth();
 
   // Modal de Convite
   const [showInviteModal, setShowInviteModal] = React.useState(false);
@@ -18,42 +20,35 @@ const ClientsPage: React.FC = () => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
-    fetchClients();
-  }, []);
+    if (session?.user) fetchClients(session.user.id);
+  }, [session]);
 
-  const fetchClients = async () => {
+  const fetchClients = async (userId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Buscar perfil para saber cargo e empresa
+      // userId já vem do useAuth() — sem nova chamada getUser()
       const { data: profileData } = await supabase
         .from('broker_profiles')
         .select('role, full_name, company_name')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single();
 
       setProfile(profileData);
       const role = profileData?.role || 'BROKER';
-      const myCompany = (profile?.company_name || (role === 'PJ' ? profile?.full_name : ''))?.trim() || '';
+      const myCompany = (profileData?.company_name || (role === 'PJ' ? profileData?.full_name : ''))?.trim() || '';
       let query = supabase.from('clients').select('*');
 
       if (role === 'PJ' && myCompany) {
-        // Se for PJ, primeiro buscamos todos os IDs de usuários da mesma empresa
         const { data: companyBrokers } = await supabase
           .from('broker_profiles')
           .select('user_id')
           .eq('company_name', myCompany);
-
         const brokerIds = companyBrokers?.map(b => b.user_id) || [];
         query = query.in('user_id', brokerIds);
-      } else if (role === 'BROKER' || (role === 'PJ' && !myCompany)) {
-        // Se for Corretor ou PJ sem empresa definida, vê apenas os seus próprios clientes
-        query = query.eq('user_id', user.id);
+      } else {
+        query = query.eq('user_id', userId);
       }
 
       const { data: dbData, error } = await query.order('created_at', { ascending: false });
-
       if (error) throw error;
       setClients(dbData || []);
     } catch (err) {
@@ -78,14 +73,14 @@ const ClientsPage: React.FC = () => {
     e.preventDefault();
     setInviting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const userId = session?.user?.id;
+      if (!userId) return;
 
       // 1. Criar o cliente pendente
       const { data: newClient, error: clientError } = await supabase
         .from('clients')
         .insert([{
-          user_id: user.id,
+          user_id: userId,
           name: 'Cliente Convidado',
           email: inviteEmail,
           profile_type: inviteType,
@@ -115,7 +110,7 @@ const ClientsPage: React.FC = () => {
       alert('Convite enviado com sucesso!');
       setShowInviteModal(false);
       setInviteEmail('');
-      fetchClients();
+      fetchClients(session?.user?.id || '');
     } catch (err: any) {
       alert('Erro ao enviar convite: ' + err.message);
     } finally {
@@ -167,11 +162,11 @@ const ClientsPage: React.FC = () => {
           return obj;
         });
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const userId = session?.user?.id;
+        if (!userId) return;
 
         const inserts = clientData.map(c => ({
-          user_id: user.id,
+          user_id: userId,
           name: c.nome || c.name || 'Sem Nome',
           email: c.email || '',
           phone: c.telefone || c.phone || '',
@@ -183,7 +178,7 @@ const ClientsPage: React.FC = () => {
         if (error) throw error;
 
         alert(`${inserts.length} clientes importados com sucesso!`);
-        fetchClients();
+        fetchClients(session?.user?.id || '');
       } catch (err: any) {
         alert('Erro na importação: ' + err.message);
       } finally {

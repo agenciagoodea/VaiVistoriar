@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/authContext';
 
 const InspectionsPage: React.FC = () => {
   const [inspections, setInspections] = useState<any[]>([]);
@@ -11,42 +12,36 @@ const InspectionsPage: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [activeFilter, setActiveFilter] = useState('Todos');
   const navigate = useNavigate();
+  const { session } = useAuth();
 
   useEffect(() => {
-    fetchInspections();
-  }, []);
+    if (session?.user) fetchInspections(session.user.id);
+  }, [session]);
 
-  const fetchInspections = async () => {
+  const fetchInspections = async (userId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // 1. Buscar perfil do usuário para saber o cargo
+      // userId já vem do useAuth() — sem nova chamada getUser()
       const { data: profile } = await supabase
         .from('broker_profiles')
         .select('role, full_name, company_name')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single();
 
       const role = profile?.role || 'BROKER';
       const myCompany = (profile?.company_name || (role === 'PJ' ? profile?.full_name : ''))?.trim() || '';
       setMyRole(role);
 
-      // 2. Buscar vistorias (sem Join direto para evitar erro de FK inexistente no cache)
       let query = supabase.from('inspections').select('*');
 
       if (role === 'PJ' && myCompany) {
-        // Se for PJ, primeiro buscamos todos os IDs de usuários da mesma empresa
         const { data: companyBrokers } = await supabase
           .from('broker_profiles')
           .select('user_id')
           .eq('company_name', myCompany);
-
         const brokerIds = companyBrokers?.map(b => b.user_id) || [];
         query = query.in('user_id', brokerIds);
       } else if (role === 'BROKER') {
-        // Se for Corretor, vê apenas as suas vistorias
-        query = query.eq('user_id', user.id);
+        query = query.eq('user_id', userId);
       }
 
       const { data: inspectionsData, error } = await query.order('created_at', { ascending: false });

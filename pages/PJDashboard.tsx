@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-
+import { useAuth } from '../lib/authContext';
+import { getConfigValue } from '../lib/configsCache';
 import FeedbackModal from '../components/FeedbackModal';
 
 const PJDashboard: React.FC = () => {
    const navigate = useNavigate();
+   const { session, daysRemaining } = useAuth();
    const [loading, setLoading] = useState(true);
    const [metrics, setMetrics] = useState({
       inspectionsMonth: 0,
@@ -13,7 +15,6 @@ const PJDashboard: React.FC = () => {
       completed: 0,
       activeBrokers: 0
    });
-   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
    const [userProfile, setUserProfile] = useState<{ full_name: string, company_name?: string } | null>(null);
    const [planUsage, setPlanUsage] = useState({
       name: 'Plano Grátis',
@@ -27,36 +28,24 @@ const PJDashboard: React.FC = () => {
    const [performanceData, setPerformanceData] = useState<{ name: string, val: number }[]>([]);
 
    useEffect(() => {
-      fetchData();
-   }, []);
+      if (session?.user) fetchData(session.user.id);
+   }, [session]);
 
-   const fetchData = async () => {
+   const fetchData = async (userId: string) => {
       try {
-         const { data: { user } } = await supabase.auth.getUser();
-         if (!user) return;
+         // userId do contexto — sem nova chamada getUser()
+         // Número de suporte e perfil em paralelo
+         const [supportNum, profileResult] = await Promise.all([
+            getConfigValue('whatsapp_number'),
+            supabase.from('broker_profiles').select('*, plans:subscription_plan_id(*)').eq('user_id', userId).single(),
+         ]);
 
-         // 0. Fetch Support Number
-         const { data: configs } = await supabase.from('system_configs').select('*').in('key', ['whatsapp_number']);
-         if (configs) {
-            setWhatsappSupport(configs.find(c => c.key === 'whatsapp_number')?.value || '');
-         }
-
-         // 1. Get PJ Profile and Company Name
-         const { data: profile } = await supabase
-            .from('broker_profiles')
-            .select('*, plans:subscription_plan_id(*)')
-            .eq('user_id', user.id)
-            .single();
+         if (supportNum) setWhatsappSupport(supportNum);
+         const profile = profileResult.data;
 
          if (profile) {
-            if (profile.subscription_expires_at) {
-               const expiresAt = new Date(profile.subscription_expires_at);
-               const diff = expiresAt.getTime() - new Date().getTime();
-               setDaysRemaining(Math.ceil(diff / (1000 * 60 * 60 * 24)));
-            }
-
             setUserProfile({
-               full_name: profile.full_name || user.email?.split('@')[0],
+               full_name: profile.full_name || session?.user?.email?.split('@')[0] || 'Usuário',
                company_name: profile.company_name
             });
          }
@@ -74,8 +63,8 @@ const PJDashboard: React.FC = () => {
          });
 
          // 2. Fetch Team Members
-         let userIds: string[] = [user.id];
-         let teamMembers: any[] = [{ user_id: user.id, full_name: profile?.full_name || 'Eu' }];
+         let userIds: string[] = [userId];
+         let teamMembers: any[] = [{ user_id: userId, full_name: profile?.full_name || 'Eu' }];
 
          if (company) {
             const { data: members } = await supabase
@@ -86,8 +75,8 @@ const PJDashboard: React.FC = () => {
             if (members && members.length > 0) {
                teamMembers = members;
                userIds = members.map(m => m.user_id);
-               if (!userIds.includes(user.id)) {
-                  userIds.push(user.id);
+               if (!userIds.includes(userId)) {
+                  userIds.push(userId);
                }
             }
          }

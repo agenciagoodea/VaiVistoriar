@@ -1,8 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Session } from '@supabase/supabase-js';
-import { supabase } from './lib/supabase';
+import { AuthProvider, useAuth } from './lib/authContext';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import DashboardLayout from './components/DashboardLayout';
@@ -49,46 +48,9 @@ import InviteClientPage from './pages/InviteClientPage';
 import PublicInspectionPage from './pages/PublicInspectionPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
-const App: React.FC = () => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<'ADMIN' | 'BROKER' | 'PJ'>('ADMIN');
-  const [status, setStatus] = useState<string>('Ativo'); // Default to Active to avoid flash of block
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchUserRole = async (session: Session | null) => {
-      setSession(session);
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('broker_profiles')
-          .select('role, status')
-          .eq('user_id', session.user.id)
-          .single();
-
-        if (profile) {
-          setRole(profile.role as any);
-          setStatus(profile.status || 'Ativo');
-        } else if (session.user.user_metadata?.role) {
-          setRole(session.user.user_metadata.role);
-          setStatus('Ativo'); // Fallback for new users
-        }
-      }
-      setLoading(false);
-    };
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      fetchUserRole(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        window.location.hash = '#/reset-password';
-      }
-      fetchUserRole(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+// Componente interno que consome o AuthContext
+const AppRoutes: React.FC = () => {
+  const { session, role, status, loading } = useAuth();
 
   if (loading) {
     return (
@@ -146,12 +108,8 @@ const App: React.FC = () => {
           </Route>
 
           {/* Shared Broker and PJ Routes for Plans */}
-          {/* Note: This is where we want them to go if status is Pending, so we enable it. */}
           <Route element={<ProtectedRoute allowedRoles={['BROKER', 'PJ']} userRole={role} isAuthenticated={!!session} status={status} isPlanPage={true} />}>
             <Route path="/broker/plan" element={<MyPlanPage role={role} />} />
-            {/* Team page might be blocked if pending? User said "impelling to do any operation on dashboard". 
-                 Usually Plan page is allowed. Team page maybe blocked. But let's keep it consistent. 
-                 Only Plan Page should be strictly accessible. */}
           </Route>
 
           {/* Team Page separate to block it on pending */}
@@ -193,6 +151,14 @@ const App: React.FC = () => {
       </Routes>
       <CookieConsent />
     </HashRouter>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   );
 };
 

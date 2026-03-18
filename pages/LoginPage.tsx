@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getSystemConfigs } from '../lib/configsCache';
 import { validateCPF, validateCNPJ, formatCpfCnpj } from '../lib/utils';
 
 interface LoginPageProps {
@@ -33,12 +34,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
 
     React.useEffect(() => {
         const fetchConfigs = async () => {
-            const { data } = await supabase.from('system_configs').select('*');
-            if (data) {
-                const primary = data.find(c => c.key === 'home_primary_color')?.value;
-                const logo = data.find(c => c.key === 'home_logo_url')?.value;
-                if (primary || logo) setBrand({ primaryColor: primary || '#2563eb', logoUrl: logo || '' });
-            }
+            const configs = await getSystemConfigs();
+            const primary = configs.find(c => c.key === 'home_primary_color')?.value;
+            const logo = configs.find(c => c.key === 'home_logo_url')?.value;
+            if (primary || logo) setBrand({ primaryColor: primary || '#2563eb', logoUrl: logo || '' });
         };
         fetchConfigs();
     }, []);

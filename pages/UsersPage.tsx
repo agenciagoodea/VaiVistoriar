@@ -1,5 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/authContext';
 
 interface UserProfile {
    user_id: string;
@@ -17,8 +18,6 @@ const UsersPage: React.FC = () => {
    const [users, setUsers] = useState<UserProfile[]>([]);
    const [loading, setLoading] = useState(true);
    const [showModal, setShowModal] = useState(false);
-   const [currentUser, setCurrentUser] = useState<any>(null);
-
    const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
 
    // Modal State
@@ -40,14 +39,16 @@ const UsersPage: React.FC = () => {
    const [userRole, setUserRole] = useState<'ADMIN' | 'PJ' | 'BROKER'>('ADMIN');
    const [userCompany, setUserCompany] = useState<string>('');
 
-   useEffect(() => {
-      fetchUsers();
-   }, []);
+   const { session } = useAuth();
+   const currentUser = session?.user ?? null;
 
-   const fetchUsers = async () => {
+   useEffect(() => {
+      if (session?.user) fetchUsers(session.user);
+   }, [session]);
+
+   const fetchUsers = async (user: any) => {
       try {
-         const { data: { user } } = await supabase.auth.getUser();
-         setCurrentUser(user);
+         // currentUser já vem do useAuth() via session.user
 
          // Buscar perfil do usuário logado para saber o cargo e empresa
          const { data: myProfile } = await supabase
@@ -57,25 +58,21 @@ const UsersPage: React.FC = () => {
             .single();
 
          if (myProfile) {
-            // Force ADMIN for specific emails
             const owners = ['adriano_amorim@hotmail.com', 'contato@agenciagoodea.com', 'adriano@hotmail.com'];
             const isOwner = user?.email && owners.includes(user.email);
 
             if (isOwner) {
                setUserRole('ADMIN');
-               setUserCompany('ADMINISTRADOR DO SISTEMA'); // Visual label
+               setUserCompany('ADMINISTRADOR DO SISTEMA');
             } else {
                setUserRole(myProfile.role);
-
-               // Fallback: Se for PJ e empresa estiver vazia, usa o full_name (que costuma ser o nome da imobiliária)
                const company = myProfile.company_name || (myProfile.role === 'PJ' ? myProfile.full_name : '');
                setUserCompany(company);
                setPjPlanId(myProfile.subscription_plan_id || null);
             }
          }
 
-         // Call Edge Function with EXPLICIT token to avoid issues with stale/anon sessions
-         const { data: { session } } = await supabase.auth.getSession();
+         // Usa token da sessão já disponível — sem nova chamada getSession()
          const headers: Record<string, string> = {};
          if (session?.access_token) {
             headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -248,7 +245,7 @@ const UsersPage: React.FC = () => {
          setModalTab('create'); // Reset tab
          setSearchEmail(''); // Reset search
          setSearchResult(null); // Reset search result
-         fetchUsers();
+         fetchUsers(session?.user);
       } catch (err: any) {
          alert('Erro ao salvar usuário: ' + err.message);
       }
@@ -310,7 +307,7 @@ const UsersPage: React.FC = () => {
          setModalTab('create'); // Reset tab
          setSearchEmail(''); // Reset search
          setSearchResult(null); // Reset search result
-         fetchUsers();
+         fetchUsers(session?.user);
       } catch (err: any) {
          console.error('Erro ao vincular usuário:', err);
          const errorMsg = err.context?.message || err.message || 'Erro desconhecido';
@@ -366,7 +363,7 @@ const UsersPage: React.FC = () => {
          }
 
          alert('Usuário excluído com sucesso.');
-         fetchUsers();
+         fetchUsers(session?.user);
       } catch (err: any) {
          console.error('Erro ao excluir usuário:', err);
          alert(`[ERRO DETALHADO]: ${err.message || 'Falha desconhecida'}`);
@@ -394,7 +391,7 @@ const UsersPage: React.FC = () => {
          if (data && data.success === false) throw new Error(data.error);
 
          alert(`Usuário ${newStatus === 'Ativo' ? 'ativado' : 'desativado'} com sucesso.`);
-         fetchUsers();
+         fetchUsers(session?.user);
       } catch (err: any) {
          console.error('Erro ao alterar status:', err);
          alert(`Erro ao alterar status: ${err.message || 'Falha desconhecida'}`);
@@ -418,7 +415,7 @@ const UsersPage: React.FC = () => {
          if (error) throw error;
 
          alert('Usuário desvinculado com sucesso.');
-         fetchUsers();
+         fetchUsers(session?.user);
       } catch (err: any) {
          console.error('Erro ao desvincular usuário:', err);
          alert(`Erro: ${err.message || 'Falha desconhecida'}`);

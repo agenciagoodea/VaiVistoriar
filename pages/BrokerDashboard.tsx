@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/authContext';
 import { Inspection } from '../types';
 import FeedbackModal from '../components/FeedbackModal';
 
@@ -21,46 +22,46 @@ const BrokerDashboard: React.FC = () => {
     type: 'PF',
     isLimitReached: false
   });
-  const [userProfile, setUserProfile] = useState<{ full_name: string, role: string, company_name?: string } | null>(null);
+  const [localUserProfile, setLocalUserProfile] = useState<{ full_name: string, role: string, company_name?: string } | null>(null);
   const [whatsappSupport, setWhatsappSupport] = useState('');
   const [loading, setLoading] = useState(true);
-  const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const navigate = useNavigate();
 
-  React.useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  // Consome sessão e perfil do AuthContext — sem nova chamada getUser()
+  const { session, userProfile: authProfile, daysRemaining } = useAuth();
 
-  const fetchDashboardData = async () => {
+  React.useEffect(() => {
+    if (session?.user) {
+      fetchDashboardData(session.user.id);
+    }
+  }, [session]);
+
+  const fetchDashboardData = async (userId: string) => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
-      // 0. Fetch System Configs (Support Number)
-      const { data: configs } = await supabase.from('system_configs').select('*').in('key', ['whatsapp_number']);
-      if (configs) {
-        const num = configs.find(c => c.key === 'whatsapp_number')?.value;
-        setWhatsappSupport(num || '');
-      }
+      // Queries iniciais em paralelo — perfil (com plano) + número de suporte
+      const [profileResult, configsResult] = await Promise.all([
+        supabase
+          .from('broker_profiles')
+          .select('*, plans:subscription_plan_id(*)')
+          .eq('user_id', userId)
+          .single(),
+        supabase
+          .from('system_configs')
+          .select('key, value')
+          .eq('key', 'whatsapp_number')
+          .maybeSingle(),
+      ]);
 
-      // 1. Profile & Plan
-      const { data: profile } = await supabase
-        .from('broker_profiles')
-        .select('*, plans:subscription_plan_id(*)')
-        .eq('user_id', user.id)
-        .single();
+      const profile = profileResult.data;
+      const num = configsResult.data?.value;
+      if (num) setWhatsappSupport(num);
 
       if (profile) {
-        if (profile.subscription_expires_at) {
-          const expiresAt = new Date(profile.subscription_expires_at);
-          const diff = expiresAt.getTime() - new Date().getTime();
-          setDaysRemaining(Math.ceil(diff / (1000 * 60 * 60 * 24)));
-        }
-
-        setUserProfile({
-          full_name: profile.full_name || user.email?.split('@')[0],
+        setLocalUserProfile({
+          full_name: profile.full_name || authProfile?.email?.split('@')[0] || 'Usuário',
           role: profile.role,
           company_name: profile.company_name
         });
@@ -68,7 +69,7 @@ const BrokerDashboard: React.FC = () => {
         const plan = profile.plans as any;
         setPlanUsage({
           name: plan?.name || 'Plano Grátis',
-          current: 0, // Will be updated
+          current: 0,
           max: plan?.max_inspections || 5,
           expiry: profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toLocaleDateString('pt-BR') : 'Sem expiração',
           maxPhotos: plan?.max_photos || 30,
@@ -78,7 +79,7 @@ const BrokerDashboard: React.FC = () => {
           currentRooms: 0,
           maxProperties: plan?.max_properties || 0,
           type: plan?.plan_type || 'PF',
-          isLimitReached: false // Updated below
+          isLimitReached: false
         });
       }
 
@@ -100,35 +101,24 @@ const BrokerDashboard: React.FC = () => {
         startOfCycle.setHours(0, 0, 0, 0);
       }
 
-      const { count: monthCount } = await supabase
-        .from('inspections')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .gte('created_at', startOfCycle.toISOString());
-
-      const { count: pendingCount } = await supabase
-        .from('inspections')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .neq('status', 'Concluída')
-        .neq('status', 'Finalizada');
-
-      const { count: propertiesCount } = await supabase
-        .from('properties')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      // 2.1 Brokers Count (If PJ)
-      let brokersCount = 0;
+      // Todas as queries de contagem em paralelo — elimina latência sequencial
       const company = (profile?.company_name || profile?.full_name || '').trim();
-      if (profile?.role === 'PJ' && company) {
-        const { count } = await supabase
-          .from('broker_profiles')
-          .select('*', { count: 'exact', head: true })
-          .eq('company_name', company)
-          .eq('status', 'Ativo');
-        brokersCount = count || 0;
-      }
+      const isPJ = profile?.role === 'PJ' && company;
+
+      const [monthResult, pendingResult, propertiesResult, brokersResult, recentResult] = await Promise.all([
+        supabase.from('inspections').select('*', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', startOfCycle.toISOString()),
+        supabase.from('inspections').select('*', { count: 'exact', head: true }).eq('user_id', userId).neq('status', 'Concluída').neq('status', 'Finalizada'),
+        supabase.from('properties').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+        isPJ
+          ? supabase.from('broker_profiles').select('*', { count: 'exact', head: true }).eq('company_name', company).eq('status', 'Ativo')
+          : Promise.resolve({ count: 0 }),
+        supabase.from('inspections').select('id, property_name, address, client_name, type, status, created_at, image_url, rooms').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
+      ]);
+
+      const monthCount = monthResult.count;
+      const pendingCount = pendingResult.count;
+      const propertiesCount = propertiesResult.count;
+      const brokersCount = brokersResult.count || 0;
 
       setStats({
         monthCount: monthCount || 0,
@@ -143,13 +133,8 @@ const BrokerDashboard: React.FC = () => {
         return { ...prev, current: monthCount || 0, isLimitReached: isReached };
       });
 
-      // 3. Recent Inspections (Now limit 10)
-      const { data: dbData } = await supabase
-        .from('inspections')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Usar resultado já obtido no Promise.all
+      const dbData = recentResult.data;
 
       if (dbData) {
         let totalPhotos = 0;
@@ -259,7 +244,7 @@ const BrokerDashboard: React.FC = () => {
 
       <div className="flex flex-col md:flex-row justify-between items-end gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Olá, {userProfile?.full_name.split(' ')[0] || 'Bem-vindo'}</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Olá, {localUserProfile?.full_name.split(' ')[0] || authProfile?.full_name?.split(' ')[0] || 'Bem-vindo'}</h1>
           <p className="text-slate-500 mt-1">Aqui está o resumo das suas atividades hoje.</p>
         </div>
         <div className="flex gap-3">
@@ -319,7 +304,7 @@ const BrokerDashboard: React.FC = () => {
           </div>
         </div>
 
-        {userProfile?.role === 'PJ' ? (
+        {localUserProfile?.role === 'PJ' ? (
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
             <div className="flex justify-between items-start">
               <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
@@ -500,7 +485,7 @@ const BrokerDashboard: React.FC = () => {
       <FeedbackModal
         isOpen={showFeedback}
         onClose={() => setShowFeedback(false)}
-        userEmail={userProfile?.company_name || ''}
+        userEmail={localUserProfile?.company_name || authProfile?.email || ''}
       />
     </div >
   );

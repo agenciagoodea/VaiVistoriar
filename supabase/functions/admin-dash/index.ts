@@ -155,9 +155,19 @@ Deno.serve(async (req) => {
 
         // ACTION: GET SYSTEM METRICS
         if (action === 'get_metrics') {
-            const { count: usersCount } = await supabaseAdmin.from('broker_profiles').select('*', { count: 'exact', head: true });
-            const { count: newUsers } = await supabaseAdmin.from('broker_profiles').select('*', { count: 'exact', head: true }).gt('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-            const { data: activeProfiles } = await supabaseAdmin.from('broker_profiles').select('subscription_plan_id, plans:subscription_plan_id(price, billing_cycle)').eq('status', 'Ativo');
+                    // Queries em paralelo — elimina latência sequencial
+            const [usersResult, newUsersResult, activeProfilesResult, inspectionCountResult, inspectionStatusResult, recentTxResult] = await Promise.all([
+                supabaseAdmin.from('broker_profiles').select('*', { count: 'exact', head: true }),
+                supabaseAdmin.from('broker_profiles').select('*', { count: 'exact', head: true }).gt('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+                supabaseAdmin.from('broker_profiles').select('subscription_plan_id, plans:subscription_plan_id(price, billing_cycle)').eq('status', 'Ativo'),
+                supabaseAdmin.from('inspections').select('*', { count: 'exact', head: true }),
+                supabaseAdmin.from('inspections').select('status'),
+                supabaseAdmin.from('payment_history').select('id, user_id, plan_name, amount, status, created_at').order('created_at', { ascending: false }).limit(5),
+            ]);
+
+            const usersCount = usersResult.count;
+            const newUsers = newUsersResult.count;
+            const activeProfiles = activeProfilesResult.data;
             let activeSubs = activeProfiles?.length || 0;
             let mrr = 0;
             activeProfiles?.forEach((p: any) => {
@@ -168,30 +178,27 @@ Deno.serve(async (req) => {
                 }
             });
 
-            const { count: totalInspections } = await supabaseAdmin.from('inspections').select('*', { count: 'exact', head: true });
-            const { data: inspectionStatus } = await supabaseAdmin.from('inspections').select('status');
+            const totalInspections = inspectionCountResult.count;
+            const inspectionStatus = inspectionStatusResult.data;
             const inspectionCounts: Record<string, number> = { 'Agendada': 0, 'Em andamento': 0, 'Concluída': 0, 'Rascunho': 0 };
             inspectionStatus?.forEach((i: any) => {
                 if (inspectionCounts[i.status] !== undefined) inspectionCounts[i.status]++;
                 else inspectionCounts['Em andamento']++;
             });
 
-            const { data: recentTransactions } = await supabaseAdmin.from('payment_history').select('*').order('created_at', { ascending: false }).limit(5);
+            const recentTransactions = recentTxResult.data;
 
-            // Helper function for profile mapping inline
-            const getProfilesMap = async (userIds: string[]) => {
-                if (userIds.length === 0) return {};
-                const { data } = await supabaseAdmin.from('broker_profiles').select('user_id, full_name, email, avatar_url').in('user_id', userIds);
-                const map: Record<string, any> = {};
-                data?.forEach((p: any) => { map[p.user_id] = p });
-                return map;
-            };
-
+            // Enriquecimento de perfis (query extra, mas somente se houver transações)
             const userIds = recentTransactions?.map((t: any) => t.user_id) || [];
-            const profilesMap = await getProfilesMap(userIds);
-            const transactionsWithProfiles = recentTransactions?.map((t: any) => ({
-                ...t, profiles: profilesMap[t.user_id] || { full_name: 'Usuário', avatar_url: null }
-            }));
+            let transactionsWithProfiles = recentTransactions;
+            if (userIds.length > 0) {
+                const { data: profilesData } = await supabaseAdmin.from('broker_profiles').select('user_id, full_name, email, avatar_url').in('user_id', userIds);
+                const profilesMap: Record<string, any> = {};
+                profilesData?.forEach((p: any) => { profilesMap[p.user_id] = p });
+                transactionsWithProfiles = recentTransactions?.map((t: any) => ({
+                    ...t, profiles: profilesMap[t.user_id] || { full_name: 'Usuário', avatar_url: null }
+                }));
+            }
 
             return new Response(JSON.stringify({
                 success: true,

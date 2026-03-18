@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/authContext';
 
 interface FeedbackModalProps {
     isOpen: boolean;
@@ -10,6 +11,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose }) => {
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [sending, setSending] = useState(false);
+    const { session } = useAuth();
 
     if (!isOpen) return null;
 
@@ -26,7 +28,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose }) => {
             const { error } = await supabase.from('system_reviews').insert({
                 rating,
                 comment,
-                user_id: (await supabase.auth.getUser()).data.user?.id
+                user_id: session?.user?.id ?? null
             });
 
             if (error) {

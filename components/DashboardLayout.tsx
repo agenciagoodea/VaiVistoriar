@@ -1,10 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { UserRole } from '../types';
 import { supabase } from '../lib/supabase';
-import { Session } from '@supabase/supabase-js';
+import { useAuth } from '../lib/authContext';
 import ReviewModal from './ReviewModal';
+
+// Cache simples para system_configs (TTL: 5 minutos)
+const CONFIGS_CACHE_KEY = 'vvist_sys_configs';
+const CONFIGS_CACHE_TTL = 5 * 60 * 1000;
 
 interface DashboardLayoutProps {
   role: UserRole;
@@ -13,6 +17,9 @@ interface DashboardLayoutProps {
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Consome dados centralizados do AuthContext — sem nova query getSession!
+  const { session, userProfile, daysRemaining } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -61,64 +68,68 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   const currentMenu = role === 'ADMIN' ? adminMenu : role === 'BROKER' ? brokerMenu : pjMenu;
 
   const [brand, setBrand] = useState<{ primaryColor: string; logoUrl: string | null }>({ primaryColor: '#2563eb', logoUrl: null });
-  const [userProfile, setUserProfile] = React.useState<{ full_name: string; avatar_url: string; email: string } | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchConfigs = async () => {
-      const { data } = await supabase.from('system_configs').select('*');
+      // Verificar cache primeiro
+      const cached = sessionStorage.getItem(CONFIGS_CACHE_KEY);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Date.now() - parsed.ts < CONFIGS_CACHE_TTL) {
+            setBrand({ primaryColor: parsed.primaryColor, logoUrl: parsed.logoUrl });
+            return;
+          }
+        } catch (_) { /* ignora cache corrompido */ }
+      }
+
+      const { data } = await supabase
+        .from('system_configs')
+        .select('key, value')
+        .in('key', ['home_primary_color', 'home_logo_url']);
+
       if (data) {
         const primary = data.find(c => c.key === 'home_primary_color')?.value;
         const logo = data.find(c => c.key === 'home_logo_url')?.value;
-        setBrand({ primaryColor: primary || '#2563eb', logoUrl: logo || null });
-      } else {
-        setBrand({ primaryColor: '#2563eb', logoUrl: null });
+        const result = { primaryColor: primary || '#2563eb', logoUrl: logo || null };
+        setBrand(result);
+
+        // Salvar no cache com timestamp
+        sessionStorage.setItem(CONFIGS_CACHE_KEY, JSON.stringify({ ...result, ts: Date.now() }));
       }
     };
-    fetchConfigs();
-  }, []);
 
-  React.useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
+    // Verificar controle de sessão única ao montar
+    const checkSessionUniqueness = async () => {
+      if (!session?.user) return;
 
-      if (session?.user) {
-        const { data: profile } = await supabase.from('broker_profiles').select('*').eq('user_id', session.user.id).single();
+      const localSessionId = localStorage.getItem('vpro_session_token');
+      if (!localSessionId) return;
 
-        // Controle de Sessão Única
-        const localSessionId = localStorage.getItem('vpro_session_token');
-        if (profile?.current_session_id && localSessionId && profile.current_session_id !== localSessionId) {
-          alert('Sua conta foi acessada em outro dispositivo. Você será deslogado por segurança.');
-          await supabase.auth.signOut();
-          navigate('/login');
-          return;
-        }
+      const { data: profile } = await supabase
+        .from('broker_profiles')
+        .select('current_session_id')
+        .eq('user_id', session.user.id)
+        .single();
 
-        // Verificação de Expiração do Plano Trial
-        if (profile?.subscription_expires_at) {
-          const expiresAt = new Date(profile.subscription_expires_at);
-          const diff = expiresAt.getTime() - new Date().getTime();
-          const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-          setDaysRemaining(days);
-
-          if (expiresAt < new Date()) {
-            alert('Seu plano expirou. Por favor, realize o upgrade para continuar utilizando o sistema.');
-          }
-        }
-
-        setUserProfile({
-          full_name: profile?.full_name || session.user.email?.split('@')[0] || 'Usuário',
-          avatar_url: profile?.avatar_url || `https://ui-avatars.com/api/?name=${session.user.email}&background=0D8ABC&color=fff`,
-          email: session.user.email || ''
-        });
+      if (profile?.current_session_id && profile.current_session_id !== localSessionId) {
+        alert('Sua conta foi acessada em outro dispositivo. Você será deslogado por segurança.');
+        await supabase.auth.signOut();
+        navigate('/login');
       }
     };
-    fetchUser();
-  }, [navigate]);
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    // Executar em paralelo para não bloquear uma à outra
+    Promise.all([fetchConfigs(), checkSessionUniqueness()]);
+  }, [session, navigate]);
+
+  // Alerta de expiração do plano em dias
+  useEffect(() => {
+    if (daysRemaining !== null && daysRemaining <= 0) {
+      alert('Seu plano expirou. Por favor, realize o upgrade para continuar utilizando o sistema.');
+    }
+  }, [daysRemaining]);
 
   const SidebarContent = (
     <div className="flex flex-col h-full bg-white border-r border-slate-200">
