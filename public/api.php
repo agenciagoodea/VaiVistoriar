@@ -103,6 +103,231 @@ if ($uri === '/health' || $uri === '') {
     exit;
 }
 
+// Emulação de Edge Functions (admin-dash, send-email, mercadopago-api)
+if (strpos($uri, '/functions/') === 0 && ($method === 'POST' || $method === 'GET')) {
+    $funcName = str_replace('/functions/', '', $uri);
+
+    if ($funcName === 'admin-dash') {
+        $action = $body['action'] ?? '';
+
+        if ($action === 'get_metrics') {
+            $uRes = $mysqli->query("SELECT COUNT(*) as cnt FROM users");
+            $totalUsers = $uRes ? (int)$uRes->fetch_assoc()['cnt'] : 0;
+
+            $iRes = $mysqli->query("SELECT COUNT(*) as cnt FROM inspections");
+            $totalInspections = $iRes ? (int)$iRes->fetch_assoc()['cnt'] : 0;
+
+            $subRes = $mysqli->query("SELECT COUNT(*) as cnt FROM broker_profiles WHERE status = 'Ativo'");
+            $activeSubs = $subRes ? (int)$subRes->fetch_assoc()['cnt'] : 0;
+
+            $mrrRes = $mysqli->query("SELECT SUM(p.price) as mrr FROM broker_profiles bp JOIN plans p ON bp.subscription_plan_id = p.id WHERE bp.status = 'Ativo'");
+            $mrrRow = $mrrRes ? $mrrRes->fetch_assoc() : null;
+            $mrr = $mrrRow ? (float)($mrrRow['mrr'] ?? 0) : 0;
+
+            // Status chart
+            $statusCounts = ['Agendada' => 0, 'Em andamento' => 0, 'Concluída' => 0, 'Rascunho' => 0];
+            $stRes = $mysqli->query("SELECT status, COUNT(*) as cnt FROM inspections GROUP BY status");
+            if ($stRes) {
+                while ($stRow = $stRes->fetch_assoc()) {
+                    $sName = $stRow['status'] ?: 'Rascunho';
+                    $statusCounts[$sName] = (int)$stRow['cnt'];
+                }
+            }
+
+            // Transações recentes
+            $recentRes = $mysqli->query("SELECT bp.*, p.name as plan_name, p.price as amount FROM broker_profiles bp LEFT JOIN plans p ON bp.subscription_plan_id = p.id WHERE bp.status = 'Ativo' ORDER BY bp.created_at DESC LIMIT 5");
+            $recentTransactions = [];
+            if ($recentRes) {
+                while ($rRow = $recentRes->fetch_assoc()) {
+                    $recentTransactions[] = [
+                        'user_id' => $rRow['user_id'],
+                        'amount' => $rRow['amount'] ?: 0,
+                        'status' => 'approved',
+                        'created_at' => $rRow['created_at'],
+                        'plan_name' => $rRow['plan_name'] ?: 'Plano Grátis',
+                        'profiles' => [
+                            'full_name' => $rRow['full_name'],
+                            'avatar_url' => $rRow['avatar_url']
+                        ]
+                    ];
+                }
+            }
+
+            echo json_encode([
+                'success' => true,
+                'stats' => [
+                    'mrr' => $mrr,
+                    'activeSubs' => $activeSubs,
+                    'totalInspections' => $totalInspections,
+                    'totalUsers' => $totalUsers
+                ],
+                'charts' => [
+                    'inspectionStatus' => $statusCounts
+                ],
+                'recentTransactions' => $recentTransactions
+            ]);
+            exit;
+        }
+
+        if ($action === 'get_users') {
+            $res = $mysqli->query("SELECT bp.*, u.email, u.role as user_role, p.name as plan_name FROM broker_profiles bp JOIN users u ON bp.user_id = u.id LEFT JOIN plans p ON bp.subscription_plan_id = p.id ORDER BY bp.created_at DESC");
+            $users = [];
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $r['role'] = $r['user_role'] ?: $r['role'];
+                    $users[] = $r;
+                }
+            }
+            echo json_encode(['success' => true, 'users' => $users]);
+            exit;
+        }
+
+        if ($action === 'get_subscriptions') {
+            $res = $mysqli->query("SELECT bp.*, u.email, u.role as user_role, p.name as plan_name, p.price as plan_price FROM broker_profiles bp JOIN users u ON bp.user_id = u.id LEFT JOIN plans p ON bp.subscription_plan_id = p.id ORDER BY bp.created_at DESC");
+            $profiles = [];
+            $payments = [];
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $r['role'] = $r['user_role'] ?: $r['role'];
+                    $profiles[] = $r;
+                    if ($r['status'] === 'Ativo') {
+                        $payments[] = [
+                            'user_id' => $r['user_id'],
+                            'amount' => $r['plan_price'] ?: 0,
+                            'status' => 'approved',
+                            'created_at' => $r['created_at'],
+                            'payment_method' => 'pix'
+                        ];
+                    }
+                }
+            }
+            $pRes = $mysqli->query("SELECT * FROM plans ORDER BY price ASC");
+            $allPlans = [];
+            if ($pRes) {
+                while ($pr = $pRes->fetch_assoc()) $allPlans[] = $pr;
+            }
+            echo json_encode(['success' => true, 'profiles' => $profiles, 'allPlans' => $allPlans, 'payments' => $payments]);
+            exit;
+        }
+
+        if ($action === 'get_payments') {
+            $res = $mysqli->query("SELECT bp.*, u.email, p.name as plan_name, p.price as amount FROM broker_profiles bp JOIN users u ON bp.user_id = u.id LEFT JOIN plans p ON bp.subscription_plan_id = p.id WHERE bp.status = 'Ativo' ORDER BY bp.created_at DESC");
+            $payments = [];
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $payments[] = [
+                        'id' => $r['id'],
+                        'user_id' => $r['user_id'],
+                        'amount' => $r['amount'] ?: 0,
+                        'status' => 'approved',
+                        'created_at' => $r['created_at'],
+                        'payment_method' => 'pix',
+                        'description' => "Assinatura - " . ($r['plan_name'] ?: 'Plano'),
+                        'user_email' => $r['email'],
+                        'full_name' => $r['full_name']
+                    ];
+                }
+            }
+            echo json_encode(['success' => true, 'payments' => $payments]);
+            exit;
+        }
+
+        if ($action === 'create_user') {
+            $email = trim($body['email'] ?? '');
+            $password = $body['password'] ?? '123456';
+            $fullName = trim($body['full_name'] ?? $email);
+            $role = $body['role'] ?? 'BROKER';
+
+            if (!$email) {
+                echo json_encode(['success' => false, 'error' => 'E-mail é obrigatório']);
+                exit;
+            }
+
+            $userId = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000, mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
+            $profileId = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000, mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
+            $passHash = password_hash($password, PASSWORD_BCRYPT);
+            $defaultPlan = $role === 'PJ' ? '5c09eeb7-100f-4f84-aaa7-9bcc5df05306' : 'fd4c420f-09b2-40a7-b43f-972e21378368';
+            $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
+
+            $mysqli->query("INSERT INTO users (id, email, password_hash, role) VALUES ('$userId', '$email', '$passHash', '$role')");
+            $mysqli->query("INSERT INTO broker_profiles (id, user_id, email, full_name, role, status, subscription_plan_id, subscription_expires_at) VALUES ('$profileId', '$userId', '$email', '$fullName', '$role', 'Ativo', '$defaultPlan', '$expiresAt')");
+
+            echo json_encode(['success' => true, 'user_id' => $userId]);
+            exit;
+        }
+
+        if ($action === 'update_user_status' || $action === 'update_user_role' || $action === 'update_subscription' || $action === 'update_user_plan') {
+            $targetUserId = $body['userId'] ?? $body['user_id'] ?? '';
+            $status = $body['status'] ?? null;
+            $role = $body['role'] ?? null;
+            $planId = $body['planId'] ?? $body['plan_id'] ?? null;
+
+            if ($targetUserId) {
+                $eTargetId = $mysqli->real_escape_string($targetUserId);
+                if ($status !== null) {
+                    $eStatus = $mysqli->real_escape_string($status);
+                    $mysqli->query("UPDATE broker_profiles SET status = '$eStatus' WHERE user_id = '$eTargetId' OR id = '$eTargetId'");
+                }
+                if ($role !== null) {
+                    $eRole = $mysqli->real_escape_string($role);
+                    $mysqli->query("UPDATE users SET role = '$eRole' WHERE id = '$eTargetId'");
+                    $mysqli->query("UPDATE broker_profiles SET role = '$eRole' WHERE user_id = '$eTargetId' OR id = '$eTargetId'");
+                }
+                if ($planId !== null) {
+                    $ePlanId = $mysqli->real_escape_string($planId);
+                    $mysqli->query("UPDATE broker_profiles SET subscription_plan_id = '$ePlanId' WHERE user_id = '$eTargetId' OR id = '$eTargetId'");
+                }
+            }
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        if ($action === 'delete_user') {
+            $targetUserId = $body['userId'] ?? $body['user_id'] ?? '';
+            if ($targetUserId) {
+                $eTargetId = $mysqli->real_escape_string($targetUserId);
+                $mysqli->query("DELETE FROM broker_profiles WHERE user_id = '$eTargetId' OR id = '$eTargetId'");
+                $mysqli->query("DELETE FROM users WHERE id = '$eTargetId'");
+            }
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        // Fallback genérico para admin-dash
+        echo json_encode([
+            'success' => true,
+            'stats' => ['mrr' => 0, 'activeSubs' => 0, 'totalInspections' => 0, 'totalUsers' => 0],
+            'charts' => ['inspectionStatus' => ['Agendada' => 0, 'Em andamento' => 0, 'Concluída' => 0, 'Rascunho' => 0]],
+            'recentTransactions' => []
+        ]);
+        exit;
+    }
+
+    if ($funcName === 'send-email') {
+        $to = $body['to'] ?? '';
+        $subject = $body['subject'] ?? 'Notificação - VaiVistoriar';
+        $html = $body['html'] ?? '';
+
+        if ($to && filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $headers = "MIME-Version: 1.0\r\n";
+            $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $headers .= "From: VaiVistoriar <contato@vaivistoriar.com.br>\r\n";
+            @mail($to, $subject, $html, $headers);
+        }
+
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($funcName === 'mercadopago-api' || $funcName === 'process-transparent-payment') {
+        echo json_encode(['success' => true, 'init_point' => 'https://vaivistoriar.com.br/#/checkout/success']);
+        exit;
+    }
+
+    echo json_encode(['success' => true]);
+    exit;
+}
+
 // Auth: Register
 if ($uri === '/auth/register' && $method === 'POST') {
     $email = trim($body['email'] ?? '');

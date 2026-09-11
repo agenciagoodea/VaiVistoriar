@@ -131,6 +131,23 @@ export const customSupabaseClient = {
     }
   },
 
+  functions: {
+    async invoke(functionName: string, options: any = {}) {
+      try {
+        const bodyData = options?.body || {};
+        const res = await apiFetch(`/functions/${functionName}`, {
+          method: 'POST',
+          headers: options?.headers || {},
+          body: JSON.stringify(bodyData)
+        });
+        return { data: res, error: null };
+      } catch (err: any) {
+        console.error(`Erro ao chamar function ${functionName}:`, err);
+        return { data: null, error: err };
+      }
+    }
+  },
+
   async rpc(fnName: string, params: any = {}) {
     try {
       if (fnName === 'get_email_by_cpf') {
@@ -248,12 +265,21 @@ export const customSupabaseClient = {
             return this.execute().then(resolve, reject);
           },
           async execute() {
-            try {
-              let url = endpoint;
-              if (Object.keys(filters).length > 0) {
-                const params = new URLSearchParams(filters).toString();
-                url += `?${params}`;
+            let url = endpoint;
+            const queryParams = new URLSearchParams();
+
+            Object.entries(filters).forEach(([k, v]) => {
+              if (v !== undefined && v !== null) {
+                queryParams.append(k, String(v));
               }
+            });
+
+            const qStr = queryParams.toString();
+            if (qStr) {
+              url += (url.includes('?') ? '&' : '?') + qStr;
+            }
+
+            try {
               const data = await apiFetch(url);
               return { data, error: null };
             } catch (err: any) {
@@ -265,156 +291,89 @@ export const customSupabaseClient = {
         return queryObj;
       },
 
-      insert(rows: any | any[]) {
-        const payload = Array.isArray(rows) ? rows[0] : rows;
+      insert(values: any | any[]) {
+        const payload = Array.isArray(values) ? values[0] : values;
         return {
-          async then(resolve: any, reject?: any) {
+          async select() {
             try {
               const data = await apiFetch(endpoint, {
                 method: 'POST',
                 body: JSON.stringify(payload)
               });
-              resolve({ data, error: null });
+              return { data: [data], error: null };
             } catch (err: any) {
-              resolve({ data: null, error: err });
+              return { data: null, error: err };
             }
+          },
+          then(resolve: any, reject?: any) {
+            return apiFetch(endpoint, {
+              method: 'POST',
+              body: JSON.stringify(payload)
+            }).then(data => resolve({ data, error: null })).catch(err => resolve({ data: null, error: err }));
           }
         };
       },
 
       update(values: any) {
-        let filterId: string | null = null;
+        let filters: Record<string, any> = {};
         return {
-          eq(col: string, val: any) {
-            if (col === 'id' || col === 'user_id' || col === 'key') filterId = val;
+          eq(column: string, value: any) {
+            filters[column] = value;
             return this;
           },
-          neq(col: string, val: any) { return this; },
-          in(col: string, vals: any) { return this; },
-          async then(resolve: any, reject?: any) {
+          neq(column: string, value: any) {
+            filters[`${column}_neq`] = value;
+            return this;
+          },
+          async execute() {
+            const targetId = filters['id'] || filters['user_id'];
+            let url = endpoint;
+            if (targetId) {
+              url += `/${targetId}`;
+            }
             try {
-              let targetUrl = endpoint;
-              if (filterId) {
-                targetUrl += `/${filterId}`;
-              }
-              const data = await apiFetch(targetUrl, {
+              const data = await apiFetch(url, {
                 method: 'PUT',
                 body: JSON.stringify(values)
               });
-              resolve({ data, error: null });
+              return { data, error: null };
             } catch (err: any) {
-              resolve({ data: null, error: err });
+              return { data: null, error: err };
             }
-          }
-        };
-      },
-
-      upsert(values: any, opts?: any) {
-        return {
-          async then(resolve: any, reject?: any) {
-            try {
-              const data = await apiFetch(`${endpoint}/upsert`, {
-                method: 'POST',
-                body: JSON.stringify(values)
-              });
-              resolve({ data, error: null });
-            } catch (err: any) {
-              resolve({ data: null, error: err });
-            }
+          },
+          then(resolve: any, reject?: any) {
+            return this.execute().then(resolve, reject);
           }
         };
       },
 
       delete() {
-        let filterId: string | null = null;
+        let filters: Record<string, any> = {};
         return {
-          eq(col: string, val: any) {
-            filterId = val;
+          eq(column: string, value: any) {
+            filters[column] = value;
             return this;
           },
-          neq(col: string, val: any) { return this; },
-          in(col: string, vals: any) { return this; },
-          async then(resolve: any, reject?: any) {
+          async execute() {
+            const targetId = filters['id'] || filters['user_id'];
+            let url = endpoint;
+            if (targetId) {
+              url += `/${targetId}`;
+            }
             try {
-              const data = await apiFetch(`${endpoint}/${filterId || ''}`, {
+              const data = await apiFetch(url, {
                 method: 'DELETE'
               });
-              resolve({ data, error: null });
+              return { data, error: null };
             } catch (err: any) {
-              resolve({ data: null, error: err });
+              return { data: null, error: err };
             }
+          },
+          then(resolve: any, reject?: any) {
+            return this.execute().then(resolve, reject);
           }
         };
       }
     };
-  },
-
-  storage: {
-    from(bucket: string) {
-      return {
-        async upload(filePath: string, file: File | Blob | any) {
-          try {
-            let base64 = file;
-            if (file instanceof Blob || file instanceof File) {
-              base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-              });
-            }
-
-            const res = await apiFetch('/upload', {
-              method: 'POST',
-              body: JSON.stringify({
-                file: base64,
-                fileName: filePath || file.name || 'upload.png',
-                bucket
-              })
-            });
-
-            return { data: { path: res.publicUrl }, error: null };
-          } catch (err: any) {
-            return { data: null, error: err };
-          }
-        },
-        getPublicUrl(filePath: string) {
-          const publicUrl = filePath.startsWith('/') || filePath.startsWith('http')
-            ? filePath
-            : `/uploads/${filePath}`;
-          return { data: { publicUrl } };
-        }
-      };
-    }
-  },
-
-  functions: {
-
-    async invoke(functionName: string, options?: { body?: any }) {
-      try {
-        let endpoint = `/admin/${functionName}`;
-        if (functionName === 'admin-dash') {
-          const action = options?.body?.action || 'metrics';
-          if (action === 'get_metrics') endpoint = '/admin/metrics';
-          else if (action === 'get_users' || action === 'list_users') endpoint = '/admin/users';
-          else endpoint = '/admin/metrics';
-        } else if (functionName === 'send-email') {
-          endpoint = '/email/send';
-        } else if (functionName === 'send-invite') {
-          endpoint = '/email/send-invite';
-        } else if (functionName === 'mercadopago-api') {
-          endpoint = '/mercadopago/create-preference';
-        }
-
-        const data = await apiFetch(endpoint, {
-          method: 'POST',
-          body: JSON.stringify(options?.body || {})
-        });
-
-        return { data, error: null };
-      } catch (err: any) {
-        return { data: null, error: err };
-      }
-    }
   }
 };
