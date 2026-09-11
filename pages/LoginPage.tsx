@@ -50,30 +50,33 @@ const LoginPage: React.FC<LoginPageProps> = ({ isRegisterMode = false }) => {
 
         try {
             if (isLogin) {
-                let loginEmail = '';
+                let loginEmail = identifier;
                 const cleanId = identifier.replace(/\D/g, '');
 
-                if (!cleanId) {
-                    throw new Error('Por favor, informe o CPF ou CNPJ.');
+                if (!identifier) {
+                    throw new Error('Por favor, informe seu CPF, CNPJ ou E-mail.');
                 }
 
-                // Validação de formato para Login
-                if (cleanId.length === 11 && !validateCPF(cleanId)) {
-                    throw new Error('CPF inválido.');
-                } else if (cleanId.length === 14 && !validateCNPJ(cleanId)) {
-                    throw new Error('CNPJ inválido.');
+                // Validação de formato apenas se for número puro / formatado sem @
+                if (!identifier.includes('@') && cleanId) {
+                    if (cleanId.length === 11 && !validateCPF(cleanId)) {
+                        throw new Error('CPF inválido.');
+                    } else if (cleanId.length === 14 && !validateCNPJ(cleanId)) {
+                        throw new Error('CNPJ inválido.');
+                    }
                 }
 
-                // Busca o e-mail associado ao CPF/CNPJ no banco usando RPC
-                const { data: fetchedEmail, error: rpcError } = await supabase
-                    .rpc('get_email_by_cpf', { p_cpf_cnpj: cleanId });
-
-                if (rpcError) throw rpcError;
-
-                if (fetchedEmail) {
-                    loginEmail = fetchedEmail;
-                } else {
-                    throw new Error('CPF/CNPJ não cadastrado.');
+                // Tentar buscar o e-mail pelo CPF/CNPJ via RPC se disponível
+                if (cleanId && !identifier.includes('@')) {
+                    try {
+                        const { data: fetchedEmail } = await supabase
+                            .rpc('get_email_by_cpf', { p_cpf_cnpj: cleanId });
+                        if (fetchedEmail) {
+                            loginEmail = fetchedEmail;
+                        }
+                    } catch (e) {
+                        // Fallback: prossegue utilizando a identificação informada
+                    }
                 }
 
                 const { data: { session }, error: signInError } = await supabase.auth.signInWithPassword({

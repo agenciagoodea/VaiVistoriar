@@ -1,0 +1,18 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Impedir loop se já estiver acessando api.php
+  RewriteRule ^api\.php$ - [L]
+
+  # Redirecionar todas as chamadas de API para o arquivo api.php
+  RewriteRule ^api/(.*)$ api.php?route=/$1 [QSA,L]
+  RewriteRule ^api$ api.php?route=/ [QSA,L]
+
+  # Redirecionar todas as outras rotas para o index.html (SPA Fallback)
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-l
+  RewriteRule . /index.html [L]
+</IfModule>

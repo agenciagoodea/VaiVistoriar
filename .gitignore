@@ -23,3 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 vistoria10/
+prospector-config.json
+*.zip
+*.tar.gz
+fila-publicacao.txt
+fila-publicada-*.txt
+publicador-log.txt
+scripts/test_*.cjs
+scripts/verify_*.cjs
+scripts/deploy_*.cjs
+scripts/finish_*.cjs
+scripts/full_system_diagnostic.cjs
+
