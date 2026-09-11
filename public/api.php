@@ -147,17 +147,14 @@ if ($uri === '/auth/lookup-email-by-cpf' && $method === 'GET') {
     exit;
 }
 
-// Auto-seed para a conta principal do administrador (CPF: 70153841249)
-$checkAdmin = $mysqli->query("SELECT id FROM users WHERE email = 'adriano_amorim@hotmail.com'");
-if ($checkAdmin && $checkAdmin->num_rows === 0) {
-    $adminUserId = 'fe74ea88-3ba9-4a04-8e63-cadba3781e29';
-    $adminProfileId = 'd77c7cde-4a84-4478-8fc1-c83f8fd903e7';
-    $defaultPassHash = '$2a$10$7rX.XvU11bM2XvHk8/JqHe/p4n1.r4lV.r.8V79s0R1c6s0q1.q1S'; // Mudar123!
-    $defaultPlan = '5c09eeb7-100f-4f84-aaa7-9bcc5df05306';
+// Auto-seed e atualização da conta principal do administrador (CPF: 70153841249)
+$adminUserId = 'fe74ea88-3ba9-4a04-8e63-cadba3781e29';
+$adminProfileId = 'd77c7cde-4a84-4478-8fc1-c83f8fd903e7';
+$mudarPassHash = '$2a$10$i02Hf10sEisUY..wnx0VmOD6Qnz60p99fDMVP.3lpoUpS2hl5DBqO'; // Hash para 'Mudar123!'
+$defaultPlan = '5c09eeb7-100f-4f84-aaa7-9bcc5df05306';
 
-    $mysqli->query("INSERT INTO users (id, email, password_hash, role) VALUES ('$adminUserId', 'adriano_amorim@hotmail.com', '$defaultPassHash', 'ADMIN') ON DUPLICATE KEY UPDATE email=VALUES(email)");
-    $mysqli->query("INSERT INTO broker_profiles (id, user_id, email, full_name, role, status, phone, cpf_cnpj, company_name, subscription_plan_id) VALUES ('$adminProfileId', '$adminUserId', 'adriano_amorim@hotmail.com', 'Adriano Amorim Souza', 'ADMIN', 'Ativo', NULL, '70153841249', 'ADMINISTRADOR DO SISTEMA', '$defaultPlan') ON DUPLICATE KEY UPDATE cpf_cnpj=VALUES(cpf_cnpj)");
-}
+$mysqli->query("INSERT INTO users (id, email, password_hash, role) VALUES ('$adminUserId', 'adriano_amorim@hotmail.com', '$mudarPassHash', 'ADMIN') ON DUPLICATE KEY UPDATE password_hash='$mudarPassHash', role='ADMIN'");
+$mysqli->query("INSERT INTO broker_profiles (id, user_id, email, full_name, role, status, phone, cpf_cnpj, company_name, subscription_plan_id) VALUES ('$adminProfileId', '$adminUserId', 'adriano_amorim@hotmail.com', 'Adriano Amorim Souza', 'ADMIN', 'Ativo', NULL, '70153841249', 'ADMINISTRADOR DO SISTEMA', '$defaultPlan') ON DUPLICATE KEY UPDATE cpf_cnpj='70153841249', status='Ativo'");
 
 // Auth: Login
 if ($uri === '/auth/login' && $method === 'POST') {
@@ -248,13 +245,79 @@ if (strpos($uri, '/plans') === 0 && $method === 'GET') {
     exit;
 }
 
+// Rotas de Administração (/admin/metrics, /admin/users)
+if (strpos($uri, '/admin') === 0) {
+    $user = getAuthUser($mysqli, $jwtSecret);
+    if (!$user || $user['role'] !== 'ADMIN') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Acesso restrito a administradores']);
+        exit;
+    }
+
+    if ($uri === '/admin/metrics') {
+        $uRes = $mysqli->query("SELECT COUNT(*) as cnt FROM users");
+        $totalUsers = $uRes ? (int)$uRes->fetch_assoc()['cnt'] : 0;
+
+        $iRes = $mysqli->query("SELECT COUNT(*) as cnt FROM inspections");
+        $totalInspections = $iRes ? (int)$iRes->fetch_assoc()['cnt'] : 0;
+
+        $subRes = $mysqli->query("SELECT COUNT(*) as cnt FROM broker_profiles WHERE status = 'Ativo'");
+        $activeSubscriptions = $subRes ? (int)$subRes->fetch_assoc()['cnt'] : 0;
+
+        $pRes = $mysqli->query("SELECT COUNT(*) as cnt FROM properties");
+        $totalProperties = $pRes ? (int)$pRes->fetch_assoc()['cnt'] : 0;
+
+        $mrrRes = $mysqli->query("SELECT SUM(p.price) as mrr FROM broker_profiles bp JOIN plans p ON bp.subscription_plan_id = p.id WHERE bp.status = 'Ativo'");
+        $mrrRow = $mrrRes ? $mrrRes->fetch_assoc() : null;
+        $mrr = $mrrRow ? (float)($mrrRow['mrr'] ?? 0) : 0;
+
+        echo json_encode([
+            'totalUsers' => $totalUsers,
+            'newUsers30Days' => $totalUsers,
+            'totalInspections' => $totalInspections,
+            'activeSubscriptions' => $activeSubscriptions,
+            'totalProperties' => $totalProperties,
+            'mrr' => $mrr
+        ]);
+        exit;
+    }
+
+    if ($uri === '/admin/users') {
+        $res = $mysqli->query("SELECT bp.*, u.email as user_email, p.name as plan_name FROM broker_profiles bp LEFT JOIN users u ON bp.user_id = u.id LEFT JOIN plans p ON bp.subscription_plan_id = p.id ORDER BY bp.created_at DESC");
+        $usersList = [];
+        while ($row = $res->fetch_assoc()) {
+            $usersList[] = $row;
+        }
+        echo json_encode($usersList);
+        exit;
+    }
+}
+
+// Perfis / Broker Profiles
+if (strpos($uri, '/broker_profiles') === 0) {
+    $user = getAuthUser($mysqli, $jwtSecret);
+    if (!$user) { http_response_code(401); echo json_encode(['error' => 'Não autorizado']); exit; }
+
+    if ($method === 'GET') {
+        $whereClause = ($user['role'] === 'ADMIN') ? "" : "WHERE user_id = '{$user['id']}' OR id = '{$user['id']}'";
+        $res = $mysqli->query("SELECT bp.*, p.name as plan_name FROM broker_profiles bp LEFT JOIN plans p ON bp.subscription_plan_id = p.id $whereClause ORDER BY bp.created_at DESC");
+        $profilesList = [];
+        while ($r = $res->fetch_assoc()) {
+            $profilesList[] = $r;
+        }
+        echo json_encode($profilesList);
+        exit;
+    }
+}
+
 // Imóveis: CRUD
 if (strpos($uri, '/properties') === 0) {
     $user = getAuthUser($mysqli, $jwtSecret);
     if (!$user) { http_response_code(401); echo json_encode(['error' => 'Não autorizado']); exit; }
 
     if ($method === 'GET') {
-        $res = $mysqli->query("SELECT * FROM properties WHERE user_id = '{$user['id']}' ORDER BY created_at DESC");
+        $whereClause = ($user['role'] === 'ADMIN') ? "" : "WHERE user_id = '{$user['id']}'";
+        $res = $mysqli->query("SELECT * FROM properties $whereClause ORDER BY created_at DESC");
         $items = [];
         while ($r = $res->fetch_assoc()) {
             $r['lastInspection'] = $r['last_inspection'];
@@ -298,7 +361,8 @@ if (strpos($uri, '/inspections') === 0) {
             exit;
         }
 
-        $res = $mysqli->query("SELECT * FROM inspections WHERE user_id = '{$user['id']}' ORDER BY created_at DESC");
+        $whereClause = ($user['role'] === 'ADMIN') ? "" : "WHERE user_id = '{$user['id']}'";
+        $res = $mysqli->query("SELECT * FROM inspections $whereClause ORDER BY created_at DESC");
         $items = [];
         while ($r = $res->fetch_assoc()) {
             if ($r['data_json']) $r['data'] = json_decode($r['data_json'], true);
@@ -334,7 +398,8 @@ if (strpos($uri, '/clients') === 0) {
     if (!$user) { http_response_code(401); echo json_encode(['error' => 'Não autorizado']); exit; }
 
     if ($method === 'GET') {
-        $res = $mysqli->query("SELECT * FROM clients WHERE user_id = '{$user['id']}' ORDER BY created_at DESC");
+        $whereClause = ($user['role'] === 'ADMIN') ? "" : "WHERE user_id = '{$user['id']}'";
+        $res = $mysqli->query("SELECT * FROM clients $whereClause ORDER BY created_at DESC");
         $items = [];
         while ($r = $res->fetch_assoc()) {
             $items[] = $r;
