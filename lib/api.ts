@@ -144,6 +144,27 @@ export const customSupabaseClient = {
     }
   },
 
+  channel(name: string) {
+    return {
+      on(event: string, opts: any, callback: any) {
+        return this;
+      },
+      subscribe(callback?: any) {
+        if (callback) callback('SUBSCRIBED');
+        return this;
+      },
+      unsubscribe() {
+        return this;
+      }
+    };
+  },
+  removeChannel(channel: any) {
+    return this;
+  },
+  removeAllChannels() {
+    return this;
+  },
+
   from(table: string) {
     let endpoint = `/${table}`;
 
@@ -157,14 +178,58 @@ export const customSupabaseClient = {
             filters[column] = value;
             return this;
           },
+          neq(column: string, value: any) {
+            filters[`${column}_neq`] = value;
+            return this;
+          },
+          gt(column: string, value: any) {
+            filters[`${column}_gt`] = value;
+            return this;
+          },
+          gte(column: string, value: any) {
+            filters[`${column}_gte`] = value;
+            return this;
+          },
+          lt(column: string, value: any) {
+            filters[`${column}_lt`] = value;
+            return this;
+          },
+          lte(column: string, value: any) {
+            filters[`${column}_lte`] = value;
+            return this;
+          },
           in(column: string, values: any[]) {
-            filters[`${column}_in`] = values.join(',');
+            filters[`${column}_in`] = Array.isArray(values) ? values.join(',') : values;
+            return this;
+          },
+          is(column: string, value: any) {
+            filters[`${column}_is`] = value;
+            return this;
+          },
+          not(column: string, operator: string, value: any) {
+            return this;
+          },
+          or(filtersStr: string) {
+            return this;
+          },
+          like(column: string, pattern: string) {
+            filters[`${column}_like`] = pattern;
+            return this;
+          },
+          ilike(column: string, pattern: string) {
+            filters[`${column}_ilike`] = pattern;
+            return this;
+          },
+          contains(column: string, val: any) {
             return this;
           },
           order(column: string, opts?: any) {
             return this;
           },
           limit(count: number) {
+            return this;
+          },
+          range(from: number, to: number) {
             return this;
           },
           single() {
@@ -224,6 +289,8 @@ export const customSupabaseClient = {
             if (col === 'id' || col === 'user_id' || col === 'key') filterId = val;
             return this;
           },
+          neq(col: string, val: any) { return this; },
+          in(col: string, vals: any) { return this; },
           async then(resolve: any, reject?: any) {
             try {
               let targetUrl = endpoint;
@@ -265,9 +332,11 @@ export const customSupabaseClient = {
             filterId = val;
             return this;
           },
+          neq(col: string, val: any) { return this; },
+          in(col: string, vals: any) { return this; },
           async then(resolve: any, reject?: any) {
             try {
-              const data = await apiFetch(`${endpoint}/${filterId}`, {
+              const data = await apiFetch(`${endpoint}/${filterId || ''}`, {
                 method: 'DELETE'
               });
               resolve({ data, error: null });

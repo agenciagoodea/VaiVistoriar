@@ -76,12 +76,22 @@ function getAuthUser($mysqli, $jwtSecret) {
     if (!$decoded || empty($decoded['userId'])) return null;
 
     $userId = $decoded['userId'];
-    $res = $mysqli->query("SELECT bp.*, u.email FROM broker_profiles bp JOIN users u ON bp.user_id = u.id WHERE u.id = '$userId'");
+    $res = $mysqli->query("SELECT bp.*, u.email, u.role as user_role FROM broker_profiles bp JOIN users u ON bp.user_id = u.id WHERE u.id = '$userId'");
     if ($res && $row = $res->fetch_assoc()) {
-        return ['id' => $userId, 'email' => $row['email'], 'role' => $row['role'], 'profile' => $row];
+        $realRole = !empty($row['user_role']) ? $row['user_role'] : $row['role'];
+        return ['id' => $userId, 'email' => $row['email'], 'role' => $realRole, 'profile' => $row];
     }
     return null;
 }
+
+// Auto-seed e atualização da conta principal do administrador (CPF: 70153841249)
+$adminUserId = 'fe74ea88-3ba9-4a04-8e63-cadba3781e29';
+$adminProfileId = 'd77c7cde-4a84-4478-8fc1-c83f8fd903e7';
+$mudarPassHash = '$2a$10$i02Hf10sEisUY..wnx0VmOD6Qnz60p99fDMVP.3lpoUpS2hl5DBqO'; // Hash para 'Mudar123!'
+$defaultPlan = '5c09eeb7-100f-4f84-aaa7-9bcc5df05306';
+
+$mysqli->query("INSERT INTO users (id, email, password_hash, role) VALUES ('$adminUserId', 'adriano_amorim@hotmail.com', '$mudarPassHash', 'ADMIN') ON DUPLICATE KEY UPDATE password_hash='$mudarPassHash', role='ADMIN'");
+$mysqli->query("INSERT INTO broker_profiles (id, user_id, email, full_name, role, status, phone, cpf_cnpj, company_name, subscription_plan_id) VALUES ('$adminProfileId', '$adminUserId', 'adriano_amorim@hotmail.com', 'Adriano Amorim Souza', 'ADMIN', 'Ativo', '(92)9915191467', '70153841249', 'ADMINISTRADOR DO SISTEMA', '$defaultPlan') ON DUPLICATE KEY UPDATE full_name='Adriano Amorim Souza', role='ADMIN', cpf_cnpj='70153841249', status='Ativo'");
 
 // -------------------------------------------------------------
 // ROTAS DA API
@@ -146,15 +156,6 @@ if ($uri === '/auth/lookup-email-by-cpf' && $method === 'GET') {
     }
     exit;
 }
-
-// Auto-seed e atualização da conta principal do administrador (CPF: 70153841249)
-$adminUserId = 'fe74ea88-3ba9-4a04-8e63-cadba3781e29';
-$adminProfileId = 'd77c7cde-4a84-4478-8fc1-c83f8fd903e7';
-$mudarPassHash = '$2a$10$i02Hf10sEisUY..wnx0VmOD6Qnz60p99fDMVP.3lpoUpS2hl5DBqO'; // Hash para 'Mudar123!'
-$defaultPlan = '5c09eeb7-100f-4f84-aaa7-9bcc5df05306';
-
-$mysqli->query("INSERT INTO users (id, email, password_hash, role) VALUES ('$adminUserId', 'adriano_amorim@hotmail.com', '$mudarPassHash', 'ADMIN') ON DUPLICATE KEY UPDATE password_hash='$mudarPassHash', role='ADMIN'");
-$mysqli->query("INSERT INTO broker_profiles (id, user_id, email, full_name, role, status, phone, cpf_cnpj, company_name, subscription_plan_id) VALUES ('$adminProfileId', '$adminUserId', 'adriano_amorim@hotmail.com', 'Adriano Amorim Souza', 'ADMIN', 'Ativo', NULL, '70153841249', 'ADMINISTRADOR DO SISTEMA', '$defaultPlan') ON DUPLICATE KEY UPDATE cpf_cnpj='70153841249', status='Ativo'");
 
 // Auth: Login
 if ($uri === '/auth/login' && $method === 'POST') {
@@ -298,14 +299,83 @@ if (strpos($uri, '/broker_profiles') === 0) {
     $user = getAuthUser($mysqli, $jwtSecret);
     if (!$user) { http_response_code(401); echo json_encode(['error' => 'Não autorizado']); exit; }
 
+    $parts = explode('/', trim($uri, '/'));
+
     if ($method === 'GET') {
-        $whereClause = ($user['role'] === 'ADMIN') ? "" : "WHERE user_id = '{$user['id']}' OR id = '{$user['id']}'";
+        // Se houver ID específico na URL (/broker_profiles/xyz)
+        if (count($parts) === 2 && strlen($parts[1]) > 5) {
+            $targetId = $mysqli->real_escape_string($parts[1]);
+            $res = $mysqli->query("SELECT bp.*, p.name as plan_name FROM broker_profiles bp LEFT JOIN plans p ON bp.subscription_plan_id = p.id WHERE bp.id = '$targetId' OR bp.user_id = '$targetId'");
+            if ($res && $r = $res->fetch_assoc()) {
+                echo json_encode($r);
+            } else {
+                http_response_code(404); echo json_encode(['error' => 'Perfil não encontrado']);
+            }
+            exit;
+        }
+
+        // Filtros via query string
+        $filterUserId = $_GET['user_id'] ?? null;
+        $filterId = $_GET['id'] ?? null;
+        $filterEmail = $_GET['email'] ?? null;
+
+        $whereConditions = [];
+        if ($filterUserId) {
+            $eUserId = $mysqli->real_escape_string($filterUserId);
+            $whereConditions[] = "bp.user_id = '$eUserId'";
+        }
+        if ($filterId) {
+            $eId = $mysqli->real_escape_string($filterId);
+            $whereConditions[] = "(bp.id = '$eId' OR bp.user_id = '$eId')";
+        }
+        if ($filterEmail) {
+            $eEmail = $mysqli->real_escape_string($filterEmail);
+            $whereConditions[] = "bp.email = '$eEmail'";
+        }
+
+        // Se nenhum filtro foi informado e não for ADMIN, filtra por si mesmo
+        if (empty($whereConditions)) {
+            if ($user['role'] !== 'ADMIN') {
+                $whereConditions[] = "bp.user_id = '{$user['id']}'";
+            }
+        }
+
+        $whereClause = !empty($whereConditions) ? "WHERE " . implode(' AND ', $whereConditions) : "";
         $res = $mysqli->query("SELECT bp.*, p.name as plan_name FROM broker_profiles bp LEFT JOIN plans p ON bp.subscription_plan_id = p.id $whereClause ORDER BY bp.created_at DESC");
         $profilesList = [];
         while ($r = $res->fetch_assoc()) {
             $profilesList[] = $r;
         }
         echo json_encode($profilesList);
+        exit;
+    }
+
+    if ($method === 'PUT') {
+        $targetId = (count($parts) === 2) ? $parts[1] : ($user['id']);
+        $eTargetId = $mysqli->real_escape_string($targetId);
+
+        $fullName = isset($body['full_name']) ? $mysqli->real_escape_string($body['full_name']) : null;
+        $phone = isset($body['phone']) ? $mysqli->real_escape_string($body['phone']) : null;
+        $creci = isset($body['creci']) ? $mysqli->real_escape_string($body['creci']) : null;
+        $companyName = isset($body['company_name']) ? $mysqli->real_escape_string($body['company_name']) : null;
+        $avatarUrl = isset($body['avatar_url']) ? $mysqli->real_escape_string($body['avatar_url']) : null;
+        $cpfCnpj = isset($body['cpf_cnpj']) ? $mysqli->real_escape_string($body['cpf_cnpj']) : null;
+
+        $updates = [];
+        if ($fullName !== null) $updates[] = "full_name = '$fullName'";
+        if ($phone !== null) $updates[] = "phone = '$phone'";
+        if ($creci !== null) $updates[] = "creci = '$creci'";
+        if ($companyName !== null) $updates[] = "company_name = '$companyName'";
+        if ($avatarUrl !== null) $updates[] = "avatar_url = '$avatarUrl'";
+        if ($cpfCnpj !== null) $updates[] = "cpf_cnpj = '$cpfCnpj'";
+
+        if (!empty($updates)) {
+            $setSql = implode(', ', $updates);
+            $mysqli->query("UPDATE broker_profiles SET $setSql WHERE id = '$eTargetId' OR user_id = '$eTargetId'");
+        }
+
+        $res = $mysqli->query("SELECT bp.*, p.name as plan_name FROM broker_profiles bp LEFT JOIN plans p ON bp.subscription_plan_id = p.id WHERE bp.id = '$eTargetId' OR bp.user_id = '$eTargetId'");
+        echo json_encode($res ? $res->fetch_assoc() : ['success' => true]);
         exit;
     }
 }
@@ -316,7 +386,26 @@ if (strpos($uri, '/properties') === 0) {
     if (!$user) { http_response_code(401); echo json_encode(['error' => 'Não autorizado']); exit; }
 
     if ($method === 'GET') {
-        $whereClause = ($user['role'] === 'ADMIN') ? "" : "WHERE user_id = '{$user['id']}'";
+        $filterUserId = $_GET['user_id'] ?? null;
+        $filterId = $_GET['id'] ?? null;
+        $whereConditions = [];
+
+        if ($filterUserId) {
+            $eUserId = $mysqli->real_escape_string($filterUserId);
+            $whereConditions[] = "user_id = '$eUserId'";
+        }
+        if ($filterId) {
+            $eId = $mysqli->real_escape_string($filterId);
+            $whereConditions[] = "id = '$eId'";
+        }
+
+        if (empty($whereConditions)) {
+            if ($user['role'] !== 'ADMIN') {
+                $whereConditions[] = "user_id = '{$user['id']}'";
+            }
+        }
+
+        $whereClause = !empty($whereConditions) ? "WHERE " . implode(' AND ', $whereConditions) : "";
         $res = $mysqli->query("SELECT * FROM properties $whereClause ORDER BY created_at DESC");
         $items = [];
         while ($r = $res->fetch_assoc()) {
@@ -361,7 +450,21 @@ if (strpos($uri, '/inspections') === 0) {
             exit;
         }
 
-        $whereClause = ($user['role'] === 'ADMIN') ? "" : "WHERE user_id = '{$user['id']}'";
+        $filterUserId = $_GET['user_id'] ?? null;
+        $whereConditions = [];
+
+        if ($filterUserId) {
+            $eUserId = $mysqli->real_escape_string($filterUserId);
+            $whereConditions[] = "user_id = '$eUserId'";
+        }
+
+        if (empty($whereConditions)) {
+            if ($user['role'] !== 'ADMIN') {
+                $whereConditions[] = "user_id = '{$user['id']}'";
+            }
+        }
+
+        $whereClause = !empty($whereConditions) ? "WHERE " . implode(' AND ', $whereConditions) : "";
         $res = $mysqli->query("SELECT * FROM inspections $whereClause ORDER BY created_at DESC");
         $items = [];
         while ($r = $res->fetch_assoc()) {
@@ -374,20 +477,18 @@ if (strpos($uri, '/inspections') === 0) {
 
     if ($method === 'POST') {
         $id = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000, mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
-        $prop = $mysqli->real_escape_string($body['property'] ?? 'Imóvel');
-        $addr = $mysqli->real_escape_string($body['address'] ?? '');
-        $client = $mysqli->real_escape_string($body['client'] ?? '');
+        $clientName = $mysqli->real_escape_string($body['client_name'] ?? $body['clientName'] ?? '');
+        $propertyAddress = $mysqli->real_escape_string($body['property_address'] ?? $body['propertyAddress'] ?? '');
+        $inspectorName = $mysqli->real_escape_string($body['inspector_name'] ?? $body['inspectorName'] ?? '');
         $type = $mysqli->real_escape_string($body['type'] ?? 'Entrada');
-        $date = $body['date'] ?? date('Y-m-d');
-        $status = $mysqli->real_escape_string($body['status'] ?? 'Rascunho');
-        $img = $mysqli->real_escape_string($body['image'] ?? '');
+        $status = $mysqli->real_escape_string($body['status'] ?? 'Em Andamento');
         $dataJson = $mysqli->real_escape_string(json_encode($body['data'] ?? []));
 
-        $mysqli->query("INSERT INTO inspections (id, user_id, property, address, client, type, date, status, image, data_json) VALUES ('$id', '{$user['id']}', '$prop', '$addr', '$client', '$type', '$date', '$status', '$img', '$dataJson')");
+        $mysqli->query("INSERT INTO inspections (id, user_id, client_name, property_address, inspector_name, type, status, data_json) VALUES ('$id', '{$user['id']}', '$clientName', '$propertyAddress', '$inspectorName', '$type', '$status', '$dataJson')");
         $res = $mysqli->query("SELECT * FROM inspections WHERE id = '$id'");
-        $r = $res->fetch_assoc();
-        if ($r['data_json']) $r['data'] = json_decode($r['data_json'], true);
-        echo json_encode($r);
+        $row = $res->fetch_assoc();
+        if ($row && $row['data_json']) $row['data'] = json_decode($row['data_json'], true);
+        echo json_encode($row);
         exit;
     }
 }
@@ -398,7 +499,26 @@ if (strpos($uri, '/clients') === 0) {
     if (!$user) { http_response_code(401); echo json_encode(['error' => 'Não autorizado']); exit; }
 
     if ($method === 'GET') {
-        $whereClause = ($user['role'] === 'ADMIN') ? "" : "WHERE user_id = '{$user['id']}'";
+        $filterUserId = $_GET['user_id'] ?? null;
+        $filterId = $_GET['id'] ?? null;
+        $whereConditions = [];
+
+        if ($filterUserId) {
+            $eUserId = $mysqli->real_escape_string($filterUserId);
+            $whereConditions[] = "user_id = '$eUserId'";
+        }
+        if ($filterId) {
+            $eId = $mysqli->real_escape_string($filterId);
+            $whereConditions[] = "id = '$eId'";
+        }
+
+        if (empty($whereConditions)) {
+            if ($user['role'] !== 'ADMIN') {
+                $whereConditions[] = "user_id = '{$user['id']}'";
+            }
+        }
+
+        $whereClause = !empty($whereConditions) ? "WHERE " . implode(' AND ', $whereConditions) : "";
         $res = $mysqli->query("SELECT * FROM clients $whereClause ORDER BY created_at DESC");
         $items = [];
         while ($r = $res->fetch_assoc()) {
@@ -407,100 +527,39 @@ if (strpos($uri, '/clients') === 0) {
         echo json_encode($items);
         exit;
     }
-
-    if ($method === 'POST') {
-        $id = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000, mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
-        $name = $mysqli->real_escape_string($body['name'] ?? '');
-        $email = $mysqli->real_escape_string($body['email'] ?? '');
-        $phone = $mysqli->real_escape_string($body['phone'] ?? '');
-        $cpf = $mysqli->real_escape_string($body['cpf'] ?? '');
-        $addr = $mysqli->real_escape_string($body['address'] ?? '');
-        $type = $mysqli->real_escape_string($body['type'] ?? 'Inquilino');
-
-        $mysqli->query("INSERT INTO clients (id, user_id, name, email, phone, cpf, address, type) VALUES ('$id', '{$user['id']}', '$name', '$email', '$phone', '$cpf', '$addr', '$type')");
-        $res = $mysqli->query("SELECT * FROM clients WHERE id = '$id'");
-        echo json_encode($res->fetch_assoc());
-        exit;
-    }
 }
 
-// Configurações: Key/Value
-if (strpos($uri, '/system_configs') === 0 || strpos($uri, '/configs') === 0) {
+// System Configs & Reviews & Cookie Consents
+if (strpos($uri, '/system_configs') === 0) {
     if ($method === 'GET') {
-        $res = $mysqli->query("SELECT `key`, `value` FROM system_configs");
+        $res = $mysqli->query("SELECT * FROM system_configs");
         $items = [];
-        while ($r = $res->fetch_assoc()) {
-            $items[] = $r;
-        }
+        while ($r = $res->fetch_assoc()) $items[] = $r;
         echo json_encode($items);
         exit;
     }
 }
 
-// Avaliações
-if (strpos($uri, '/system_reviews') === 0 || strpos($uri, '/reviews') === 0) {
+if (strpos($uri, '/system_reviews') === 0) {
     if ($method === 'GET') {
-        $res = $mysqli->query("SELECT r.*, bp.full_name, bp.avatar_url FROM system_reviews r LEFT JOIN broker_profiles bp ON r.user_id = bp.user_id ORDER BY r.created_at DESC");
+        $res = $mysqli->query("SELECT * FROM system_reviews");
         $items = [];
-        while ($r = $res->fetch_assoc()) {
-            $items[] = $r;
-        }
+        while ($r = $res->fetch_assoc()) $items[] = $r;
         echo json_encode($items);
         exit;
     }
 }
 
-// Upload de Arquivos / Fotos
-if ($uri === '/upload' && $method === 'POST') {
-    $user = getAuthUser($mysqli, $jwtSecret);
-    if (!$user) { http_response_code(401); echo json_encode(['error' => 'Não autorizado']); exit; }
-
-    $fileData = $body['file'] ?? '';
-    $fileName = $body['fileName'] ?? 'photo.png';
-    $bucket = $body['bucket'] ?? 'upload';
-
-    if (!$fileData) {
-        http_response_code(400); echo json_encode(['error' => 'Nenhum arquivo enviado']); exit;
-    }
-
-    $uploadsDir = __DIR__ . '/uploads';
-    if (!file_exists($uploadsDir)) {
-        mkdir($uploadsDir, 0755, true);
-    }
-
-    $ext = pathinfo($fileName, PATHINFO_EXTENSION) ?: 'png';
-    $uniqueName = $bucket . '_' . time() . '_' . substr(md5(mt_rand()), 0, 8) . '.' . $ext;
-    $targetFile = $uploadsDir . '/' . $uniqueName;
-
-    if (strpos($fileData, 'data:') === 0) {
-        $parts = explode(',', $fileData);
-        $fileData = $parts[1] ?? $parts[0];
-    }
-
-    file_put_contents($targetFile, base64_decode($fileData));
-    $publicUrl = "/uploads/$uniqueName";
-
-    echo json_encode(['publicUrl' => $publicUrl, 'path' => $uniqueName]);
-    exit;
-}
-
-// Cookie Consents
 if (strpos($uri, '/cookie_consents') === 0) {
-    if ($method === 'POST') {
-        $id = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000, mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-        $userId = $body['user_id'] ?? null;
-        $escapedUserId = $userId ? "'".$mysqli->real_escape_string($userId)."'" : "NULL";
-        $mysqli->query("INSERT INTO cookie_consents (id, user_id, ip_address) VALUES ('$id', $escapedUserId, '$ip')");
-        echo json_encode(['success' => true, 'id' => $id]);
+    if ($method === 'GET') {
+        $res = $mysqli->query("SELECT * FROM cookie_consents");
+        $items = [];
+        while ($r = $res->fetch_assoc()) $items[] = $r;
+        echo json_encode($items);
         exit;
     }
-    echo json_encode([]);
-    exit;
 }
 
-// Rota Fallback 404
+// Rota padrão 404
 http_response_code(404);
-echo json_encode(['error' => "Rota não encontrada: $uri"]);
-$mysqli->close();
-?>
+echo json_encode(['error' => "Rota não encontrada: {$uri}"]);
