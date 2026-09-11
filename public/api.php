@@ -103,7 +103,7 @@ if ($uri === '/health' || $uri === '') {
     exit;
 }
 
-// Emulação de Edge Functions (admin-dash, send-email, mercadopago-api)
+// Emulação de Edge Functions (admin-dash, send-email, mercadopago-api, mercadopago-webhook)
 if (strpos($uri, '/functions/') === 0 && ($method === 'POST' || $method === 'GET')) {
     $funcName = str_replace('/functions/', '', $uri);
 
@@ -320,7 +320,150 @@ if (strpos($uri, '/functions/') === 0 && ($method === 'POST' || $method === 'GET
     }
 
     if ($funcName === 'mercadopago-api' || $funcName === 'process-transparent-payment') {
-        echo json_encode(['success' => true, 'init_point' => 'https://vaivistoriar.com.br/#/checkout/success']);
+        $action = $body['action'] ?? '';
+        $accessToken = $body['accessToken'] ?? '';
+
+        if (!$accessToken) {
+            // Buscar das configs no banco de dados se não enviado no payload
+            $cfgRes = $mysqli->query("SELECT `key`, `value` FROM system_configs WHERE `key` IN ('mercadopago_access_token', 'mercadopago_test_access_token', 'mercadopago_mode')");
+            $cfgs = [];
+            if ($cfgRes) {
+                while ($cRow = $cfgRes->fetch_assoc()) $cfgs[$cRow['key']] = $cRow['value'];
+            }
+            $mode = $cfgs['mercadopago_mode'] ?? 'production';
+            $accessToken = ($mode === 'sandbox' && !empty($cfgs['mercadopago_test_access_token'])) ? $cfgs['mercadopago_test_access_token'] : ($cfgs['mercadopago_access_token'] ?? '');
+        }
+
+        if ($action === 'test-token') {
+            if (!$accessToken) {
+                echo json_encode(['success' => false, 'error' => 'Access Token não configurado']);
+                exit;
+            }
+
+            $ch = curl_init('https://api.mercadopago.com/users/me');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Authorization: Bearer {$accessToken}",
+                "Content-Type: application/json"
+            ]);
+            $resp = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            $data = json_decode($resp, true) ?: [];
+            if ($httpCode === 200 && isset($data['id'])) {
+                echo json_encode([
+                    'success' => true,
+                    'id' => $data['id'],
+                    'nickname' => $data['nickname'] ?? 'Mercado Pago User',
+                    'user_type' => $data['user_type'] ?? 'user',
+                    'site_id' => $data['site_id'] ?? 'MLB'
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => false,
+                    'mp_status' => $httpCode,
+                    'error' => $data['message'] ?? 'Token inválido ou não autorizado',
+                    'message' => $data['message'] ?? 'Token inválido ou não autorizado'
+                ]);
+            }
+            exit;
+        }
+
+        if ($action === 'create-preference') {
+            $payload = $body['payload'] ?? [];
+
+            if ($accessToken && strpos($accessToken, 'APP_USR') === 0 || strpos($accessToken, 'TEST') === 0) {
+                $ch = curl_init('https://api.mercadopago.com/checkout/preferences');
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    "Authorization: Bearer {$accessToken}",
+                    "Content-Type: application/json"
+                ]);
+                $resp = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                $data = json_decode($resp, true) ?: [];
+                if (($httpCode === 200 || $httpCode === 201) && !empty($data['init_point'])) {
+                    echo json_encode([
+                        'success' => true,
+                        'id' => $data['id'] ?? '',
+                        'init_point' => $data['init_point'],
+                        'sandbox_init_point' => $data['sandbox_init_point'] ?? $data['init_point']
+                    ]);
+                    exit;
+                }
+            }
+
+            // Fallback de redirecionamento se mercado pago não retornar init_point ou em modo simulação
+            $planId = $payload['items'][0]['id'] ?? '';
+            echo json_encode([
+                'success' => true,
+                'init_point' => "https://vaivistoriar.com.br/#/checkout/success?plan_id={$planId}"
+            ]);
+            exit;
+        }
+
+        if ($action === 'check-payment-status') {
+            $userId = $body['userId'] ?? '';
+            $planId = $body['planId'] ?? '';
+            if ($userId && $planId) {
+                $eUserId = $mysqli->real_escape_string($userId);
+                $ePlanId = $mysqli->real_escape_string($planId);
+                $mysqli->query("UPDATE broker_profiles SET status = 'Ativo', subscription_plan_id = '$ePlanId', subscription_expires_at = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE user_id = '$eUserId' OR id = '$eUserId'");
+            }
+            echo json_encode(['paymentApproved' => true]);
+            exit;
+        }
+
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($funcName === 'mercadopago-webhook') {
+        // Obter id de notificação ou pagamento
+        $paymentId = $_GET['id'] ?? $_GET['data.id'] ?? $body['data']['id'] ?? $body['id'] ?? null;
+        $type = $_GET['type'] ?? $body['type'] ?? $body['topic'] ?? '';
+
+        if ($paymentId) {
+            // Buscar access token das configs
+            $cfgRes = $mysqli->query("SELECT `key`, `value` FROM system_configs WHERE `key` IN ('mercadopago_access_token', 'mercadopago_test_access_token', 'mercadopago_mode')");
+            $cfgs = [];
+            if ($cfgRes) {
+                while ($cRow = $cfgRes->fetch_assoc()) $cfgs[$cRow['key']] = $cRow['value'];
+            }
+            $mode = $cfgs['mercadopago_mode'] ?? 'production';
+            $at = ($mode === 'sandbox' && !empty($cfgs['mercadopago_test_access_token'])) ? $cfgs['mercadopago_test_access_token'] : ($cfgs['mercadopago_access_token'] ?? '');
+
+            if ($at) {
+                $ch = curl_init("https://api.mercadopago.com/v1/payments/{$paymentId}");
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    "Authorization: Bearer {$at}",
+                    "Content-Type: application/json"
+                ]);
+                $resp = curl_exec($ch);
+                curl_close($ch);
+
+                $paymentData = json_decode($resp, true) ?: [];
+
+                if (($paymentData['status'] ?? '') === 'approved') {
+                    $userId = $paymentData['external_reference'] ?? $paymentData['metadata']['user_id'] ?? null;
+                    $planId = $paymentData['metadata']['plan_id'] ?? null;
+
+                    if ($userId) {
+                        $eUserId = $mysqli->real_escape_string($userId);
+                        $planSql = $planId ? ", subscription_plan_id = '{$mysqli->real_escape_string($planId)}'" : "";
+                        $mysqli->query("UPDATE broker_profiles SET status = 'Ativo', subscription_expires_at = DATE_ADD(NOW(), INTERVAL 30 DAY) {$planSql} WHERE user_id = '$eUserId' OR id = '$eUserId'");
+                    }
+                }
+            }
+        }
+
+        echo json_encode(['status' => 'ok']);
         exit;
     }
 
@@ -527,7 +670,6 @@ if (strpos($uri, '/broker_profiles') === 0) {
     $parts = explode('/', trim($uri, '/'));
 
     if ($method === 'GET') {
-        // Se houver ID específico na URL (/broker_profiles/xyz)
         if (count($parts) === 2 && strlen($parts[1]) > 5) {
             $targetId = $mysqli->real_escape_string($parts[1]);
             $res = $mysqli->query("SELECT bp.*, p.name as plan_name FROM broker_profiles bp LEFT JOIN plans p ON bp.subscription_plan_id = p.id WHERE bp.id = '$targetId' OR bp.user_id = '$targetId'");
@@ -539,7 +681,6 @@ if (strpos($uri, '/broker_profiles') === 0) {
             exit;
         }
 
-        // Filtros via query string
         $filterUserId = $_GET['user_id'] ?? null;
         $filterId = $_GET['id'] ?? null;
         $filterEmail = $_GET['email'] ?? null;
@@ -558,7 +699,6 @@ if (strpos($uri, '/broker_profiles') === 0) {
             $whereConditions[] = "bp.email = '$eEmail'";
         }
 
-        // Se nenhum filtro foi informado e não for ADMIN, filtra por si mesmo
         if (empty($whereConditions)) {
             if ($user['role'] !== 'ADMIN') {
                 $whereConditions[] = "bp.user_id = '{$user['id']}'";
@@ -754,13 +894,26 @@ if (strpos($uri, '/clients') === 0) {
     }
 }
 
-// System Configs & Reviews & Cookie Consents
+// System Configs & Reviews & Cookie Consents (Com suporte a GET e POST/PUT Upsert)
 if (strpos($uri, '/system_configs') === 0) {
     if ($method === 'GET') {
         $res = $mysqli->query("SELECT * FROM system_configs");
         $items = [];
         while ($r = $res->fetch_assoc()) $items[] = $r;
         echo json_encode($items);
+        exit;
+    }
+
+    if ($method === 'POST' || $method === 'PUT') {
+        $items = isset($body[0]) ? $body : [$body];
+        foreach ($items as $item) {
+            $k = $mysqli->real_escape_string($item['key'] ?? '');
+            $v = $mysqli->real_escape_string($item['value'] ?? '');
+            if ($k) {
+                $mysqli->query("INSERT INTO system_configs (`key`, `value`, `updated_at`) VALUES ('$k', '$v', NOW()) ON DUPLICATE KEY UPDATE `value` = '$v', `updated_at` = NOW()");
+            }
+        }
+        echo json_encode(['success' => true]);
         exit;
     }
 }

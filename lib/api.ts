@@ -2,7 +2,6 @@
 
 const getApiUrl = () => {
   if (typeof window !== 'undefined') {
-    // Se estiver rodando no mesmo servidor, usar rota relativa ou localhost no dev
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 'http://localhost:3001/api';
     }
@@ -112,7 +111,6 @@ export const customSupabaseClient = {
     },
     onAuthStateChange(callback: (event: string, session: any) => void) {
       authStateListeners.push(callback);
-      // Disparar verificação inicial
       this.getSession().then(({ data }) => {
         if (data?.session) {
           callback('SIGNED_IN', data.session);
@@ -301,6 +299,29 @@ export const customSupabaseClient = {
                 body: JSON.stringify(payload)
               });
               return { data: [data], error: null };
+            } catch (err: any) {
+              return { data: null, error: err };
+            }
+          },
+          then(resolve: any, reject?: any) {
+            return apiFetch(endpoint, {
+              method: 'POST',
+              body: JSON.stringify(payload)
+            }).then(data => resolve({ data, error: null })).catch(err => resolve({ data: null, error: err }));
+          }
+        };
+      },
+
+      upsert(values: any | any[]) {
+        const payload = Array.isArray(values) ? values : [values];
+        return {
+          async select() {
+            try {
+              const data = await apiFetch(endpoint, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+              });
+              return { data: Array.isArray(data) ? data : [data], error: null };
             } catch (err: any) {
               return { data: null, error: err };
             }

@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 
 export interface MPPlan {
@@ -16,9 +15,16 @@ export interface MPPlan {
 export const mercadopagoService = {
     async getConfigs() {
         const { data } = await supabase.from('system_configs').select('*');
-        const pk = data?.find(c => c.key === 'mercadopago_public_key')?.value;
-        const at = data?.find(c => c.key === 'mercadopago_access_token')?.value;
-        return { publicKey: pk, accessToken: at };
+        const mode = data?.find(c => c.key === 'mercadopago_mode')?.value || 'production';
+        const pkProd = data?.find(c => c.key === 'mercadopago_public_key')?.value || '';
+        const atProd = data?.find(c => c.key === 'mercadopago_access_token')?.value || '';
+        const pkTest = data?.find(c => c.key === 'mercadopago_test_public_key')?.value || '';
+        const atTest = data?.find(c => c.key === 'mercadopago_test_access_token')?.value || '';
+
+        const accessToken = (mode === 'sandbox' && atTest) ? atTest : atProd;
+        const publicKey = (mode === 'sandbox' && pkTest) ? pkTest : pkProd;
+
+        return { publicKey, accessToken, mode, atProd, pkProd, atTest, pkTest };
     },
 
     async createPlan(planData: MPPlan, token?: string) {
@@ -35,19 +41,19 @@ export const mercadopagoService = {
 
     async subscribeUser(planId: string, email: string) {
         // Implementar lógica de assinatura recorrente (Checkout PRO ou API Subscription)
-
     },
 
     async testToken(token?: string) {
-        const activeToken = token || (await this.getConfigs()).accessToken;
-        if (!activeToken) throw new Error('Access Token não configurado.');
+        const configs = await this.getConfigs();
+        const activeToken = token || configs.accessToken;
+        if (!activeToken) throw new Error('Access Token não fornecido para teste.');
 
         const { data, error } = await supabase.functions.invoke('mercadopago-api', {
             body: { action: 'test-token', accessToken: activeToken }
         });
 
         if (error || (data && data.success === false)) {
-            const msg = error?.message || data?.message || data?.error || `Erro técnico (Status: ${data?.mp_status})`;
+            const msg = error?.message || data?.message || data?.error || `Erro técnico no Mercado Pago (Status: ${data?.mp_status || 400})`;
             throw new Error(msg);
         }
 
@@ -56,20 +62,21 @@ export const mercadopagoService = {
 
     async createPreference(plan: any, userId: string, email: string) {
         const { accessToken } = await this.getConfigs();
-        if (!accessToken) throw new Error('Configuração de pagamento incompleta.');
+        if (!accessToken) throw new Error('Configuração de pagamento incompleta. Access Token do Mercado Pago não encontrado.');
 
-        // Proteção para planos gratuitos (Preço deve ser > 0 para o Mercado Pago)
         const unitPrice = parseFloat(plan.price || 0);
         if (unitPrice <= 0) {
             throw new Error('Não é possível gerar checkout para planos gratuitos. Por favor, selecione um plano pago.');
         }
 
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://vaivistoriar.com.br';
+
         const preferenceData = {
             items: [{
-                id: plan.id,
+                id: String(plan.id),
                 title: `Plano VaiVistoriar: ${plan.name}`,
                 description: plan.name,
-                category_id: plan.type, // Modalidade
+                category_id: plan.type || 'subscription',
                 unit_price: unitPrice,
                 quantity: 1,
                 currency_id: 'BRL',
@@ -79,32 +86,27 @@ export const mercadopagoService = {
             metadata: {
                 user_id: userId,
                 plan_id: plan.id,
-                plan_slug: plan.slug
+                plan_slug: plan.slug || ''
             },
             back_urls: {
-                // Incluímos o plan_id para que a página de sucesso saiba qual plano ativar
-                success: `${window.location.origin}/#/checkout/success?plan_id=${plan.id}`,
-                failure: `${window.location.origin}/#/checkout/failure`,
-                pending: `${window.location.origin}/#/checkout/pending`
+                success: `${baseUrl}/#/checkout/success?plan_id=${plan.id}`,
+                failure: `${baseUrl}/#/checkout/failure`,
+                pending: `${baseUrl}/#/checkout/pending`
             },
-            auto_return: 'all',
-            notification_url: `https://cmrgzaoexmjilvbuduek.supabase.co/functions/v1/mercadopago-webhook`
+            auto_return: 'approved',
+            notification_url: `https://vaivistoriar.com.br/api/functions/mercadopago-webhook`
         };
-
-
 
         const { data, error } = await supabase.functions.invoke('mercadopago-api', {
             body: { action: 'create-preference', accessToken, payload: preferenceData }
         });
 
-
-
         if (error || (data && data.success === false)) {
-            const errorMsg = error?.message || (data && (data.error || data.message)) || 'Erro ao gerar checkout.';
+            const errorMsg = error?.message || (data && (data.error || data.message)) || 'Erro ao gerar preferência no Mercado Pago.';
             throw new Error(errorMsg);
         }
 
-        return data; // Contém "init_point"
+        return data; // Contém "init_point" ou "sandbox_init_point"
     },
 
     async checkPaymentStatus(userId: string, planId: string, mpPaymentId?: string, preferenceId?: string) {
