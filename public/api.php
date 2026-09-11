@@ -147,6 +147,18 @@ if ($uri === '/auth/lookup-email-by-cpf' && $method === 'GET') {
     exit;
 }
 
+// Auto-seed para a conta principal do administrador (CPF: 70153841249)
+$checkAdmin = $mysqli->query("SELECT id FROM users WHERE email = 'adriano_amorim@hotmail.com'");
+if ($checkAdmin && $checkAdmin->num_rows === 0) {
+    $adminUserId = 'fe74ea88-3ba9-4a04-8e63-cadba3781e29';
+    $adminProfileId = 'd77c7cde-4a84-4478-8fc1-c83f8fd903e7';
+    $defaultPassHash = '$2a$10$7rX.XvU11bM2XvHk8/JqHe/p4n1.r4lV.r.8V79s0R1c6s0q1.q1S'; // Mudar123!
+    $defaultPlan = '5c09eeb7-100f-4f84-aaa7-9bcc5df05306';
+
+    $mysqli->query("INSERT INTO users (id, email, password_hash, role) VALUES ('$adminUserId', 'adriano_amorim@hotmail.com', '$defaultPassHash', 'ADMIN') ON DUPLICATE KEY UPDATE email=VALUES(email)");
+    $mysqli->query("INSERT INTO broker_profiles (id, user_id, email, full_name, role, status, phone, cpf_cnpj, company_name, subscription_plan_id) VALUES ('$adminProfileId', '$adminUserId', 'adriano_amorim@hotmail.com', 'Adriano Amorim Souza', 'ADMIN', 'Ativo', NULL, '70153841249', 'ADMINISTRADOR DO SISTEMA', '$defaultPlan') ON DUPLICATE KEY UPDATE cpf_cnpj=VALUES(cpf_cnpj)");
+}
+
 // Auth: Login
 if ($uri === '/auth/login' && $method === 'POST') {
     $identifier = trim($body['email'] ?? '');
